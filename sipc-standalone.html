@@ -1018,7 +1018,7 @@ async function editalExtrairComIA(texto){
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST', headers: apiHeaders(),
       body: JSON.stringify({
-        model:'claude-sonnet-5',
+        model:'claude-haiku-4-5',
         max_tokens: 2000,
         messages:[{role:'user', content:
           'Extraia do texto de edital de concurso abaixo: o nome do cargo, a banca (se houver) e a lista de matérias/disciplinas cobradas com seu peso relativo ou número de questões (se indicado). ' +
@@ -1785,7 +1785,7 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({
-          model: "claude-sonnet-5",
+          model: "claude-haiku-4-5",
           max_tokens: 1300,
           stream: true,
           system: systemPrompt,
@@ -1892,7 +1892,7 @@ O array "questoes" deve ter exatamente 10 itens.`;
       method: "POST",
       headers: apiHeaders(),
       body: JSON.stringify({
-        model: "claude-sonnet-5",
+        model: "claude-haiku-4-5",
         max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: "user", content: `Gere as 10 questões sobre: ${m.nome} (${m.bloco}).` }]
