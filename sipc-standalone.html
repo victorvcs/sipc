@@ -521,10 +521,13 @@
     <div class="card">
       <p class="hint" style="margin-top:0" id="bkAmbiente"></p>
       <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
-        <label class="f">Sua chave da Anthropic (fica só neste navegador)</label>
-        <input id="apiKey" type="password" placeholder="sk-ant-..." style="max-width:340px">
+        <label class="f">Provedor de IA</label>
+        <select id="iaProvedorSel" onchange="trocarProvedor(this.value)" style="max-width:340px"></select>
+        <p class="hint" id="iaProvedorInfo" style="margin-bottom:14px"></p>
+        <label class="f">Sua chave (fica só neste navegador)</label>
+        <input id="apiKey" type="password" placeholder="cole a chave do provedor escolhido" style="max-width:340px">
         <button class="btn ghost" onclick="salvarChaveApi()">Salvar chave</button>
-        <p class="hint">Usada só para gerar conteúdo de estudo e questões — nunca sai deste navegador além de ir direto para a própria Anthropic.</p>
+        <p class="hint">Usada só para gerar conteúdo de estudo e questões — nunca sai deste navegador além de ir direto para a API do provedor escolhido. Cada provedor guarda a sua própria chave, então dá pra ter as duas salvas e alternar.</p>
       </div>
       <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
         <p class="hint" style="margin-top:0">Com conta, seu progresso já fica salvo automaticamente a cada ação. Exportar/restaurar serve como cópia extra ou para levar seus dados para outra conta.</p>
@@ -683,18 +686,139 @@ const DB = {
   }
 };
 
-/* Chave da Anthropic: cada pessoa usa a própria chave, que fica só neste
-   navegador (localStorage) — nunca é enviada a lugar nenhum além da própria
-   API da Anthropic, e nunca fica no código publicado. */
-function apiHeaders(){
-  const k = localStorage.getItem('sipc::anthropic-key');
+/* ============ PROVEDORES DE IA ============
+   O app fala com dois provedores. A Anthropic cobra por uso; o Gemini tem
+   camada gratuita, que e o que permite testar o sistema sem gastar nada.
+   Tudo o que difere entre eles — endpoint, cabecalhos, formato do corpo e da
+   resposta — mora aqui. O resto do app so chama iaGerarTexto/iaStreamTexto e
+   nao precisa saber qual esta ativo.
+
+   A chave de cada provedor fica so no localStorage deste navegador: nunca vai
+   para o Firebase, nunca entra no codigo publicado, e so sai daqui para a API
+   do proprio provedor. */
+const IA_PROVEDORES = {
+  gemini: {
+    nome: 'Google Gemini',
+    modelo: 'gemini-3.6-flash',
+    chaveLS: 'sipc::gemini-key',
+    gratuito: true,
+    ondePegar: 'aistudio.google.com — camada gratuita, nao pede cartao'
+  },
+  anthropic: {
+    nome: 'Anthropic (Claude)',
+    modelo: 'claude-haiku-4-5',
+    chaveLS: 'sipc::anthropic-key',
+    gratuito: false,
+    ondePegar: 'console.anthropic.com — cobra por uso, exige credito'
+  }
+};
+
+// Padrao no gratuito: melhor o app funcionar sem custo do que exibir erro a
+// quem ainda nao decidiu pagar por nada.
+function iaProvedor(){
+  const p = localStorage.getItem('sipc::provedor');
+  return IA_PROVEDORES[p] ? p : 'gemini';
+}
+function iaSetProvedor(p){
+  if(IA_PROVEDORES[p]) localStorage.setItem('sipc::provedor', p);
+}
+function iaChave(p){
+  return localStorage.getItem(IA_PROVEDORES[p || iaProvedor()].chaveLS) || '';
+}
+function iaTemChave(p){ return !!iaChave(p); }
+
+function iaExigirChave(){
+  const p = iaProvedor();
+  const k = iaChave(p);
   if(!k) throw new Error('sem chave da API — configure em Configurações › Backup');
-  return {
-    "Content-Type": "application/json",
-    "x-api-key": k,
-    "anthropic-version": "2023-06-01",
-    "anthropic-dangerous-direct-browser-access": "true"
+  return { p: p, k: k, cfg: IA_PROVEDORES[p] };
+}
+
+function iaMontarRequisicao(opts){
+  const alvo = iaExigirChave();
+  const system = opts.system, user = opts.user, stream = !!opts.stream;
+
+  if(alvo.p === 'anthropic'){
+    const corpo = {
+      model: alvo.cfg.modelo,
+      max_tokens: opts.maxTokens,
+      messages: [{ role:'user', content: user }]
+    };
+    if(system) corpo.system = system;
+    if(stream) corpo.stream = true;
+    return {
+      url: 'https://api.anthropic.com/v1/messages',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': alvo.k,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify(corpo)
+    };
+  }
+
+  // Gemini. Medido na pratica: o raciocinio interno consome ~2x o tamanho da
+  // resposta e sai do MESMO orcamento de maxOutputTokens. Pedir o tamanho
+  // "nu" faz a resposta ser cortada antes de comecar, entao multiplicamos.
+  const gen = { maxOutputTokens: Math.max(8000, opts.maxTokens * 4) };
+  // Fora do streaming da para exigir JSON valido do proprio servidor, o que
+  // dispensa limpar cerca de markdown na mao.
+  if(!stream && opts.json) gen.responseMimeType = 'application/json';
+  const corpo = {
+    contents: [{ role:'user', parts:[{ text: user }] }],
+    generationConfig: gen
   };
+  if(system) corpo.system_instruction = { parts:[{ text: system }] };
+  return {
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/' +
+         alvo.cfg.modelo + ':' + (stream ? 'streamGenerateContent?alt=sse' : 'generateContent'),
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': alvo.k },
+    body: JSON.stringify(corpo)
+  };
+}
+
+function iaExtrairTexto(p, data){
+  if(p === 'anthropic'){
+    return (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+  }
+  const cand = (data.candidates || [])[0];
+  const parts = (cand && cand.content && cand.content.parts) || [];
+  return parts.map(x=>x.text||'').join('');
+}
+
+// Um pedaco de texto de um evento SSE, seja qual for o provedor.
+function iaDeltaSSE(p, ev){
+  if(p === 'anthropic'){
+    if(ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'erro no stream');
+    if(ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') return ev.delta.text;
+    return '';
+  }
+  if(ev.error) throw new Error(ev.error.message || 'erro no stream');
+  return iaExtrairTexto('gemini', ev);
+}
+
+/* Chamada sem streaming, com repeticao. A camada gratuita do Gemini responde
+   503 quando esta sem capacidade e 429 quando estoura a cota do minuto —
+   nenhum dos dois e erro de codigo ou de chave, e repetir costuma resolver.
+   Sem isso o usuario ve "nao consegui gerar" sem motivo aparente. */
+async function iaGerarTexto(opts){
+  const p = iaProvedor();
+  let ultimoErro = null;
+  for(let tentativa = 1; tentativa <= 3; tentativa++){
+    const req = iaMontarRequisicao(opts);
+    const resp = await fetch(req.url, { method:'POST', headers:req.headers, body:req.body });
+    if(resp.status === 503 || resp.status === 429){
+      ultimoErro = new Error('serviço ocupado (' + resp.status + ')');
+      if(tentativa < 3) await new Promise(r => setTimeout(r, 1500 * tentativa));
+      continue;
+    }
+    if(!resp.ok) throw new Error('API retornou ' + resp.status);
+    const txt = iaExtrairTexto(p, await resp.json());
+    if(!txt.trim()) throw new Error('resposta vazia');
+    return txt;
+  }
+  throw ultimoErro || new Error('falhou após 3 tentativas');
 }
 
 // Pesos oficiais — Edital DATAPREV 2026, item 9.5 e 9.6
@@ -1009,26 +1133,18 @@ async function editalHandlePdf(file){
 
 async function editalExtrairComIA(texto){
   const status = document.getElementById('edPdfStatus');
-  try{ apiHeaders(); }
-  catch(e){
+  if(!iaTemChave()){
     status.textContent = 'PDF lido, mas a extração automática precisa da sua chave da API (Configurações › Backup). Por enquanto, use "Colar lista de matérias" pra digitar.';
     return;
   }
   try{
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers: apiHeaders(),
-      body: JSON.stringify({
-        model:'claude-haiku-4-5',
-        max_tokens: 2000,
-        messages:[{role:'user', content:
-          'Extraia do texto de edital de concurso abaixo: o nome do cargo, a banca (se houver) e a lista de matérias/disciplinas cobradas com seu peso relativo ou número de questões (se indicado). ' +
-          'Responda SOMENTE com um JSON válido, sem markdown, no formato {"cargo":"...","banca":"...","materias":[{"nome":"...","peso":numero}]}. Se não souber o peso de uma matéria, use 1.\n\nTEXTO:\n' + texto
-        }]
-      })
+    const txt = await iaGerarTexto({
+      maxTokens: 2000,
+      json: true,
+      user:
+        'Extraia do texto de edital de concurso abaixo: o nome do cargo, a banca (se houver) e a lista de matérias/disciplinas cobradas com seu peso relativo ou número de questões (se indicado). ' +
+        'Responda SOMENTE com um JSON válido, sem markdown, no formato {"cargo":"...","banca":"...","materias":[{"nome":"...","peso":numero}]}. Se não souber o peso de uma matéria, use 1.\n\nTEXTO:\n' + texto
     });
-    if(!resp.ok) throw new Error('API retornou ' + resp.status);
-    const data = await resp.json();
-    const txt = (data.content||[]).map(c=>c.text||'').join('');
     const jsonMatch = txt.match(/\{[\s\S]*\}/);
     if(!jsonMatch) throw new Error('resposta sem JSON');
     const parsed = JSON.parse(jsonMatch[0]);
@@ -1596,12 +1712,38 @@ async function importarBackup(){
 function salvarChaveApi(){
   const v = document.getElementById('apiKey').value.trim();
   if(!v){ bkStatus('Cole a chave antes de salvar.', 'danger'); return; }
-  localStorage.setItem('sipc::anthropic-key', v);
+  const p = iaProvedor();
+  localStorage.setItem(IA_PROVEDORES[p].chaveLS, v);
   document.getElementById('apiKey').value = '';
-  bkStatus('Chave salva neste navegador.', 'seal');
+  renderProvedor();
+  bkStatus('Chave do ' + IA_PROVEDORES[p].nome + ' salva neste navegador.', 'seal');
+}
+
+function trocarProvedor(p){
+  iaSetProvedor(p);
+  renderProvedor();
+  bkStatus('Provedor agora é ' + IA_PROVEDORES[iaProvedor()].nome + '.', 'seal');
+}
+
+function renderProvedor(){
+  const sel = document.getElementById('iaProvedorSel');
+  if(!sel) return;
+  const ativo = iaProvedor();
+  sel.innerHTML = Object.keys(IA_PROVEDORES).map(function(p){
+    const c = IA_PROVEDORES[p];
+    return '<option value="' + p + '"' + (p===ativo ? ' selected' : '') + '>' +
+           esc(c.nome) + (c.gratuito ? ' — grátis' : ' — pago') + '</option>';
+  }).join('');
+  const cfg = IA_PROVEDORES[ativo];
+  document.getElementById('iaProvedorInfo').innerHTML =
+    'Modelo: <b>' + esc(cfg.modelo) + '</b><br>Onde pegar a chave: ' + esc(cfg.ondePegar) + '<br>' +
+    (iaTemChave(ativo)
+      ? '<b>✓ chave salva</b> neste navegador.'
+      : '<b>⚠ sem chave</b> — gerar conteúdo e questões fica indisponível. O resto do app funciona normalmente.');
 }
 
 function renderBackup(){
+  renderProvedor();
   const el = document.getElementById('bkAmbiente');
   if(!el) return;
   if(emModoTeste()){
@@ -1745,6 +1887,8 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
   const cancelado = () => meuId !== geracaoId;
 
   let texto = '', primeiroToken = false, ultimoRender = 0;
+  // fixado no inicio: trocar de provedor no meio de um stream quebraria o parser
+  const provStream = iaProvedor();
 
   function marcarPrimeiroToken(){
     if(primeiroToken) return;
@@ -1766,10 +1910,10 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
       const payload = linha.slice(5).trim();
       if(!payload || payload === '[DONE]') continue;
       let ev; try{ ev = JSON.parse(payload); }catch(_){ continue; }
-      if(ev.type === 'error') throw new Error(ev.error?.message || 'erro no stream');
-      if(ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta'){
+      const pedaco = iaDeltaSSE(provStream, ev);
+      if(pedaco){
         marcarPrimeiroToken();
-        texto += ev.delta.text;
+        texto += pedaco;
         if(Date.now() - ultimoRender > 80) render(false);
       }
     }
@@ -1780,18 +1924,14 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
 
   try{
     // sem AbortSignal: o fetch daqui e um shim via postMessage e nao aceita objetos nao-clonaveis
+    const reqStream = iaMontarRequisicao({
+      stream: true,
+      maxTokens: 1300,
+      system: systemPrompt,
+      user: `Gere o conteúdo de: ${materiaNome} — ${topicoNome} (${bloco}).`
+    });
     const response = await Promise.race([
-      fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: apiHeaders(),
-        body: JSON.stringify({
-          model: "claude-haiku-4-5",
-          max_tokens: 1300,
-          stream: true,
-          system: systemPrompt,
-          messages: [{ role: "user", content: `Gere o conteúdo de: ${materiaNome} — ${topicoNome} (${bloco}).` }]
-        })
-      }),
+      fetch(reqStream.url, { method:'POST', headers:reqStream.headers, body:reqStream.body }),
       timeoutPromise
     ]);
     if(!response.ok) throw new Error('resposta '+response.status);
@@ -1817,8 +1957,7 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
       if(bruto.includes('data:')){
         consumirSSE(bruto + '\n');
       } else {
-        const data = JSON.parse(bruto);
-        texto = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+        texto = iaExtrairTexto(provStream, JSON.parse(bruto));
         marcarPrimeiroToken();
       }
     }
@@ -1888,18 +2027,14 @@ Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exat
 O array "questoes" deve ter exatamente 10 itens.`;
 
   try{
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: apiHeaders(),
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: "user", content: `Gere as 10 questões sobre: ${m.nome} (${m.bloco}).` }]
-      })
+    // 4096 cortava a resposta no meio da 6a ou 7a questao e caia no resgate
+    // por regex abaixo, devolvendo silenciosamente menos de 10.
+    const textoResposta = await iaGerarTexto({
+      maxTokens: 12000,
+      json: true,
+      system: systemPrompt,
+      user: `Gere as 10 questões sobre: ${m.nome} (${m.bloco}).`
     });
-    const data = await response.json();
-    const textoResposta = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
     const limpo = textoResposta.replace(/```json|```/g,'').trim();
 
     let parsed;
