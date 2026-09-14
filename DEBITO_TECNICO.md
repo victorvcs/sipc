@@ -31,6 +31,20 @@ Caminhos possíveis, a avaliar quando chegar a hora:
 
 **Consequência a não esquecer.** Com proxy, todo o uso de todos os usuários passa a ser custo de quem mantém o sistema. Isso torna obrigatório um limite por usuário — sem ele, uma única pessoa entusiasmada consome o crédito de todos em uma tarde.
 
+### O atalho que não deve ser tomado
+
+Quando chegar a hora de testar com outras pessoas, vai parecer prático simplesmente **mandar a própria chave para os testadores colarem**. É a pior das três opções, e vale registrar o porquê antes que a ideia pareça boa numa sexta-feira à noite:
+
+- A chave fica **na mão deles**, utilizável em qualquer outro projeto, sem que o dono saiba.
+- **Todos dividem a mesma cota** — no plano gratuito do Gemini o limite é por chave, não por pessoa. Alguns testadores simultâneos se derrubam com `429`.
+- **Não dá para revogar o acesso de um** sem revogar o de todos.
+
+As duas opções legítimas continuam sendo: cada pessoa com a própria chave (o desenho atual, com atrito), ou o proxy (sem atrito, com custo e limite por usuário). Não existe meio-termo seguro.
+
+### Nota sobre vocabulário
+
+No plano gratuito do Gemini não se gasta **dinheiro**, se gasta **cota**: requisições por minuto e por dia, sem cartão e sem fatura. O consumo só vira custo financeiro ao migrar para o plano pago ou para a Anthropic. Confundir os dois leva a decidir arquitetura por medo de uma conta que ainda não existe.
+
 ---
 
 ## 2. Login com Google vai falhar na primeira publicação
