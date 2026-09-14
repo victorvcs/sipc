@@ -1,0 +1,2282 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SIPC — Sistema Integrado de Preparação para Concursos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#f5f5f7;
+    --surface:#ffffff;
+    --surface-2:#f0f0f2;
+    --line:#e2e2e6;
+    --text:#1d1d1f;
+    --text-dim:#6e6e73;
+    --accent:#0071e3;
+    --accent-ink:#ffffff;
+    --accent-soft:#eaf3fe;
+    --seal:#1f9254;
+    --seal-soft:#e8f7ee;
+    --danger:#e0393e;
+    --danger-soft:#fdecec;
+    --warn:#c8860d;
+    --warn-soft:#fbf1de;
+    --radius:16px;
+    --shadow:0 1px 2px rgba(0,0,0,.04), 0 10px 26px rgba(29,29,31,.06);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 80px;}
+
+  .header{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);padding:22px 26px;margin-bottom:14px;position:relative;overflow:hidden;}
+  .proto-row{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+  .titles h1{font-family:'Fraunces',serif;font-weight:600;font-size:26px;margin:0 0 4px;letter-spacing:.2px;text-wrap:balance;}
+  .titles p{margin:0;color:var(--text-dim);font-size:13px;}
+  .proto-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);text-align:right;line-height:1.6;white-space:nowrap;}
+  .proto-num b{color:var(--accent);}
+  .countdown{margin-top:16px;display:flex;gap:10px;align-items:baseline;font-family:'JetBrains Mono',monospace;}
+  .countdown .n{font-size:22px;color:var(--accent);font-weight:700;}
+  .countdown .l{font-size:11px;color:var(--text-dim);}
+
+  .concurso-switch{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+
+  .test-toggle-wrap{display:flex;align-items:center;gap:8px;margin-top:14px;}
+  .test-toggle{position:relative;width:38px;height:20px;flex-shrink:0;}
+  .test-toggle input{opacity:0;width:0;height:0;}
+  .test-toggle .slider{position:absolute;inset:0;background:var(--surface-2);border:1px solid var(--line);border-radius:20px;cursor:pointer;transition:.15s;}
+  .test-toggle .slider::before{content:"";position:absolute;width:14px;height:14px;left:2px;top:2px;background:var(--text-dim);border-radius:50%;transition:.15s;}
+  .test-toggle input:checked + .slider{background:var(--danger-soft);border-color:var(--danger);}
+  .test-toggle input:checked + .slider::before{transform:translateX(18px);background:var(--danger);}
+  .test-toggle-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:.3px;cursor:pointer;}
+
+  .test-banner{display:none;background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;font-size:12px;font-family:'JetBrains Mono',monospace;text-align:center;letter-spacing:.3px;}
+  .test-banner.active{display:block;}
+
+  .nag-banner{display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--warn-soft);border:1px solid var(--warn);color:var(--text);border-radius:var(--radius);padding:10px 16px;margin-bottom:14px;font-size:12.5px;line-height:1.5;}
+  .nag-banner.active{display:flex;}
+  .nag-banner b{color:var(--warn);}
+  .nag-banner button{flex-shrink:0;}
+
+  .btn-estudar{background:none;border:1px solid var(--seal);color:var(--seal);border-radius:999px;padding:4px 12px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;flex-shrink:0;}
+  .btn-estudar:hover{background:var(--seal-soft);}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(29,29,31,.5);z-index:1000;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;}
+  .modal-overlay.active{display:flex;}
+  .modal-box{background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);max-width:680px;width:100%;padding:24px;position:relative;}
+  .modal-close{position:absolute;top:16px;right:16px;background:var(--surface-2);border:1px solid var(--line);color:var(--text-dim);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;}
+  .modal-title{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin:0 0 4px;padding-right:36px;}
+  .modal-subtitle{color:var(--text-dim);font-size:12px;font-family:'JetBrains Mono',monospace;margin-bottom:18px;}
+  .modal-content{font-size:14px;line-height:1.65;}
+  .modal-content h1{font-family:'Fraunces',serif;color:var(--text);font-size:19px;margin-top:0;margin-bottom:14px;}
+  .modal-content h2{font-family:'Fraunces',serif;color:var(--accent);font-size:16px;margin-top:26px;margin-bottom:10px;padding:8px 12px;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;}
+  .modal-content h3{font-family:'Fraunces',serif;color:var(--text);font-size:14px;margin-top:16px;margin-bottom:6px;}
+  .modal-content > ul, .modal-content > ol{padding-left:20px;}
+  .modal-content li{margin-bottom:4px;}
+  .modal-content table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;overflow:hidden;border-radius:10px;}
+  .modal-content th,.modal-content td{border:1px solid var(--line);padding:8px 10px;text-align:left;}
+  .modal-content th{background:var(--surface-2);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+  .modal-content tr:nth-child(even) td{background:rgba(0,0,0,.02);}
+  .modal-content code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);}
+  .modal-content pre{background:var(--surface-2);padding:12px;border-radius:10px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:12px;border:1px solid var(--line);}
+  .modal-content strong{color:var(--accent);}
+  .modal-content blockquote{border-left:3px solid var(--seal);margin:10px 0;padding:6px 14px;color:var(--text-dim);background:var(--seal-soft);border-radius:0 10px 10px 0;}
+
+  /* mapa mental: listas aninhadas viram árvore visual */
+  .mapa-mental ul{list-style:none;padding-left:18px;margin:2px 0;position:relative;}
+  .mapa-mental > ul{padding-left:0;}
+  .mapa-mental li{position:relative;padding:3px 0 3px 16px;font-size:13px;}
+  .mapa-mental li::before{content:"";position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--line);}
+  .mapa-mental li::after{content:"";position:absolute;left:0;top:13px;width:12px;height:1px;background:var(--line);}
+  .mapa-mental li:last-child::before{height:14px;}
+  .mapa-mental > ul > li{padding-left:0;}
+  .mapa-mental > ul > li::before,.mapa-mental > ul > li::after{display:none;}
+  .mapa-mental > ul > li > strong,.mapa-mental > ul > li{color:var(--accent);font-weight:700;}
+
+  .recursos-externos{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);}
+  .recurso-link{font-size:12px;color:var(--text-dim);border:1px solid var(--line);border-radius:20px;padding:5px 12px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
+  .recurso-link:hover{border-color:var(--accent);color:var(--accent);}
+
+  .loading-box{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 10px;gap:14px;}
+  .spinner{width:28px;height:28px;border:2px solid var(--surface-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-msg{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);text-align:center;}
+  .modal-actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;}
+  .csw-btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.4px;background:var(--surface);border:1px solid var(--line);color:var(--text-dim);padding:8px 14px;border-radius:999px;cursor:pointer;}
+  .csw-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+  .csw-btn.csw-add{border-style:dashed;}
+  .csw-btn.csw-add:hover{border-color:var(--accent);color:var(--accent);}
+
+  .edital-box{max-width:640px;text-align:left;}
+  .edital-box .modal-title{padding-right:36px;}
+  #editalModal{z-index:1001;}
+  .ed-row{display:grid;grid-template-columns:2fr 90px 34px;gap:8px;align-items:center;margin-bottom:8px;}
+  .ed-row input{margin:0;}
+  input[type=file]{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:12px;font-family:'Inter',sans-serif;font-size:13px;}
+
+  .tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--surface-2);border-radius:999px;padding:4px;flex-wrap:wrap;}
+  .tab{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text-dim);background:none;border:none;border-radius:999px;padding:9px 16px;cursor:pointer;letter-spacing:.2px;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--text);background:var(--surface);box-shadow:0 1px 3px rgba(29,29,31,.1);}
+
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:translateY(0);}}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:22px;}
+  .stat{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);padding:16px 18px;}
+  .stat .num{font-family:'Fraunces',serif;font-size:28px;color:var(--accent);}
+  .stat .lbl{font-size:12px;color:var(--text-dim);margin-top:2px;}
+
+  .section-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:26px 0 12px;display:flex;align-items:center;gap:10px;}
+  .section-title::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .materia{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+  .materia-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;}
+  .seal{width:38px;height:38px;border-radius:50%;border:2px solid var(--seal);color:var(--seal);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;flex-shrink:0;}
+  .seal.low{border-color:var(--danger);color:var(--danger);}
+  .seal.mid{border-color:var(--accent);color:var(--accent);}
+  .materia-info{flex:1;min-width:0;}
+  .materia-info .nome{font-weight:600;font-size:14px;}
+  .materia-info .meta{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+  .chev{color:var(--text-dim);font-size:12px;transition:transform .15s;}
+  .materia.open .chev{transform:rotate(90deg);}
+  .topicos{display:none;border-top:1px solid var(--line);padding:6px 16px 14px;}
+  .materia.open .topicos{display:block;}
+  .topico{display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:13px;border-bottom:1px solid var(--line);}
+  .topico:last-child{border-bottom:none;}
+  .topico .art{font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:11px;flex-shrink:0;padding-top:1px;}
+  .topico input{accent-color:var(--seal);width:15px;height:15px;margin-top:1px;flex-shrink:0;cursor:pointer;}
+  .topico label{cursor:pointer;flex:1;}
+  .topico.done label{color:var(--text-dim);text-decoration:line-through;}
+
+  .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+  label.f{display:block;font-size:11px;color:var(--text-dim);margin-bottom:5px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.5px;}
+  select,input[type=number],input[type=date],input[type=text],textarea{width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:12px;font-family:'Inter',sans-serif;font-size:13px;}
+  textarea{resize:vertical;min-height:60px;}
+  .row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+  .btn{background:var(--accent);color:var(--accent-ink);border:none;padding:10px 20px;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+  .btn:hover{opacity:.88;}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--text);}
+  .btn.mini{padding:6px 12px;font-size:11px;}
+  .btn.acerto{background:var(--seal);}
+  .btn.erro{background:var(--danger);}
+
+  .log-item{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:8px;font-size:13px;background:var(--surface);gap:10px;}
+  .log-item .meta{color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;}
+
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-family:'JetBrains Mono',monospace;font-weight:700;}
+  .badge.warn{background:var(--danger-soft);color:var(--danger);}
+  .badge.ok{background:var(--seal-soft);color:var(--seal);}
+
+  .empty{color:var(--text-dim);font-size:13px;font-style:italic;padding:20px 0;text-align:center;}
+
+  .barwrap{background:var(--surface-2);border-radius:4px;height:8px;overflow:hidden;margin-top:6px;}
+  .bar{height:100%;background:var(--seal);}
+
+  ::placeholder{color:var(--text-dim);opacity:.6;}
+
+  .trilha-hero{border:1px solid var(--accent);border-radius:var(--radius);background:linear-gradient(180deg,var(--accent-soft),var(--surface));box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px;}
+  .trilha-hero h3{font-family:'Fraunces',serif;font-size:18px;margin:0 0 6px;color:var(--accent);}
+  .trilha-hero p{margin:0;font-size:13px;color:var(--text-dim);line-height:1.6;}
+  .modo-switch{display:flex;gap:0;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:14px;width:fit-content;}
+  .modo-switch button{background:none;border:none;color:var(--text-dim);padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .modo-switch button.on{background:var(--accent);color:var(--accent-ink);}
+
+  .inicio-box{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+  .inicio-box > div{min-width:150px;}
+  .inicio-box input[type=date]{background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:12px;font-family:'Inter',sans-serif;font-size:13px;}
+  .trilha-status{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:10px;}
+  .trilha-status b{color:var(--accent);}
+  .dia-card.futuro .dia-head{opacity:.75;}
+
+  .peso-row{display:grid;grid-template-columns:1fr 120px 78px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .peso-row:last-child{border-bottom:none;}
+  .peso-row.tot{border-top:1px solid var(--line);border-bottom:none;margin-top:4px;padding-top:10px;font-weight:700;color:var(--accent);}
+  .peso-bar{height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden;}
+  .peso-bar i{display:block;height:100%;background:var(--accent);}
+  .peso-bar i.geral{background:var(--text-dim);}
+  .peso-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);text-align:right;}
+  .peso-val b{color:var(--text);}
+
+  .insight{border-left:3px solid var(--seal);background:var(--seal-soft);padding:10px 14px;border-radius:0 10px 10px 0;font-size:13px;line-height:1.6;margin-bottom:10px;}
+  .insight.alerta{border-left-color:var(--danger);background:var(--danger-soft);}
+  .insight b{color:var(--accent);}
+
+  .fam-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .fam-row:last-child{border-bottom:none;}
+  .fam-btns{display:flex;gap:4px;}
+  .fam-btns button{background:none;border:1px solid var(--line);color:var(--text-dim);border-radius:999px;padding:4px 11px;font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+  .fam-btns button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+
+  .dia-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+  .dia-card.hoje{border-color:var(--accent);}
+  .dia-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+  .dia-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+  .dia-data{font-size:12px;color:var(--text-dim);flex:1;}
+  .dia-min{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);}
+  .dia-min.over{color:var(--danger);}
+  .slot{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;}
+  .slot:last-child{border-bottom:none;}
+  .slot.done{opacity:.45;}
+  .slot.done .slot-top{text-decoration:line-through;}
+  .slot-tag{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:6px;background:var(--surface-2);color:var(--text-dim);white-space:nowrap;flex-shrink:0;}
+  .slot-tag.esp{background:var(--accent-soft);color:var(--accent);}
+  .slot-mat{color:var(--text-dim);font-size:11px;}
+  .slot-top{flex:1;}
+  .slot-min{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);flex-shrink:0;}
+  @media(max-width:600px){.peso-row{grid-template-columns:1fr 70px;}.peso-bar{display:none;}.slot{flex-wrap:wrap;}}
+
+  .stream-cursor{display:inline-block;width:7px;height:14px;background:var(--accent);margin-left:2px;vertical-align:text-bottom;animation:blink 1s step-end infinite;}
+  @keyframes blink{50%{opacity:0;}}
+  .modal-content{min-height:140px;}
+  @media (prefers-reduced-motion:reduce){.stream-cursor,.spinner{animation:none;}}
+
+  /* ===== Onboarding ===== */
+  .onb-overlay{align-items:center;}
+  .onb-box{background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);max-width:520px;width:100%;padding:32px;position:relative;margin:auto;text-align:center;}
+  .onb-box .onb-field,.onb-box .onb-row2,.onb-box .onb-notif-btn,.onb-box .onb-resumo{text-align:left;}
+  .onb-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px;}
+  .onb-title{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin:0 0 8px;text-wrap:balance;}
+  .onb-sub{color:var(--text-dim);font-size:13px;line-height:1.6;margin:0 auto 22px;max-width:380px;}
+  .onb-field{margin-bottom:16px;}
+  .onb-dots{display:flex;gap:6px;margin-bottom:22px;}
+  .onb-dots span{height:4px;flex:1;background:var(--surface-2);border-radius:2px;}
+  .onb-dots span.done{background:var(--seal);}
+  .onb-dots span.on{background:var(--accent);}
+  .onb-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:24px;}
+  .onb-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .onb-notif-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface-2);}
+  .onb-notif-btn .st{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);}
+  .onb-notif-btn .st.on{color:var(--seal);}
+  .onb-notif-btn .st.off{color:var(--danger);}
+  .onb-resumo{border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.9;background:var(--surface-2);}
+  .onb-resumo b{color:var(--accent);}
+  .hint{font-size:12px;color:var(--text-dim);line-height:1.5;}
+
+  .onb-illus{width:92px;height:92px;margin:0 auto 14px;animation:onbPop .5s cubic-bezier(.34,1.56,.64,1) both;}
+  .onb-illus svg{width:100%;height:100%;display:block;}
+  .onb-illus .float{animation:onbFloat 3s ease-in-out infinite;transform-origin:center;}
+  @keyframes onbPop{from{opacity:0;transform:scale(.7) translateY(6px);}to{opacity:1;transform:scale(1) translateY(0);}}
+  @keyframes onbFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+  @media (prefers-reduced-motion:reduce){.onb-illus{animation:none;}.onb-illus .float{animation:none;}}
+
+  /* ===== Mobile ===== */
+  @media (max-width:640px){
+    .wrap{padding:16px 12px 70px;}
+    .header{padding:16px 16px;}
+    .titles h1{font-size:19px;}
+    .proto-row{flex-direction:column;gap:8px;}
+    .proto-num{text-align:left;}
+    .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tab{flex-shrink:0;padding:9px 13px;font-size:12.5px;}
+    .grid{grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;}
+    .stat{padding:12px 14px;}
+    .stat .num{font-size:22px;}
+    .row{grid-template-columns:1fr;}
+    .onb-row2{grid-template-columns:1fr;}
+    .modal-box,.onb-box{padding:20px;max-height:92vh;overflow-y:auto;}
+    .modal-title,.onb-title{font-size:18px;}
+    select,input[type=number],input[type=date],input[type=time],input[type=text],input[type=password],textarea{font-size:16px;}
+    .btn{min-height:42px;}
+    .dia-head{flex-wrap:wrap;row-gap:4px;}
+    .log-item{flex-wrap:wrap;row-gap:4px;}
+    .materia-head{padding:12px;gap:10px;}
+    .onb-notif-btn{flex-wrap:wrap;}
+  }
+  /* ===== Auth gate ===== */
+  .auth-overlay{align-items:center;}
+  .auth-box{background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);max-width:400px;width:100%;padding:32px;position:relative;margin:auto;text-align:center;}
+  .auth-tabs{display:flex;gap:0;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:0 0 20px;}
+  .auth-tabs button{flex:1;background:none;border:none;color:var(--text-dim);padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+  .auth-tabs button.on{background:var(--accent);color:var(--accent-ink);}
+  .auth-box .onb-field{text-align:left;margin-bottom:14px;}
+  .auth-erro{color:var(--danger);font-size:12px;margin:4px 0 0;min-height:14px;}
+  .auth-sep{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text-dim);font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.4px;}
+  .auth-sep::before,.auth-sep::after{content:"";flex:1;height:1px;background:var(--line);}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!--
+  Preencha com a config do SEU projeto Firebase (Console Firebase › Configurações
+  do projeto › Seus apps › Config do SDK). Esses valores são públicos por design —
+  a segurança de verdade vem das Regras de Segurança do Firestore (veja o guia de
+  configuração que acompanha este arquivo), não do sigilo deste objeto.
+-->
+<script>
+  const firebaseConfig = {
+    apiKey: "COLE_AQUI_A_APIKEY",
+    authDomain: "SEU-PROJETO.firebaseapp.com",
+    projectId: "SEU-PROJETO",
+    storageBucket: "SEU-PROJETO.appspot.com",
+    messagingSenderId: "000000000000",
+    appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxxxxxx"
+  };
+  const firebaseConfigurado = firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf('COLE_AQUI') === -1;
+  let fbApp = null, fbAuth = null, fbDb = null;
+  if(firebaseConfigurado){
+    fbApp = firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb = firebase.firestore();
+  }
+</script>
+
+<div class="wrap">
+  <div class="header">
+    <div class="proto-row">
+      <div class="titles">
+        <h1 id="tituloConcurso">Sistema de Estudos</h1>
+        <p id="subtituloConcurso">—</p>
+      </div>
+      <div class="proto-num">PROCESSO Nº <b id="protoNum">—</b><br>ABERTO EM <span id="protoData">—</span></div>
+    </div>
+    <div class="countdown" id="countdownWrap" style="display:none">
+      <span class="n" id="diasRestantes">—</span><span class="l">dias até a prova</span>
+    </div>
+    <div class="test-toggle-wrap">
+      <label class="test-toggle">
+        <input type="checkbox" id="chkModoTeste" onchange="toggleModoTeste()">
+        <span class="slider"></span>
+      </label>
+      <label class="test-toggle-label" for="chkModoTeste">MODO TESTE — nada é salvo enquanto ligado</label>
+    </div>
+  </div>
+
+  <div class="test-banner" id="testBanner">🧪 MODO TESTE ATIVO — nada do que você fizer agora está sendo salvo. Desligue o toggle no topo quando quiser começar a registrar de verdade.</div>
+
+  <div class="nag-banner" id="perfilNagBanner">
+    <span>⚠️ <b>Configure seu perfil</b> pra começar sua trilha de estudos — sem isso não dá pra personalizar o ritmo e o lembrete.</span>
+    <button class="btn mini" onclick="abrirOnboarding(false)">Configurar agora</button>
+  </div>
+
+  <div class="concurso-switch" id="concursoSwitch"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="hoje">Hoje</button>
+    <button class="tab" data-tab="trilha">Trilha</button>
+    <button class="tab" data-tab="materias">Matérias</button>
+    <button class="tab" data-tab="sessoes">Sessões</button>
+    <button class="tab" data-tab="questoes">Questões</button>
+    <button class="tab" data-tab="revisoes">Revisões</button>
+    <button class="tab" data-tab="stats">Estatísticas</button>
+    <button class="tab" data-tab="config">Configurações</button>
+  </div>
+
+  <div class="panel active" id="panel-hoje">
+    <div class="grid">
+      <div class="stat"><div class="num" id="hjHoras">0h</div><div class="lbl">estudadas hoje</div></div>
+      <div class="stat"><div class="num" id="hjProgresso">0%</div><div class="lbl">edital concluído</div></div>
+      <div class="stat"><div class="num" id="hjSequencia">0</div><div class="lbl">dias seguidos estudando</div></div>
+    </div>
+
+    <div class="section-title">Revisões atrasadas ou de hoje</div>
+    <div id="revisoesHoje"></div>
+
+    <div class="section-title">Foco recomendado</div>
+    <div id="focoLista"></div>
+
+    <div class="section-title">Registrar sessão rápida</div>
+    <div class="card">
+      <div class="row">
+        <div><label class="f">Matéria</label><select id="qMateria"></select></div>
+        <div><label class="f">Minutos</label><input type="number" id="qMinutos" min="5" step="5" value="30"></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" style="width:100%" onclick="registrarSessao()">Salvar sessão</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-trilha">
+    <div class="trilha-hero">
+      <h3>Comece por aqui</h3>
+      <p>A trilha distribui os 51 tópicos do edital ao longo dos dias, misturando matérias diferentes a cada dia e dando mais tempo ao que vale mais ponto. Você pode segui-la ou estudar por conta própria — o progresso é o mesmo nos dois casos.</p>
+      <div class="modo-switch">
+        <button id="btnModoTrilha" onclick="setModoTrilha('trilha')">Seguir a trilha</button>
+        <button id="btnModoLivre" onclick="setModoTrilha('livre')">Por conta própria</button>
+      </div>
+      <div class="inicio-box" id="trilhaInicioBox"></div>
+      <div class="trilha-status" id="trilhaStatus"></div>
+    </div>
+
+    <div class="section-title">Peso de cada matéria na prova</div>
+    <div class="card"><div id="trilhaPesos"></div></div>
+    <div id="trilhaInsights"></div>
+
+    <div class="section-title">O que você já conhece</div>
+    <div class="card">
+      <p class="hint" style="margin-top:0">Marcar como <b>domino</b> não tira a matéria da trilha — o edital elimina quem zera qualquer disciplina. Ela só passa a ocupar menos tempo e vira revisão rápida.</p>
+      <div id="trilhaFamiliaridade"></div>
+      <div style="display:flex;gap:14px;align-items:end;margin-top:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:150px;">
+          <label class="f">Tópicos por dia — <span id="lblPorDia">4</span></label>
+          <input type="range" id="rngPorDia" min="2" max="6" value="4" oninput="document.getElementById('lblPorDia').textContent=this.value" onchange="salvarTrilhaConfig()">
+        </div>
+        <button class="btn ghost" onclick="renderTrilha()">Recalcular trilha</button>
+      </div>
+    </div>
+
+    <div class="section-title">Jornada guiada</div>
+    <div id="trilhaDias"></div>
+  </div>
+
+  <div class="panel" id="panel-materias">
+    <div id="materiasPorBloco"></div>
+  </div>
+
+  <div class="panel" id="panel-sessoes">
+    <div class="section-title">Nova sessão</div>
+    <div class="card">
+      <div class="row">
+        <div><label class="f">Matéria</label><select id="sMateria"></select></div>
+        <div><label class="f">Minutos</label><input type="number" id="sMinutos" min="5" step="5" value="30"></div>
+        <div><label class="f">Data</label><input type="date" id="sData"></div>
+      </div>
+      <label class="f">Notas (opcional)</label>
+      <textarea id="sNotas" placeholder="O que foi estudado, dúvidas, observações..."></textarea>
+      <div style="margin-top:12px"><button class="btn" onclick="registrarSessaoCompleta()">Registrar</button></div>
+    </div>
+    <div class="section-title">Histórico</div>
+    <div id="sessoesLista"></div>
+  </div>
+
+  <div class="panel" id="panel-questoes">
+    <div class="section-title">Gerar e responder questões</div>
+    <div class="card">
+      <div class="row">
+        <div><label class="f">Matéria / Tópico</label><select id="qgMateria"></select></div>
+        <div><label class="f">Dificuldade</label>
+          <select id="qgDificuldade"><option value="fácil">Fácil</option><option value="médio" selected>Médio</option><option value="difícil">Difícil</option></select>
+        </div>
+        <div style="display:flex;align-items:flex-end"><button class="btn" style="width:100%" id="btnGerarQ" onclick="gerarQuestoesAPI()">Gerar 10 questões</button></div>
+      </div>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Estilo FGV, geradas na hora — nunca reproduz questão real, só o padrão da banca.</p>
+    </div>
+
+    <div id="areaQuestoesGeradas"></div>
+
+    <div class="section-title">Registrar manualmente (se você resolveu em outro lugar)</div>
+    <div class="card">
+      <div class="row">
+        <div><label class="f">Matéria / Tópico</label><select id="qtMateria"></select></div>
+        <div><label class="f">Dificuldade</label>
+          <select id="qtDificuldade"><option value="facil">Fácil</option><option value="medio" selected>Médio</option><option value="dificil">Difícil</option></select>
+        </div>
+        <div><label class="f">Quantidade</label><input type="number" id="qtQtd" min="1" value="10"></div>
+      </div>
+      <label class="f">Acertos</label>
+      <input type="number" id="qtAcertos" min="0" value="7">
+      <div style="margin-top:12px"><button class="btn ghost" onclick="registrarQuestoes()">Registrar resultado</button></div>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Errar questões manda o tópico automaticamente para a fila de revisão.</p>
+    </div>
+    <div class="section-title">Histórico de questões</div>
+    <div id="questoesLista"></div>
+  </div>
+
+  <div class="panel" id="panel-revisoes">
+    <div class="section-title">Fila de revisão (curva do esquecimento)</div>
+    <div id="revisoesLista"></div>
+  </div>
+
+  <div class="panel" id="panel-stats">
+    <div class="section-title">Progresso por matéria</div>
+    <div id="statsBarras"></div>
+    <div class="section-title">Resumo</div>
+    <div class="grid">
+      <div class="stat"><div class="num" id="stTotalHoras">0h</div><div class="lbl">total estudado</div></div>
+      <div class="stat"><div class="num" id="stTotalSessoes">0</div><div class="lbl">sessões registradas</div></div>
+      <div class="stat"><div class="num" id="stTopicosFeitos">0</div><div class="lbl">tópicos concluídos</div></div>
+      <div class="stat"><div class="num" id="stTaxaAcerto">—</div><div class="lbl">taxa de acerto em questões</div></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-config">
+    <div class="section-title">Sua conta</div>
+    <div class="card">
+      <div id="contaResumo"></div>
+    </div>
+    <div class="section-title">Seu perfil e lembrete</div>
+    <div class="card">
+      <div id="perfilResumo"></div>
+      <div style="margin-top:14px"><button class="btn ghost" onclick="abrirOnboarding(true)">Editar perfil e lembrete</button></div>
+    </div>
+    <div class="section-title">Configurações — <span id="cfgConcursoNome"></span></div>
+    <div class="card">
+      <label class="f">Data da prova</label>
+      <input type="date" id="cProva">
+      <div style="margin-top:14px"></div>
+      <label class="f">Meta diária (minutos)</label>
+      <input type="number" id="cMeta" min="15" step="15">
+      <div style="margin-top:16px"><button class="btn" onclick="salvarConfig()">Salvar configurações</button></div>
+    </div>
+    <div class="section-title">Chave da API e backup</div>
+    <div class="card">
+      <p class="hint" style="margin-top:0" id="bkAmbiente"></p>
+      <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
+        <label class="f">Sua chave da Anthropic (fica só neste navegador)</label>
+        <input id="apiKey" type="password" placeholder="sk-ant-..." style="max-width:340px">
+        <button class="btn ghost" onclick="salvarChaveApi()">Salvar chave</button>
+        <p class="hint">Usada só para gerar conteúdo de estudo e questões — nunca sai deste navegador além de ir direto para a própria Anthropic.</p>
+      </div>
+      <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
+        <p class="hint" style="margin-top:0">Com conta, seu progresso já fica salvo automaticamente a cada ação. Exportar/restaurar serve como cópia extra ou para levar seus dados para outra conta.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn ghost" onclick="exportarBackup()">Exportar backup</button>
+          <button class="btn ghost" onclick="importarBackup()">Restaurar do texto abaixo</button>
+        </div>
+        <textarea id="bkTexto" placeholder="O JSON exportado aparece aqui. Para restaurar, cole um backup e clique em Restaurar." style="width:100%;height:90px;margin-top:10px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:8px;font-family:'JetBrains Mono',monospace;font-size:11px;"></textarea>
+      </div>
+      <p class="trilha-status" id="bkStatus" style="margin-top:12px"></p>
+    </div>
+    <div class="section-title">Zona de risco</div>
+    <div class="card">
+      <p style="font-size:13px;color:var(--text-dim);margin-top:0">Isso apaga todo o progresso, sessões, questões e revisões salvos <b>deste concurso</b>. O checklist de matérias volta ao estado inicial.</p>
+      <button class="btn ghost" onclick="resetarTudo()">Zerar dados deste concurso</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalEstudo">
+  <div class="modal-box">
+    <button class="modal-close" onclick="fecharSessaoEstudo()">✕</button>
+    <h2 class="modal-title" id="modalTitulo">—</h2>
+    <p class="modal-subtitle" id="modalSubtitulo">—</p>
+    <div class="modal-content" id="modalConteudo">
+      <p style="color:var(--text-dim)">Gerando conteúdo...</p>
+    </div>
+    <div class="modal-actions" id="modalAcoes"></div>
+  </div>
+</div>
+
+<div class="modal-overlay onb-overlay" id="onboardingOverlay">
+  <div class="onb-box" id="onboardingBox"></div>
+</div>
+
+<div class="modal-overlay" id="editalModal">
+  <div class="modal-box edital-box">
+    <button class="modal-close" onclick="fecharEditalModal()">✕</button>
+    <h2 class="modal-title">Adicionar edital</h2>
+    <p class="modal-subtitle">Cadastre outro concurso e suas matérias — a trilha é gerada a partir disso, do mesmo jeito que a do DATAPREV.</p>
+
+    <div class="row" style="grid-template-columns:2fr 1fr 1fr">
+      <div><label class="f">Concurso / cargo</label><input type="text" id="edNome" placeholder="Ex.: Concurso XYZ — Analista"></div>
+      <div><label class="f">Banca (opcional)</label><input type="text" id="edBanca" placeholder="FGV, Cesgranrio..."></div>
+      <div><label class="f">Data da prova (opcional)</label><input type="date" id="edData"></div>
+    </div>
+
+    <div class="modo-switch" style="margin:14px 0">
+      <button id="edTabLista" class="on" onclick="editalSetModo('lista')">Colar lista de matérias</button>
+      <button id="edTabPdf" onclick="editalSetModo('pdf')">Anexar PDF do edital</button>
+    </div>
+
+    <div id="edModoLista">
+      <label class="f">Matérias (uma por linha)</label>
+      <textarea id="edLista" rows="5" placeholder="Direito Constitucional - 10&#10;Português - 8&#10;Raciocínio Lógico"></textarea>
+      <p class="hint">Formato: <code>Nome da matéria - peso</code> (peso é opcional; sem ele, todas ficam com peso igual). Pra detalhar tópicos: <code>Nome - peso: tópico 1; tópico 2</code>. Esse é o jeito mais confiável — recomendado.</p>
+      <button class="btn ghost mini" onclick="editalParseLista()">Gerar lista abaixo</button>
+    </div>
+
+    <div id="edModoPdf" style="display:none">
+      <label class="f">Edital em PDF</label>
+      <input type="file" id="edPdf" accept="application/pdf" onchange="editalHandlePdf(this.files[0])">
+      <p class="hint" id="edPdfStatus">A extração usa sua chave da API (Configurações › Backup) pra identificar cargo, matérias e pesos automaticamente. A leitura pode errar — sempre revise a lista abaixo antes de confirmar.</p>
+    </div>
+
+    <div class="section-title" style="margin-top:20px;margin-bottom:10px">Revisar matérias</div>
+    <div id="edReview"></div>
+    <button class="btn ghost mini" onclick="editalAddRow()" style="margin-top:4px">+ matéria</button>
+
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="fecharEditalModal()">Cancelar</button>
+      <button class="btn" onclick="editalConfirmar()">Criar edital e usar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay auth-overlay active" id="authOverlay">
+  <div class="auth-box" id="authBox">
+    <div class="onb-eyebrow">SIPC</div>
+    <h2 class="onb-title" style="margin-bottom:18px">Entrar ou criar conta</h2>
+    <div class="auth-tabs">
+      <button id="authTabEntrar" class="on" onclick="authSetModo('entrar')">Entrar</button>
+      <button id="authTabCriar" onclick="authSetModo('criar')">Criar conta</button>
+    </div>
+    <div class="onb-field"><label class="f">E-mail</label><input type="text" id="authEmail" placeholder="seu@email.com"></div>
+    <div class="onb-field"><label class="f">Senha</label><input type="password" id="authSenha" placeholder="mínimo 6 caracteres"></div>
+    <p class="auth-erro" id="authErro"></p>
+    <button class="btn" style="width:100%" id="authBtnPrincipal" onclick="authSubmeter()">Entrar</button>
+    <div class="auth-sep">ou</div>
+    <button class="btn ghost" style="width:100%" onclick="authUsarSemConta()">Usar sem conta (modo teste)</button>
+    <p class="hint" style="margin-top:16px">No modo teste nada fica salvo entre visitas. Crie uma conta quando quiser guardar seu progresso de verdade — os dados ficam privados, vinculados só ao seu login.</p>
+    <p class="hint" id="authAvisoConfig" style="display:none;margin-top:12px;color:var(--danger)"></p>
+  </div>
+</div>
+
+<script>
+let EDITAIS = {"datprev": {"nome": "DATAPREV 2026", "subtitulo": "Analista de TI · Perfil 1 · Análise de Negócios de TI", "materias": [{"id": "geral__lingua-portuguesa", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Língua Portuguesa", "topicos": ["Compreensão e interpretação de textos", "Tipos e gêneros textuais", "Ortografia oficial", "Coesão textual", "Estrutura morfossintática do período", "Reescrita de frases e parágrafos"]}, {"id": "geral__lingua-inglesa", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Língua Inglesa", "topicos": ["Compreensão de textos e gramática"]}, {"id": "geral__raciocinio-logico", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Raciocínio Lógico", "topicos": ["Estruturas lógicas", "Lógica de argumentação", "Lógica sentencial/proposicional", "Lógica de primeira ordem", "Problemas aritméticos, geométricos e matriciais"]}, {"id": "geral__atualidades-e-inteligencia-artificial", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Atualidades e Inteligência Artificial", "topicos": ["Tópicos atuais diversos", "Fundamentos e aplicações de IA", "Aprendizado de máquina", "Modelos generativos e LLMs", "Ética, governança e privacidade em IA"]}, {"id": "geral__legislacao-si-e-protecao-de-dados", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Legislação SI e Proteção de Dados", "topicos": ["Lei 12.527/2011 — LAI", "Lei 12.737/2012 — Delitos Informáticos", "Lei 12.965/2014 — Marco Civil da Internet", "Lei 13.709/2018 — LGPD"]}, {"id": "especifico__perfil-1", "bloco": "Módulo II — Perfil 1", "nome": "Análise de Negócios de TI", "topicos": ["Análise de negócios", "Gestão por processos e PDCA", "BPM CBOK v.4.0", "Tipologia dos processos", "Hierarquia do processo", "Reengenharia de processos", "Melhoria de processos", "Notação BPMN", "Ferramentas de BPM e BPMS", "Indicadores, metas e resultados", "Gestão Ágil de Projetos", "Gerenciamento de produtos", "COBIT 2019", "ITIL v4", "Engenharia de software", "Arquitetura de Soluções", "User Experience (UX)", "Storytelling com dados", "Prototipação", "Design thinking", "Análise de personas", "MVP", "Modelagem e Data Mining", "Arquitetura de Dados", "Análise de dados e BI", "Negociação", "Comunicação assertiva", "Gestão Comercial e Relacionamento", "Gestão de Contratos com Clientes", "IA e Big Data"]}]}};
+
+
+/* ============ PERSISTENCIA ============
+   Modo teste (ou sem login): tudo fica só em memória, nada é salvo — ao
+   recarregar a página, some. Com conta (login Firebase), cada chave vira um
+   documento em users/{uid}/sipc/{chave} no Firestore, isolado por usuário
+   pelas Regras de Segurança (veja o guia de configuração). O resto do app
+   não precisa saber qual dos dois modos está ativo. */
+const DB = {
+  _mem: {},
+  _emModoReal(){ return !modoTeste && fbAuth && fbAuth.currentUser; },
+  _doc(k){
+    const uid = fbAuth.currentUser.uid;
+    return fbDb.collection('users').doc(uid).collection('sipc').doc(k.replace(/\//g,'__'));
+  },
+  async get(k){
+    if(!this._emModoReal()){
+      if(!(k in this._mem)) throw new Error('chave inexistente: '+k);
+      return { key:k, value:this._mem[k] };
+    }
+    const snap = await this._doc(k).get();
+    if(!snap.exists) throw new Error('chave inexistente: '+k);
+    return { key:k, value: snap.data().value };
+  },
+  async set(k, v){
+    if(!this._emModoReal()){
+      this._mem[k] = v;
+      return { key:k, value:v };
+    }
+    await this._doc(k).set({ key:k, value:v, atualizadoEm: new Date().toISOString() });
+    return { key:k, value:v };
+  },
+  async delete(k){
+    if(!this._emModoReal()){
+      delete this._mem[k];
+      return { key:k, deleted:true };
+    }
+    await this._doc(k).delete();
+    return { key:k, deleted:true };
+  },
+  async list(prefix){
+    if(!this._emModoReal()){
+      const keys = Object.keys(this._mem);
+      return { keys: prefix ? keys.filter(k=>k.startsWith(prefix)) : keys };
+    }
+    const uid = fbAuth.currentUser.uid;
+    const snap = await fbDb.collection('users').doc(uid).collection('sipc').get();
+    const keys = snap.docs.map(d => d.data().key || d.id);
+    return { keys: prefix ? keys.filter(k=>k.startsWith(prefix)) : keys };
+  }
+};
+
+/* Chave da Anthropic: cada pessoa usa a própria chave, que fica só neste
+   navegador (localStorage) — nunca é enviada a lugar nenhum além da própria
+   API da Anthropic, e nunca fica no código publicado. */
+function apiHeaders(){
+  const k = localStorage.getItem('sipc::anthropic-key');
+  if(!k) throw new Error('sem chave da API — configure em Configurações › Backup');
+  return {
+    "Content-Type": "application/json",
+    "x-api-key": k,
+    "anthropic-version": "2023-06-01",
+    "anthropic-dangerous-direct-browser-access": "true"
+  };
+}
+
+// Pesos oficiais — Edital DATAPREV 2026, item 9.5 e 9.6
+const PESOS = {
+  'geral__lingua-portuguesa':                    {q:12, peso:1,   pontos:12},
+  'geral__lingua-inglesa':                       {q:12, peso:1,   pontos:12},
+  'geral__raciocinio-logico':                    {q:5,  peso:1,   pontos:5},
+  'geral__atualidades-e-inteligencia-artificial':{q:6,  peso:1,   pontos:6},
+  'geral__legislacao-si-e-protecao-de-dados':    {q:5,  peso:1,   pontos:5},
+  'especifico__perfil-1':                        {q:30, peso:2.5, pontos:75}
+};
+const TOTAL_PONTOS = 115;
+const NOTA_CORTE = 57.5;
+
+function slugify(s){
+  const semAcento = s.toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'');
+  return 'c' + semAcento.replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,24) + '-' + Math.random().toString(36).slice(2,6);
+}
+
+async function salvarEditaisCustom(){
+  const customs = {};
+  Object.keys(EDITAIS).forEach(id=>{ if(EDITAIS[id].custom) customs[id] = EDITAIS[id]; });
+  await DB.set('editais-custom', JSON.stringify(customs));
+}
+async function carregarEditaisCustom(){
+  try{
+    const r = await DB.get('editais-custom');
+    const customs = JSON.parse(r.value);
+    Object.keys(customs).forEach(id=>{ EDITAIS[id] = customs[id]; });
+  }catch(e){}
+}
+
+let concursoAtivo = 'datprev';
+let modoTeste = false;
+
+function emModoTeste(){ return modoTeste; }
+
+async function toggleModoTeste(){
+  const ligar = document.getElementById('chkModoTeste').checked;
+  if(!ligar && !(fbAuth && fbAuth.currentUser)){
+    // querendo desligar o modo teste sem conta: pede login em vez de desligar
+    document.getElementById('chkModoTeste').checked = true;
+    authAbrirParaEntrar('Crie uma conta ou entre para sair do modo teste e salvar de verdade.');
+    return;
+  }
+  modoTeste = ligar;
+  document.getElementById('testBanner').classList.toggle('active', modoTeste);
+  try{ localStorage.setItem('sipc::pref-modo-teste', JSON.stringify(modoTeste)); }catch(e){}
+  await iniciarApp();
+}
+
+/* ============ AUTENTICAÇÃO (Firebase) ============ */
+let authModo = 'entrar';
+
+function authSetModo(modo){
+  authModo = modo;
+  document.getElementById('authTabEntrar').classList.toggle('on', modo==='entrar');
+  document.getElementById('authTabCriar').classList.toggle('on', modo==='criar');
+  document.getElementById('authBtnPrincipal').textContent = modo==='entrar' ? 'Entrar' : 'Criar conta';
+  document.getElementById('authErro').textContent = '';
+}
+
+function authTraduzErro(code){
+  const mapa = {
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/missing-password': 'Digite uma senha.',
+    'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+    'auth/email-already-in-use': 'Já existe uma conta com esse e-mail — tente entrar.',
+    'auth/user-not-found': 'Não encontrei conta com esse e-mail.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/too-many-requests': 'Muitas tentativas — espere um pouco e tente de novo.',
+    'auth/network-request-failed': 'Falha de conexão — verifique sua internet.'
+  };
+  return mapa[code] || ('Não consegui entrar (' + (code||'erro desconhecido') + ').');
+}
+
+async function authSubmeter(){
+  const erroEl = document.getElementById('authErro');
+  erroEl.textContent = '';
+  if(!firebaseConfigurado){
+    erroEl.textContent = 'Este site ainda não tem o Firebase configurado — veja o guia de configuração. Por enquanto, use "sem conta".';
+    return;
+  }
+  const email = document.getElementById('authEmail').value.trim();
+  const senha = document.getElementById('authSenha').value;
+  if(!email || !senha){ erroEl.textContent = 'Preencha e-mail e senha.'; return; }
+  try{
+    if(authModo === 'entrar') await fbAuth.signInWithEmailAndPassword(email, senha);
+    else await fbAuth.createUserWithEmailAndPassword(email, senha);
+    // onAuthStateChanged cuida do resto
+  }catch(e){
+    erroEl.textContent = authTraduzErro(e.code);
+  }
+}
+
+async function authUsarSemConta(){
+  modoTeste = true;
+  document.getElementById('chkModoTeste').checked = true;
+  document.getElementById('testBanner').classList.add('active');
+  try{ localStorage.setItem('sipc::pref-modo-teste', 'true'); }catch(e){}
+  esconderAuthOverlay();
+  await iniciarApp();
+}
+
+function authAbrirParaEntrar(msg){ mostrarAuthOverlay(msg); }
+
+function mostrarAuthOverlay(msg){
+  document.getElementById('authOverlay').classList.add('active');
+  const aviso = document.getElementById('authAvisoConfig');
+  if(!firebaseConfigurado){
+    aviso.style.display = 'block';
+    aviso.style.color = 'var(--danger)';
+    aviso.textContent = 'Este site ainda não tem o Firebase configurado — só o modo teste funciona por enquanto (veja o guia de configuração).';
+  } else if(msg){
+    aviso.style.display = 'block';
+    aviso.style.color = 'var(--text-dim)';
+    aviso.textContent = msg;
+  } else {
+    aviso.style.display = 'none';
+  }
+}
+function esconderAuthOverlay(){ document.getElementById('authOverlay').classList.remove('active'); }
+
+async function authSair(){
+  if(!confirm('Sair da sua conta?')) return;
+  await fbAuth.signOut();
+}
+let materias = [];
+let sessoes = [];
+let questoes = [];
+let revisoes = [];
+let config = { provaData:"", metaDiariaMin:60, trilha:{ modo:'trilha', topicosPorDia:4, familiaridade:{}, inicio:null } };
+
+function kMaterias(){ return 'materias-data::'+concursoAtivo; }
+function kSessoes(){ return 'sessoes-log::'+concursoAtivo; }
+function kQuestoes(){ return 'questoes-log::'+concursoAtivo; }
+function kRevisoes(){ return 'revisoes-data::'+concursoAtivo; }
+function kConfig(){ return 'config-data::'+concursoAtivo; }
+
+function materiasIniciais(){
+  return EDITAIS[concursoAtivo].materias.map(m => ({
+    id:m.id, bloco:m.bloco, nome:m.nome, pesoPontos:m.pesoPontos,
+    topicos: m.topicos.map((t,i)=>({id:m.id+'-t'+i, nome:t, feito:false}))
+  }));
+}
+
+async function carregarConcurso(){
+  try{
+    const r = await DB.get(kMaterias());
+    materias = JSON.parse(r.value);
+  }catch(e){
+    materias = materiasIniciais();
+    await salvarMaterias();
+  }
+  try{ const r = await DB.get(kSessoes()); sessoes = JSON.parse(r.value); }catch(e){ sessoes = []; }
+  try{ const r = await DB.get(kQuestoes()); questoes = JSON.parse(r.value); }catch(e){ questoes = []; }
+  try{ const r = await DB.get(kRevisoes()); revisoes = JSON.parse(r.value); }catch(e){ revisoes = []; }
+  try{ const r = await DB.get(kConfig()); config = JSON.parse(r.value); }catch(e){ config = { provaData:"", metaDiariaMin:60 }; }
+  if(!config.trilha) config.trilha = { modo:'trilha', topicosPorDia:4, familiaridade:{} };
+  if(!config.trilha.familiaridade) config.trilha.familiaridade = {};
+  if(config.trilha.inicio === undefined) config.trilha.inicio = null;
+
+  document.getElementById('tituloConcurso').textContent = 'Sistema de Estudos — ' + EDITAIS[concursoAtivo].nome;
+  document.getElementById('subtituloConcurso').textContent = EDITAIS[concursoAtivo].subtitulo;
+  document.getElementById('cfgConcursoNome').textContent = EDITAIS[concursoAtivo].nome;
+  document.getElementById('cProva').value = config.provaData || '';
+  document.getElementById('cMeta').value = config.metaDiariaMin || 60;
+  document.getElementById('sData').value = new Date().toISOString().slice(0,10);
+
+  renderSwitch();
+  renderTudo();
+}
+
+async function trocarConcurso(id){
+  concursoAtivo = id;
+  await DB.set('concurso-ativo', concursoAtivo);
+  await carregarConcurso();
+}
+
+function renderSwitch(){
+  const el = document.getElementById('concursoSwitch');
+  const ids = Object.keys(EDITAIS);
+  el.style.display = 'flex';
+  el.innerHTML = ids.map(id => `
+    <button class="csw-btn ${id===concursoAtivo?'active':''}" onclick="trocarConcurso('${id}')">${EDITAIS[id].nome}</button>
+  `).join('') + `<button class="csw-btn csw-add" onclick="abrirEditalModal()" title="Cadastrar outro concurso a partir do edital">+ Novo edital</button>`;
+}
+
+/* ============ NOVO EDITAL (qualquer concurso) ============ */
+let edRows = [];
+
+function abrirEditalModal(){
+  edRows = [];
+  document.getElementById('edNome').value = '';
+  document.getElementById('edBanca').value = '';
+  document.getElementById('edData').value = '';
+  document.getElementById('edLista').value = '';
+  document.getElementById('edPdf').value = '';
+  document.getElementById('edPdfStatus').textContent = 'A extração usa sua chave da API (Configurações › Backup) pra identificar cargo, matérias e pesos automaticamente. A leitura pode errar — sempre revise a lista abaixo antes de confirmar.';
+  editalSetModo('lista');
+  editalRenderReview();
+  document.getElementById('editalModal').classList.add('active');
+}
+function fecharEditalModal(){ document.getElementById('editalModal').classList.remove('active'); }
+
+function editalSetModo(modo){
+  document.getElementById('edTabLista').classList.toggle('on', modo==='lista');
+  document.getElementById('edTabPdf').classList.toggle('on', modo==='pdf');
+  document.getElementById('edModoLista').style.display = modo==='lista' ? 'block' : 'none';
+  document.getElementById('edModoPdf').style.display = modo==='pdf' ? 'block' : 'none';
+}
+
+function editalParseLinha(linha){
+  linha = linha.trim();
+  if(!linha) return null;
+  let topicosStr = null, head = linha;
+  const iColon = linha.indexOf(':');
+  if(iColon > -1){ head = linha.slice(0,iColon); topicosStr = linha.slice(iColon+1); }
+  let nome = head, peso = null;
+  const m = head.match(/^(.*?)\s*[-–—]\s*([\d.,]+)\s*$/);
+  if(m){ nome = m[1]; peso = parseFloat(m[2].replace(',','.')); }
+  const topicos = topicosStr ? topicosStr.split(';').map(t=>t.trim()).filter(Boolean) : [];
+  return { nome: nome.trim(), peso: (peso===null||isNaN(peso)) ? null : peso, topicos };
+}
+
+function editalParseLista(){
+  const linhas = document.getElementById('edLista').value.split('\n').map(editalParseLinha).filter(Boolean);
+  if(!linhas.length){ alert('Cole ao menos uma matéria, uma por linha.'); return; }
+  edRows = linhas.map(l => ({ nome:l.nome, peso: l.peso!==null ? l.peso : 1, topicos:l.topicos }));
+  editalRenderReview();
+}
+
+function editalAddRow(){ edRows.push({nome:'', peso:1, topicos:[]}); editalRenderReview(); }
+function editalRemoveRow(i){ edRows.splice(i,1); editalRenderReview(); }
+function editalAtualizarRow(i, campo, valor){
+  if(!edRows[i]) return;
+  if(campo==='peso') edRows[i].peso = parseFloat(String(valor).replace(',','.')) || 0;
+  else edRows[i].nome = valor;
+}
+
+function editalRenderReview(){
+  const el = document.getElementById('edReview');
+  if(!edRows.length){ el.innerHTML = '<div class="empty">Nenhuma matéria ainda. Cole a lista acima, anexe o PDF, ou use "+ matéria".</div>'; return; }
+  el.innerHTML = edRows.map((r,i)=>`
+    <div class="ed-row">
+      <input type="text" value="${esc(r.nome||'')}" oninput="editalAtualizarRow(${i},'nome',this.value)" placeholder="Nome da matéria">
+      <input type="text" value="${r.peso}" oninput="editalAtualizarRow(${i},'peso',this.value)" placeholder="peso">
+      <button class="btn ghost mini" onclick="editalRemoveRow(${i})" title="Remover">🗑</button>
+    </div>
+  `).join('');
+}
+
+async function editalHandlePdf(file){
+  if(!file) return;
+  const status = document.getElementById('edPdfStatus');
+  status.textContent = 'Lendo PDF...';
+  try{
+    if(typeof pdfjsLib === 'undefined'){
+      await new Promise((resolve,reject)=>{
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = resolve; s.onerror = ()=>reject(new Error('não foi possível carregar o leitor de PDF'));
+        document.head.appendChild(s);
+      });
+    }
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+    let texto = '';
+    for(let p=1; p<=pdf.numPages && texto.length < 40000; p++){
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      texto += content.items.map(it=>it.str).join(' ') + '\n';
+    }
+    status.textContent = `PDF lido (${pdf.numPages} páginas). Extraindo matérias...`;
+    await editalExtrairComIA(texto.slice(0, 18000));
+  }catch(e){
+    status.textContent = 'Não foi possível ler o PDF automaticamente (' + e.message + '). Use "Colar lista de matérias" pra digitar manualmente.';
+  }
+}
+
+async function editalExtrairComIA(texto){
+  const status = document.getElementById('edPdfStatus');
+  try{ apiHeaders(); }
+  catch(e){
+    status.textContent = 'PDF lido, mas a extração automática precisa da sua chave da API (Configurações › Backup). Por enquanto, use "Colar lista de matérias" pra digitar.';
+    return;
+  }
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers: apiHeaders(),
+      body: JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens: 2000,
+        messages:[{role:'user', content:
+          'Extraia do texto de edital de concurso abaixo: o nome do cargo, a banca (se houver) e a lista de matérias/disciplinas cobradas com seu peso relativo ou número de questões (se indicado). ' +
+          'Responda SOMENTE com um JSON válido, sem markdown, no formato {"cargo":"...","banca":"...","materias":[{"nome":"...","peso":numero}]}. Se não souber o peso de uma matéria, use 1.\n\nTEXTO:\n' + texto
+        }]
+      })
+    });
+    if(!resp.ok) throw new Error('API retornou ' + resp.status);
+    const data = await resp.json();
+    const txt = (data.content||[]).map(c=>c.text||'').join('');
+    const jsonMatch = txt.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('resposta sem JSON');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if(parsed.cargo && !document.getElementById('edNome').value) document.getElementById('edNome').value = parsed.cargo;
+    if(parsed.banca && !document.getElementById('edBanca').value) document.getElementById('edBanca').value = parsed.banca;
+    edRows = (parsed.materias||[]).map(m => ({ nome: m.nome, peso: Number(m.peso)||1, topicos:[] }));
+    editalRenderReview();
+    status.textContent = edRows.length ? 'Extração concluída — revise os nomes e pesos abaixo antes de confirmar.' : 'Não encontrei matérias no PDF. Use "Colar lista de matérias" pra digitar manualmente.';
+  }catch(e){
+    status.textContent = 'Não consegui extrair automaticamente (' + e.message + '). Use "Colar lista de matérias" pra digitar manualmente.';
+  }
+}
+
+async function editalConfirmar(){
+  const nome = document.getElementById('edNome').value.trim();
+  if(!nome){ alert('Dê um nome ao concurso/cargo.'); return; }
+  if(!edRows.length || !edRows.some(r=>r.nome && r.nome.trim())){ alert('Adicione ao menos uma matéria — cole a lista, anexe o PDF, ou use "+ matéria".'); return; }
+  const banca = document.getElementById('edBanca').value.trim();
+  const dataProva = document.getElementById('edData').value;
+  const slug = slugify(nome);
+  const materiasArr = edRows.filter(r=>r.nome && r.nome.trim()).map((r,i)=>({
+    id: slug+'__m'+i, bloco:'Matérias do edital', nome:r.nome.trim(),
+    pesoPontos: r.peso || 1,
+    topicos: (r.topicos && r.topicos.length) ? r.topicos : ['Conteúdo geral de ' + r.nome.trim()]
+  }));
+  EDITAIS[slug] = {
+    nome, custom:true, dataProva: dataProva || '',
+    subtitulo: [banca && ('Banca '+banca), dataProva && ('Prova em '+dataProva.split('-').reverse().join('/'))].filter(Boolean).join(' · ') || 'Edital personalizado',
+    materias: materiasArr
+  };
+  await salvarEditaisCustom();
+  fecharEditalModal();
+  concursoAtivo = slug;
+  await DB.set('concurso-ativo', concursoAtivo);
+  await carregarConcurso();
+  if(dataProva){
+    config.provaData = dataProva;
+    document.getElementById('cProva').value = dataProva;
+    await salvarConfigData();
+    renderHoje(); renderTrilha();
+  }
+  if(document.getElementById('onboardingOverlay').classList.contains('active')) renderOnboardingStep();
+}
+
+async function salvarMaterias(){ await DB.set(kMaterias(), JSON.stringify(materias)); }
+async function salvarSessoes(){ await DB.set(kSessoes(), JSON.stringify(sessoes)); }
+async function salvarQuestoes(){ await DB.set(kQuestoes(), JSON.stringify(questoes)); }
+async function salvarRevisoes(){ await DB.set(kRevisoes(), JSON.stringify(revisoes)); }
+async function salvarConfigData(){ await DB.set(kConfig(), JSON.stringify(config)); }
+
+function gerarProtocolo(){
+  const now = new Date();
+  const num = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + concursoAtivo.toUpperCase();
+  document.getElementById('protoNum').textContent = num;
+  document.getElementById('protoData').textContent = now.toLocaleDateString('pt-BR');
+}
+
+function todosTopicos(){ return materias.flatMap(m => m.topicos.map(t => ({...t, materiaId:m.id, materiaNome:m.nome}))); }
+function progressoMateria(m){ if(!m.topicos.length) return 0; return Math.round(100 * m.topicos.filter(t=>t.feito).length / m.topicos.length); }
+function progressoGeral(){ const all = todosTopicos(); if(!all.length) return 0; return Math.round(100 * all.filter(t=>t.feito).length / all.length); }
+
+function preencherSelects(){
+  const opts = materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+  document.getElementById('qMateria').innerHTML = opts;
+  document.getElementById('sMateria').innerHTML = opts;
+  document.getElementById('qtMateria').innerHTML = opts;
+  document.getElementById('qgMateria').innerHTML = opts;
+}
+
+function esc(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function renderMateriaCard(m){
+  const pct = progressoMateria(m);
+  const sealClass = pct < 30 ? 'low' : (pct < 80 ? 'mid' : '');
+  const topicosHtml = m.topicos.map((t,i)=>`
+    <div class="topico ${t.feito?'done':''}">
+      <span class="art">Art. ${i+1}º</span>
+      <input type="checkbox" id="chk-${t.id}" ${t.feito?'checked':''} onchange="toggleTopico('${m.id}','${t.id}')">
+      <label for="chk-${t.id}" style="flex:1">${t.nome}</label>
+      <button class="btn-estudar" onclick="abrirSessaoEstudo('${m.id}','${t.id}','${esc(m.nome)}','${esc(t.nome)}','${esc(m.bloco)}')">Estudar</button>
+    </div>`).join('');
+  return `
+    <div class="materia" id="card-${m.id}">
+      <div class="materia-head" onclick="toggleCard('${m.id}')">
+        <div class="seal ${sealClass}">${pct}%</div>
+        <div class="materia-info">
+          <div class="nome">${m.nome}</div>
+          <div class="meta">${m.topicos.filter(t=>t.feito).length}/${m.topicos.length} tópicos concluídos</div>
+        </div>
+        <div class="chev">▶</div>
+      </div>
+      <div class="topicos">${topicosHtml}</div>
+    </div>`;
+}
+
+function toggleCard(id){ document.getElementById('card-'+id).classList.toggle('open'); }
+
+async function toggleTopico(materiaId, topicoId){
+  const m = materias.find(m=>m.id===materiaId);
+  const t = m.topicos.find(t=>t.id===topicoId);
+  t.feito = !t.feito;
+  if(!emModoTeste()) await salvarMaterias();
+  renderTudo();
+}
+
+function renderMaterias(){
+  const blocos = [...new Set(materias.map(m=>m.bloco))];
+  document.getElementById('materiasPorBloco').innerHTML = blocos.map(b => `
+    <div class="section-title">${b}</div>
+    ${materias.filter(m=>m.bloco===b).map(renderMateriaCard).join('')}
+  `).join('');
+}
+
+function renderHoje(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const minHoje = sessoes.filter(s=>s.data===hoje).reduce((a,s)=>a+Number(s.minutos),0);
+  document.getElementById('hjHoras').textContent = (minHoje/60).toFixed(1)+'h';
+  document.getElementById('hjProgresso').textContent = progressoGeral()+'%';
+
+  const dias = new Set(sessoes.map(s=>s.data));
+  let seq = 0, cursor = new Date();
+  while(dias.has(cursor.toISOString().slice(0,10))){ seq++; cursor.setDate(cursor.getDate()-1); }
+  document.getElementById('hjSequencia').textContent = seq;
+
+  const foco = [...materias].sort((a,b)=>progressoMateria(a)-progressoMateria(b)).slice(0,3);
+  document.getElementById('focoLista').innerHTML = foco.map(m=>`
+    <div class="log-item">
+      <span>${m.nome}</span>
+      <span class="badge ${progressoMateria(m)<30?'warn':'ok'}">${progressoMateria(m)}% concluído</span>
+    </div>`).join('') || '<div class="empty">Nenhuma matéria cadastrada.</div>';
+
+  const atrasadas = revisoes.filter(r => r.proximaData <= hoje);
+  document.getElementById('revisoesHoje').innerHTML = atrasadas.length ? atrasadas.map(r=>{
+    const m = materias.find(mm=>mm.id===r.materiaId);
+    return `<div class="log-item"><span>${m?m.nome:'—'} — ${r.topicoNome||''}</span><span class="meta">desde ${new Date(r.proximaData+'T00:00').toLocaleDateString('pt-BR')}</span></div>`;
+  }).join('') : '<div class="empty">Nenhuma revisão pendente. 🎯</div>';
+
+  if(config.provaData){
+    const dif = Math.ceil((new Date(config.provaData) - new Date()) / 86400000);
+    document.getElementById('countdownWrap').style.display = 'flex';
+    document.getElementById('diasRestantes').textContent = dif >= 0 ? dif : 0;
+  } else {
+    document.getElementById('countdownWrap').style.display = 'none';
+  }
+}
+
+function renderSessoes(){
+  const ordenadas = [...sessoes].sort((a,b)=> b.data.localeCompare(a.data));
+  document.getElementById('sessoesLista').innerHTML = ordenadas.map(s=>{
+    const m = materias.find(m=>m.id===s.materiaId);
+    return `<div class="log-item">
+      <span>${m?m.nome:'—'}${s.notas?' · <span style="color:var(--text-dim)">'+s.notas+'</span>':''}</span>
+      <span class="meta">${s.minutos}min · ${new Date(s.data+'T00:00').toLocaleDateString('pt-BR')}</span>
+    </div>`;
+  }).join('') || '<div class="empty">Nenhuma sessão registrada ainda.</div>';
+}
+
+function renderQuestoes(){
+  const ordenadas = [...questoes].sort((a,b)=> b.data.localeCompare(a.data));
+  document.getElementById('questoesLista').innerHTML = ordenadas.map(q=>{
+    const m = materias.find(m=>m.id===q.materiaId);
+    const pct = Math.round(100*q.acertos/q.qtd);
+    return `<div class="log-item">
+      <span>${m?m.nome:'—'} <span class="badge ${pct>=70?'ok':'warn'}">${q.acertos}/${q.qtd} (${pct}%)</span></span>
+      <span class="meta">${q.dificuldade} · ${new Date(q.data+'T00:00').toLocaleDateString('pt-BR')}</span>
+    </div>`;
+  }).join('') || '<div class="empty">Nenhum resultado de questões registrado ainda.</div>';
+}
+
+function renderRevisoes(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const ordenadas = [...revisoes].sort((a,b)=> a.proximaData.localeCompare(b.proximaData));
+  document.getElementById('revisoesLista').innerHTML = ordenadas.map(r=>{
+    const m = materias.find(mm=>mm.id===r.materiaId);
+    const atrasada = r.proximaData <= hoje;
+    return `<div class="log-item">
+      <span>${m?m.nome:'—'} — ${r.topicoNome||''}</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="meta">${atrasada?'venceu ':''}${new Date(r.proximaData+'T00:00').toLocaleDateString('pt-BR')}</span>
+        <button class="btn mini" onclick="concluirRevisao('${r.id}')">Revisado</button>
+      </span>
+    </div>`;
+  }).join('') || '<div class="empty">Fila de revisão vazia.</div>';
+}
+
+async function concluirRevisao(id){
+  if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
+  revisoes = revisoes.filter(r=>r.id!==id);
+  await salvarRevisoes();
+  renderTudo();
+}
+
+function renderStats(){
+  document.getElementById('statsBarras').innerHTML = materias.map(m=>{
+    const pct = progressoMateria(m);
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px">
+        <span>${m.nome}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--text-dim)">${pct}%</span>
+      </div>
+      <div class="barwrap"><div class="bar" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  const totalMin = sessoes.reduce((a,s)=>a+Number(s.minutos),0);
+  document.getElementById('stTotalHoras').textContent = (totalMin/60).toFixed(1)+'h';
+  document.getElementById('stTotalSessoes').textContent = sessoes.length;
+  document.getElementById('stTopicosFeitos').textContent = todosTopicos().filter(t=>t.feito).length;
+
+  const totalQ = questoes.reduce((a,q)=>a+Number(q.qtd),0);
+  const totalAcertos = questoes.reduce((a,q)=>a+Number(q.acertos),0);
+  document.getElementById('stTaxaAcerto').textContent = totalQ ? Math.round(100*totalAcertos/totalQ)+'%' : '—';
+}
+
+
+/* ============ TRILHA ============ */
+/* ---- datas da trilha ---- */
+function hojeISO(){
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function diaDe(iso){ const d = new Date(iso+'T00:00'); d.setHours(0,0,0,0); return d; }
+function difDias(a,b){ return Math.round((b-a)/86400000); }
+
+// A trilha e sempre reconstruida a partir de hoje (ou da data de inicio, se ela ainda
+// estiver no futuro). Faltar dias nao gera divida: os topicos pendentes simplesmente
+// se redistribuem a partir de agora.
+function baseDaTrilha(){
+  const hoje = diaDe(hojeISO());
+  const ini = config.trilha.inicio ? diaDe(config.trilha.inicio) : null;
+  return (ini && ini > hoje) ? ini : hoje;
+}
+
+async function comecarTrilha(){
+  const v = document.getElementById('inpInicioTrilha').value || hojeISO();
+  config.trilha.inicio = v;
+  await salvarConfigData();
+  renderTrilha();
+}
+async function reiniciarTrilha(){
+  config.trilha.inicio = null;
+  await salvarConfigData();
+  renderTrilha();
+}
+
+function renderInicioTrilha(totalDias){
+  const box = document.getElementById('trilhaInicioBox');
+  const status = document.getElementById('trilhaStatus');
+  const ini = config.trilha.inicio;
+
+  if(!ini){
+    box.innerHTML = `<div>
+        <label class="f">Quando você começa?</label>
+        <input type="date" id="inpInicioTrilha" value="${hojeISO()}" min="${hojeISO()}">
+      </div>
+      <button class="btn" onclick="comecarTrilha()">Começar a trilha</button>`;
+    status.innerHTML = 'Trilha ainda não iniciada — as datas abaixo são só uma prévia.';
+    return;
+  }
+
+  const base = baseDaTrilha();
+  const hoje = diaDe(hojeISO());
+  const iniD = diaDe(ini);
+  const futura = iniD > hoje;
+
+  box.innerHTML = `<button class="btn ghost" onclick="reiniciarTrilha()">Mudar data de início</button>`;
+
+  if(futura){
+    status.innerHTML = `Trilha marcada para começar em <b>${iniD.toLocaleDateString('pt-BR')}</b> — daqui a <b>${difDias(hoje,iniD)} dia(s)</b>.`;
+  } else {
+    const decorridos = difDias(iniD, hoje);
+    status.innerHTML = `Você começou em <b>${iniD.toLocaleDateString('pt-BR')}</b> · <b>${decorridos} dia(s)</b> desde então. `
+      + `O que sobrou foi redistribuído a partir de hoje — dia perdido não vira dívida.`;
+  }
+
+  // confronto com a data da prova
+  if(config.provaData){
+    const prova = diaDe(config.provaData);
+    const disponiveis = difDias(base, prova);
+    const pend = materias.reduce((a,m)=>a+m.topicos.filter(t=>!t.feito).length,0);
+    if(disponiveis <= 0){
+      status.innerHTML += `<br><span style="color:var(--danger)">A data da prova (${prova.toLocaleDateString('pt-BR')}) já passou ou é hoje.</span>`;
+    } else if(pend > 0){
+      const precisa = Math.ceil(pend / disponiveis);
+      const atual = config.trilha.topicosPorDia || 4;
+      if(precisa > atual){
+        status.innerHTML += `<br><span style="color:var(--danger)">Restam <b style="color:var(--danger)">${disponiveis} dias</b> até a prova e ${pend} tópicos. `
+          + `No ritmo de ${atual}/dia você termina em ${totalDias} dias — <b style="color:var(--danger)">não dá</b>. `
+          + `Precisa de ${precisa} por dia.</span>`;
+      } else {
+        const folga = disponiveis - totalDias;
+        status.innerHTML += `<br>Restam <b>${disponiveis} dias</b> até a prova. No seu ritmo o edital fecha em <b>${totalDias}</b> — sobram <b>${folga} dias</b> para revisão e questões.`;
+      }
+    }
+  } else {
+    status.innerHTML += `<br>Defina a data da prova em <b>Configurações</b> para a trilha checar se o ritmo é suficiente.`;
+  }
+}
+
+function pontosDe(materiaId){
+  if(concursoAtivo === 'datprev') return PESOS[materiaId] ? PESOS[materiaId].pontos : 0;
+  const m = materias.find(x=>x.id===materiaId);
+  return (m && m.pesoPontos) ? m.pesoPontos : 0;
+}
+
+function totalPontosConcurso(){
+  if(concursoAtivo === 'datprev') return TOTAL_PONTOS;
+  return materias.reduce((a,m)=>a+(m.pesoPontos||0),0) || 1;
+}
+
+function notaCorteConcurso(){
+  if(concursoAtivo === 'datprev') return NOTA_CORTE;
+  const ed = EDITAIS[concursoAtivo];
+  return (ed && ed.notaCorte) || null;
+}
+
+function pontosPorTopico(materiaId){
+  const m = materias.find(x=>x.id===materiaId);
+  if(!m || !m.topicos.length) return 0;
+  return pontosDe(materiaId) / m.topicos.length;
+}
+
+function famDe(materiaId){ return (config.trilha.familiaridade||{})[materiaId] || 'novo'; }
+
+function minutosTopico(materiaId){
+  const ppt = pontosPorTopico(materiaId);
+  let base = ppt >= 2.5 ? 30 : ppt >= 1.5 ? 25 : 20;
+  const f = famDe(materiaId);
+  if(f === 'revisar') base = Math.max(10, Math.round(base*0.6));
+  if(f === 'domino')  base = Math.max(10, Math.round(base*0.4));
+  return base;
+}
+
+// Espalha os topicos de cada materia uniformemente pelo ciclo.
+// Como Especificos tem 30 dos 51 topicos, ele naturalmente ocupa ~59% dos slots.
+function gerarTrilha(){
+  const porDia = config.trilha.topicosPorDia || 4;
+  const itens = [];
+  materias.forEach(m=>{
+    const pend = m.topicos.filter(t=>!t.feito);
+    const n = pend.length || 1;
+    pend.forEach((t,j)=>{
+      itens.push({
+        materiaId:m.id, materiaNome:m.nome, bloco:m.bloco,
+        topicoId:t.id, topicoNome:t.nome,
+        chave:(j+0.5)/n, pontos:pontosDe(m.id),
+        min:minutosTopico(m.id), fam:famDe(m.id)
+      });
+    });
+  });
+  itens.sort((a,b)=> a.chave - b.chave || b.pontos - a.pontos);
+
+  // Nenhum dia pode ser de uma materia so: teto de (porDia-1) slots da mesma materia.
+  const teto = Math.max(1, porDia - 1);
+  const dias = [];
+  const pool = itens.slice();
+  while(pool.length){
+    const dia = [], cont = {};
+    for(let k=0; k<pool.length && dia.length<porDia; k++){
+      const it = pool[k];
+      if((cont[it.materiaId]||0) >= teto) continue;
+      cont[it.materiaId] = (cont[it.materiaId]||0) + 1;
+      dia.push(it); pool.splice(k,1); k--;
+    }
+    // sobrou so uma materia no fim do ciclo: aceita e fecha
+    while(dia.length < porDia && pool.length) dia.push(pool.shift());
+    dias.push(dia.sort((a,b)=> b.pontos - a.pontos));
+  }
+  return dias;
+}
+
+function setModoTrilha(modo){
+  config.trilha.modo = modo;
+  salvarConfigData();
+  renderTrilha();
+}
+
+function setFamiliaridade(materiaId, valor){
+  config.trilha.familiaridade[materiaId] = valor;
+  salvarConfigData();
+  renderTrilha();
+}
+
+function salvarTrilhaConfig(){
+  config.trilha.topicosPorDia = Number(document.getElementById('rngPorDia').value);
+  salvarConfigData();
+  renderTrilha();
+}
+
+function renderPesos(){
+  const datprev = concursoAtivo === 'datprev';
+  const linhas = (datprev
+    ? materias.map(m=>({m, p:PESOS[m.id]})).filter(x=>x.p).map(({m,p})=>({m, pontos:p.pontos, extra:`${p.q} questões × peso ${String(p.peso).replace('.',',')}`}))
+    : materias.map(m=>({m, pontos:pontosDe(m.id), extra:''}))
+  ).sort((a,b)=> b.pontos - a.pontos);
+  const total = totalPontosConcurso();
+  const maxP = Math.max(1, ...linhas.map(x=>x.pontos));
+  document.getElementById('trilhaPesos').innerHTML = linhas.map(({m,pontos,extra})=>{
+    const pct = total ? (pontos/total*100).toFixed(1) : '0.0';
+    const esp = datprev && m.bloco.indexOf('Módulo II') === 0;
+    return `<div class="peso-row">
+      <span>${m.nome}${extra?` <span class="slot-mat">· ${extra}</span>`:''}</span>
+      <span class="peso-bar"><i class="${esp?'':'geral'}" style="width:${pontos/maxP*100}%"></i></span>
+      <span class="peso-val"><b>${pontos}</b> pts · ${pct}%</span>
+    </div>`;
+  }).join('') + `<div class="peso-row tot">
+      <span>Total da prova objetiva</span><span></span>
+      <span class="peso-val" style="color:var(--accent)"><b style="color:var(--accent)">${total}</b> pts · 100%</span>
+    </div>`;
+}
+
+function renderInsights(){
+  const box = document.getElementById('trilhaInsights');
+  if(concursoAtivo === 'datprev'){
+    const esp = PESOS['especifico__perfil-1'];
+    const pctEsp = (esp.pontos/TOTAL_PONTOS*100).toFixed(0);
+    const ing = PESOS['geral__lingua-inglesa'];
+    const mIng = materias.find(x=>x.id==='geral__lingua-inglesa');
+    const pptIng = mIng ? (ing.pontos/mIng.topicos.length).toFixed(0) : '—';
+    box.innerHTML = `
+      <div class="insight">Conhecimentos Específicos são <b>${esp.pontos} dos ${TOTAL_PONTOS} pontos (${pctEsp}%)</b>. Cada questão vale 2,5 contra 1 do Módulo I — errar uma específica custa o mesmo que errar duas e meia de português.</div>
+      <div class="insight">Língua Inglesa vale <b>12 pontos num único tópico</b> ("Compreensão de textos e gramática"), ou ~${pptIng} pontos por tópico — a maior densidade do edital inteiro. É o item com melhor retorno por hora estudada, e a trilha o trata como prática recorrente, não como assunto que se fecha e nunca mais se vê.</div>
+      <div class="insight alerta">O item 9.17 exige <b>${String(NOTA_CORTE).replace('.',',')} pontos E não zerar nenhuma disciplina</b>. Raciocínio Lógico vale só 5 pontos, mas zerá-lo elimina você mesmo com nota alta. Por isso nenhuma matéria sai da trilha — mesmo as que você domina.</div>`;
+    return;
+  }
+  const total = totalPontosConcurso();
+  const linhas = materias.map(m=>({m,pontos:pontosDe(m.id)})).sort((a,b)=>b.pontos-a.pontos);
+  const maior = linhas[0];
+  let html = '';
+  if(maior && maior.pontos>0){
+    const pct = (maior.pontos/total*100).toFixed(0);
+    html += `<div class="insight"><b>${maior.m.nome}</b> é a matéria de maior peso no seu edital — responde por <b>${pct}%</b> da nota. A trilha prioriza o tempo nela sem tirar as outras de circulação.</div>`;
+  }
+  html += `<div class="insight alerta">Confira no seu edital se existe <b>nota de corte por matéria</b> ou eliminação por zerar disciplina — por segurança, a trilha inclui todas as matérias mesmo as que você já domina.</div>`;
+  box.innerHTML = html;
+}
+
+function renderFamiliaridade(){
+  const opts = [['novo','nunca vi'],['revisar','já vi'],['domino','domino']];
+  document.getElementById('trilhaFamiliaridade').innerHTML = materias.map(m=>{
+    const atual = famDe(m.id);
+    return `<div class="fam-row">
+      <span>${m.nome} <span class="slot-mat">· ${minutosTopico(m.id)} min/tópico</span></span>
+      <span class="fam-btns">${opts.map(([v,l])=>
+        `<button class="${atual===v?'on':''}" onclick="setFamiliaridade('${m.id}','${v}')">${l}</button>`
+      ).join('')}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderTrilha(){
+  if(!document.getElementById('trilhaPesos')) return;
+  document.getElementById('rngPorDia').value = config.trilha.topicosPorDia || 4;
+  document.getElementById('lblPorDia').textContent = config.trilha.topicosPorDia || 4;
+  document.getElementById('btnModoTrilha').classList.toggle('on', config.trilha.modo !== 'livre');
+  document.getElementById('btnModoLivre').classList.toggle('on', config.trilha.modo === 'livre');
+
+  renderPesos();
+  renderInsights();
+  renderFamiliaridade();
+
+  const alvo = document.getElementById('trilhaDias');
+  if(config.trilha.modo === 'livre'){
+    renderInicioTrilha(0);
+    alvo.innerHTML = '<div class="card"><p class="hint" style="margin:0">Modo livre: escolha os tópicos na aba <b>Matérias</b>, na ordem que quiser. Os pesos acima continuam valendo — use-os pra decidir. Volte pra trilha quando quiser.</p></div>';
+    return;
+  }
+
+  const dias = gerarTrilha();
+  if(!dias.length){
+    renderInicioTrilha(0);
+    alvo.innerHTML = '<div class="card"><p class="hint" style="margin:0">Todos os tópicos do edital estão marcados como feitos. A partir daqui o jogo é a aba <b>Revisões</b>.</p></div>';
+    return;
+  }
+
+  const meta = config.metaDiariaMin || 60;
+  const base = baseDaTrilha();
+  const hoje = diaDe(hojeISO());
+  renderInicioTrilha(dias.length);
+  const totalTop = materias.reduce((a,m)=>a+m.topicos.length,0);
+  const feitos = materias.reduce((a,m)=>a+m.topicos.filter(t=>t.feito).length,0);
+
+  alvo.innerHTML = `<div class="card" style="margin-bottom:12px;"><p class="hint" style="margin:0">
+      <b>${feitos}/${totalTop} tópicos</b> concluídos · restam <b>${dias.length} dias</b> de trilha
+      no ritmo de ${config.trilha.topicosPorDia} por dia. Os tópicos que valem mais ponto abrem o dia, quando você está mais fresco.
+    </p></div>` + dias.map((slots,i)=>{
+    const d = new Date(base); d.setDate(d.getDate()+i);
+    const eHoje = d.getTime() === hoje.getTime();
+    const dataTxt = d.toLocaleDateString('pt-BR',{weekday:'short', day:'2-digit', month:'2-digit'});
+    const min = slots.reduce((a,s)=>a+s.min,0);
+    return `<div class="dia-card ${eHoje?'hoje':''} ${!eHoje&&i===0?'futuro':''}">
+      <div class="dia-head">
+        <span class="dia-num">DIA ${i+1}</span>
+        <span class="dia-data">${eHoje?'hoje · ':''}${dataTxt}</span>
+        <span class="dia-min ${min>meta?'over':''}">${min} min${min>meta?' · acima da sua meta de '+meta:''}</span>
+      </div>
+      ${slots.map(s=>`<div class="slot">
+        <span class="slot-tag ${s.pontos>=75?'esp':''}">${s.pontos>=75?'ESPECÍFICO':'GERAL'}</span>
+        <span class="slot-top">${s.topicoNome}<br><span class="slot-mat">${s.materiaNome}${s.fam!=='novo'?' · '+(s.fam==='domino'?'revisão rápida':'já visto'):''}</span></span>
+        <span class="slot-min">${s.min} min</span>
+        <button class="btn-estudar" onclick="abrirSessaoEstudo('${s.materiaId}','${s.topicoId}','${esc(s.materiaNome)}','${esc(s.topicoNome)}','${esc(s.bloco)}')">Estudar</button>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+
+/* ============ BACKUP E SINCRONIZACAO ============ */
+function chavesDoConcurso(){ return [kMaterias(), kSessoes(), kQuestoes(), kRevisoes(), kConfig()]; }
+
+async function coletarSnapshot(){
+  const dados = {};
+  for(const k of chavesDoConcurso()){
+    try{ const r = await DB.get(k); dados[k] = r.value; }catch(e){}
+  }
+  return { app:'SIPC', versao:1, concurso:concursoAtivo, geradoEm:new Date().toISOString(), dados };
+}
+
+async function aplicarSnapshot(snap){
+  if(!snap || snap.app !== 'SIPC' || !snap.dados) throw new Error('não parece um backup do SIPC');
+  for(const k in snap.dados) await DB.set(k, snap.dados[k]);
+  await carregarConcurso();
+  renderTudo();
+}
+
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+function b64dec(b64){
+  const bin = atob(String(b64).replace(/\s/g,''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c=>c.charCodeAt(0)));
+}
+
+function bkStatus(msg, cor){
+  const el = document.getElementById('bkStatus');
+  if(el) el.innerHTML = `<span style="color:var(--${cor||'text-dim'})">${msg}</span>`;
+}
+
+async function exportarBackup(){
+  const snap = await coletarSnapshot();
+  const txt = JSON.stringify(snap, null, 2);
+  document.getElementById('bkTexto').value = txt;
+  bkStatus('Snapshot gerado. Copie o texto abaixo ou tente o download.', 'seal');
+  try{
+    const blob = new Blob([txt], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sipc-' + concursoAtivo + '-' + hojeISO() + '.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }catch(e){
+    bkStatus('Download bloqueado pelo sandbox — copie o texto abaixo manualmente.', 'accent');
+  }
+}
+
+async function importarBackup(){
+  try{
+    const snap = JSON.parse(document.getElementById('bkTexto').value);
+    await aplicarSnapshot(snap);
+    bkStatus('Backup restaurado de ' + new Date(snap.geradoEm).toLocaleString('pt-BR') + '.', 'seal');
+  }catch(e){ bkStatus('Falhou: ' + e.message, 'danger'); }
+}
+
+function salvarChaveApi(){
+  const v = document.getElementById('apiKey').value.trim();
+  if(!v){ bkStatus('Cole a chave antes de salvar.', 'danger'); return; }
+  localStorage.setItem('sipc::anthropic-key', v);
+  document.getElementById('apiKey').value = '';
+  bkStatus('Chave salva neste navegador.', 'seal');
+}
+
+function renderBackup(){
+  const el = document.getElementById('bkAmbiente');
+  if(!el) return;
+  if(emModoTeste()){
+    el.innerHTML = '🧪 <b>Modo teste</b> — nada do que você fizer está sendo salvo. Os dados somem ao recarregar a página.';
+  } else if(fbAuth && fbAuth.currentUser){
+    el.innerHTML = 'Conectado como <b>' + esc(fbAuth.currentUser.email) + '</b> — cada ação já é salva automaticamente no seu espaço privado no banco de dados.';
+  } else {
+    el.innerHTML = 'Sem conta e fora do modo teste — isso não deveria acontecer; recarregue a página.';
+  }
+}
+
+function renderContaResumo(){
+  const el = document.getElementById('contaResumo');
+  if(!el) return;
+  if(emModoTeste()){
+    el.innerHTML = `<p class="hint" style="margin:0 0 10px">Você está no modo teste — sem conta, nada é salvo.</p>
+      <button class="btn ghost" onclick="authAbrirParaEntrar()">Criar conta ou entrar</button>`;
+  } else if(fbAuth && fbAuth.currentUser){
+    el.innerHTML = `<div class="log-item"><span>${esc(fbAuth.currentUser.email)}</span><span class="badge ok">conta ativa</span></div>
+      <button class="btn ghost" style="margin-top:10px" onclick="authSair()">Sair da conta</button>`;
+  } else {
+    el.innerHTML = '<p class="hint" style="margin:0">—</p>';
+  }
+}
+
+function renderTudo(){
+  gerarProtocolo();
+  preencherSelects();
+  renderMaterias();
+  renderTrilha();
+  renderHoje();
+  renderSessoes();
+  renderQuestoes();
+  renderRevisoes();
+  renderStats();
+}
+
+async function registrarSessao(){
+  if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
+  const materiaId = document.getElementById('qMateria').value;
+  const minutos = Number(document.getElementById('qMinutos').value)||30;
+  sessoes.push({id:'s'+Date.now(), data:new Date().toISOString().slice(0,10), materiaId, minutos, notas:''});
+  await salvarSessoes();
+  renderTudo();
+}
+
+async function registrarSessaoCompleta(){
+  if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
+  const materiaId = document.getElementById('sMateria').value;
+  const minutos = Number(document.getElementById('sMinutos').value)||30;
+  const data = document.getElementById('sData').value || new Date().toISOString().slice(0,10);
+  const notas = document.getElementById('sNotas').value.trim();
+  sessoes.push({id:'s'+Date.now(), data, materiaId, minutos, notas});
+  await salvarSessoes();
+  document.getElementById('sNotas').value = '';
+  renderTudo();
+}
+
+let sessaoAtualMateriaId = null;
+let sessaoAtualTopicoId = null;
+
+function fecharSessaoEstudo(){
+  geracaoId++;
+  clearInterval(loadingIntervalId);
+  document.getElementById('modalEstudo').classList.remove('active');
+}
+
+let loadingIntervalId = null;
+let geracaoId = 0;
+
+async function abrirSessaoEstudo(materiaId, topicoId, materiaNome, topicoNome, bloco){
+  sessaoAtualMateriaId = materiaId;
+  sessaoAtualTopicoId = topicoId;
+  document.getElementById('modalTitulo').textContent = topicoNome;
+  document.getElementById('modalSubtitulo').textContent = materiaNome + ' · ' + bloco;
+  document.getElementById('modalAcoes').innerHTML = '';
+  document.getElementById('modalEstudo').classList.add('active');
+  mostrarLoadingConteudo();
+  await gerarConteudoSessao(materiaNome, topicoNome, bloco);
+}
+
+function mostrarLoadingConteudo(){
+  const msgs = ['Lendo o edital deste tópico...', 'Montando a teoria essencial...', 'Criando o mapa mental...', 'Quase lá, formatando o conteúdo...'];
+  let i = 0;
+  const el = document.getElementById('modalConteudo');
+  el.innerHTML = `<div class="loading-box"><div class="spinner"></div><div class="loading-msg" id="loadingMsg">${msgs[0]}</div></div>`;
+  clearInterval(loadingIntervalId);
+  loadingIntervalId = setInterval(()=>{
+    i = (i+1) % msgs.length;
+    const m = document.getElementById('loadingMsg');
+    if(m) m.textContent = msgs[i];
+  }, 3500);
+}
+
+function wrapMapaMental(html){
+  const idx = html.indexOf('🗺️');
+  if(idx === -1) return html;
+  const h2Start = html.lastIndexOf('<h2', idx);
+  const h2End = html.indexOf('</h2>', idx) + '</h2>'.length;
+  if(h2Start === -1 || h2End === -1) return html;
+  const afterH2 = html.slice(h2End);
+  const nextH2 = afterH2.search(/<h2/);
+  const sectionEnd = nextH2 === -1 ? afterH2.length : nextH2;
+  const mapaContent = afterH2.slice(0, sectionEnd);
+  const rest = afterH2.slice(sectionEnd);
+  const heading = html.slice(h2Start, h2End);
+  const before = html.slice(0, h2Start);
+  return before + heading + '<div class="mapa-mental">' + mapaContent + '</div>' + rest;
+}
+
+async function gerarConteudoSessao(materiaNome, topicoNome, bloco){
+  const systemPrompt = `Você é o motor de conteúdo do SIPC, para o concurso DATAPREV 2026, banca FGV, cargo Analista de Tecnologia da Informação - Perfil 1 Análise de Negócios de TI.
+Gere o conteúdo de estudo no "Modo 30 minutos": precisa caber em cerca de 15 minutos de leitura, então seja CONCISO em cada seção - frases curtas, sem redundância. Responda em Markdown, seguindo EXATAMENTE esta estrutura de títulos (use estes emojis e este texto de título, sem variar):
+
+# [Matéria — Tópico]
+
+## 🎯 Por que isso existe
+Uma frase curta: motivo prático ou histórico.
+
+## 🔗 Analogia com o dia a dia
+Um parágrafo curto (2-3 frases) com analogia fora do universo de TI/concursos. OMITA esta seção inteira se o tópico já for bem concreto.
+
+## 📍 Onde cai na prova
+Uma linha sobre como isso costuma ser cobrado.
+
+## 📚 Teoria essencial
+Só os conceitos que realmente caem, direto ao ponto, sem redundância. Use ### para subtópicos, **negrito** para termos-chave, e tabelas Markdown reais (| coluna |) quando o conteúdo for comparativo.
+
+## 🗺️ Mapa mental
+IMPORTANTE: nunca desenhe árvore em ASCII nem use bloco de código. Use APENAS uma lista Markdown aninhada de verdade, com hífen e indentação (2 espaços por nível), assim:
+- Conceito central
+  - Ramo 1
+    - Sub-ramo
+  - Ramo 2
+Máximo 3 níveis, frases muito curtas (2-4 palavras) em cada item.
+
+Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não existe. Seja direto e conciso - isso precisa ser rápido de gerar e rápido de ler.`;
+
+  const el = document.getElementById('modalConteudo');
+  const meuId = ++geracaoId;
+  const cancelado = () => meuId !== geracaoId;
+
+  let texto = '', primeiroToken = false, ultimoRender = 0;
+
+  function marcarPrimeiroToken(){
+    if(primeiroToken) return;
+    primeiroToken = true;
+    clearInterval(loadingIntervalId);
+  }
+
+  function render(final){
+    ultimoRender = Date.now();
+    el.innerHTML = wrapMapaMental(marked.parse(texto)) + (final ? '' : '<span class="stream-cursor"></span>');
+  }
+
+  // consome um pedaco de SSE e devolve o que sobrou incompleto no buffer
+  function consumirSSE(buffer){
+    const linhas = buffer.split('\n');
+    const resto = linhas.pop();
+    for(const linha of linhas){
+      if(!linha.startsWith('data:')) continue;
+      const payload = linha.slice(5).trim();
+      if(!payload || payload === '[DONE]') continue;
+      let ev; try{ ev = JSON.parse(payload); }catch(_){ continue; }
+      if(ev.type === 'error') throw new Error(ev.error?.message || 'erro no stream');
+      if(ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta'){
+        marcarPrimeiroToken();
+        texto += ev.delta.text;
+        if(Date.now() - ultimoRender > 80) render(false);
+      }
+    }
+    return resto;
+  }
+
+  const timeoutPromise = new Promise((_, reject) => setTimeout(()=>reject(new Error('timeout')), 60000));
+
+  try{
+    // sem AbortSignal: o fetch daqui e um shim via postMessage e nao aceita objetos nao-clonaveis
+    const response = await Promise.race([
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1300,
+          stream: true,
+          system: systemPrompt,
+          messages: [{ role: "user", content: `Gere o conteúdo de: ${materiaNome} — ${topicoNome} (${bloco}).` }]
+        })
+      }),
+      timeoutPromise
+    ]);
+    if(!response.ok) throw new Error('resposta '+response.status);
+
+    const temStream = response.body && typeof response.body.getReader === 'function';
+
+    if(temStream){
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while(true){
+        const {done, value} = await reader.read();
+        if(done) break;
+        if(cancelado()) return;
+        buffer += decoder.decode(value, {stream:true});
+        buffer = consumirSSE(buffer);
+      }
+      consumirSSE(buffer + '\n');
+    } else {
+      // shim devolveu tudo de uma vez: pode vir como SSE cru ou como JSON normal
+      const bruto = await response.text();
+      if(cancelado()) return;
+      if(bruto.includes('data:')){
+        consumirSSE(bruto + '\n');
+      } else {
+        const data = JSON.parse(bruto);
+        texto = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+        marcarPrimeiroToken();
+      }
+    }
+
+    if(cancelado()) return;
+    if(!texto.trim()) throw new Error('veio resposta, mas sem texto');
+    render(true);
+    renderAcoesModal(materiaNome, topicoNome);
+  }catch(e){
+    clearInterval(loadingIntervalId);
+    if(cancelado()) return;
+    const msg = e.message === 'timeout'
+      ? 'Demorou mais de 60s e eu cancelei a espera.'
+      : 'Não consegui gerar o conteúdo agora ('+e.message+').';
+    el.innerHTML = '<p style="color:var(--danger)">'+msg+'</p>';
+    document.getElementById('modalAcoes').innerHTML = `<button class="btn ghost" onclick="mostrarLoadingConteudo();gerarConteudoSessao('${esc(materiaNome)}','${esc(topicoNome)}','${esc(bloco)}')">Tentar de novo</button>`;
+  }
+}
+
+function renderAcoesModal(materiaNome, topicoNome){
+  const m = materias.find(mm=>mm.id===sessaoAtualMateriaId);
+  const t = m ? m.topicos.find(tt=>tt.id===sessaoAtualTopicoId) : null;
+  const jaFeito = t && t.feito;
+  const query = encodeURIComponent((materiaNome||m?.nome||'') + ' ' + (topicoNome||t?.nome||'') + ' concurso FGV');
+  document.getElementById('modalAcoes').innerHTML = `
+    <button class="btn" onclick="marcarEstudadoESair()">${jaFeito ? '✓ Já marcado como estudado' : 'Marcar como estudado'}</button>
+    <button class="btn ghost" onclick="fecharSessaoEstudo()">Fechar sem marcar</button>
+    <div class="recursos-externos" style="width:100%">
+      <a class="recurso-link" href="https://www.youtube.com/results?search_query=${query}" target="_blank" rel="noopener">▶ Buscar vídeo no YouTube</a>
+      <a class="recurso-link" href="https://www.google.com/search?tbm=isch&q=${query}" target="_blank" rel="noopener">🖼 Buscar imagens</a>
+    </div>
+  `;
+}
+
+async function marcarEstudadoESair(){
+  const m = materias.find(mm=>mm.id===sessaoAtualMateriaId);
+  const t = m ? m.topicos.find(tt=>tt.id===sessaoAtualTopicoId) : null;
+  if(t && !t.feito){
+    t.feito = true;
+    if(!emModoTeste()) await salvarMaterias();
+    renderTudo();
+  }
+  fecharSessaoEstudo();
+}
+
+let questoesGeradas = null;
+let questoesGeradasMateriaId = null;
+let questoesGeradasDificuldade = null;
+
+async function gerarQuestoesAPI(){
+  const materiaId = document.getElementById('qgMateria').value;
+  const dificuldade = document.getElementById('qgDificuldade').value;
+  const m = materias.find(mm=>mm.id===materiaId);
+  if(!m) return;
+
+  const btn = document.getElementById('btnGerarQ');
+  const area = document.getElementById('areaQuestoesGeradas');
+  btn.disabled = true;
+  btn.textContent = 'Gerando...';
+  area.innerHTML = '<div class="card"><p style="color:var(--text-dim);margin:0">Gerando 10 questões estilo FGV sobre "'+m.nome+'"...</p></div>';
+
+  const systemPrompt = `Você é o motor de questões do SIPC, para o concurso DATAPREV 2026, banca FGV, cargo Analista de Tecnologia da Informação - Perfil 1 Análise de Negócios de TI.
+Gere exatamente 10 questões de múltipla escolha (alternativas A a E, uma única correta) sobre o tópico indicado pelo usuário, no estilo real da banca FGV. Calibre pelo padrão observado historicamente em provas da FGV (formato do enunciado, tipo de pegadinha, nível de profundidade) sem NUNCA reproduzir texto de questão real - as 10 questões devem ser inéditas.
+Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; distribua o gabarito de forma equilibrada entre as 5 letras (aproximadamente 2 de cada); dificuldade: ${dificuldade}; seja conciso - enunciados e alternativas curtos, justificativa de no máximo 1 frase por questão, para caber no limite de tokens.
+Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato:
+{"questoes":[{"enunciado":"...","alternativas":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correta":"B","justificativa":"..."}]}
+O array "questoes" deve ter exatamente 10 itens.`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: apiHeaders(),
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: "user", content: `Gere as 10 questões sobre: ${m.nome} (${m.bloco}).` }]
+      })
+    });
+    const data = await response.json();
+    const textoResposta = (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+    const limpo = textoResposta.replace(/```json|```/g,'').trim();
+
+    let parsed;
+    try{
+      parsed = JSON.parse(limpo);
+    }catch(parseErr){
+      // resposta pode ter sido cortada - tenta recuperar só as questões completas
+      const matches = limpo.match(/\{"enunciado".*?"justificativa":"[^"]*"\}/gs) || [];
+      if(!matches.length) throw parseErr;
+      parsed = { questoes: matches.map(s=>{ try{ return JSON.parse(s); }catch(e){ return null; } }).filter(Boolean) };
+    }
+    if(!parsed.questoes || !parsed.questoes.length) throw new Error('formato inesperado');
+
+    questoesGeradas = parsed.questoes;
+    questoesGeradasMateriaId = materiaId;
+    questoesGeradasDificuldade = dificuldade;
+    renderQuestoesGeradas();
+  }catch(e){
+    area.innerHTML = '<div class="card"><p style="color:var(--danger);margin:0">Não consegui gerar as questões agora (erro: '+e.message+'). Tenta de novo.</p></div>';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Gerar 10 questões';
+  }
+}
+
+function renderQuestoesGeradas(){
+  const area = document.getElementById('areaQuestoesGeradas');
+  const letras = ['A','B','C','D','E'];
+  area.innerHTML = `
+    <div class="card">
+      ${questoesGeradas.map((q,i)=>`
+        <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+          <p style="font-weight:600;font-size:13px;margin:0 0 8px">${i+1}. ${q.enunciado}</p>
+          ${letras.map(l=>`
+            <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0;cursor:pointer">
+              <input type="radio" name="resp-${i}" value="${l}" style="margin-top:3px">
+              <span><b>${l})</b> ${q.alternativas[l]}</span>
+            </label>
+          `).join('')}
+        </div>
+      `).join('')}
+      <button class="btn" onclick="corrigirQuestoesGeradas()">Corrigir</button>
+      <div id="resultadoCorrecao"></div>
+    </div>`;
+}
+
+async function corrigirQuestoesGeradas(){
+  const letras = ['A','B','C','D','E'];
+  let acertos = 0;
+  const detalhes = questoesGeradas.map((q,i)=>{
+    const sel = document.querySelector(`input[name="resp-${i}"]:checked`);
+    const respondida = sel ? sel.value : null;
+    const acertou = respondida === q.correta;
+    if(acertou) acertos++;
+    return {q, i, respondida, acertou};
+  });
+
+  const teste = emModoTeste();
+
+  document.getElementById('resultadoCorrecao').innerHTML = `
+    <div class="section-title">Resultado: ${acertos}/${questoesGeradas.length}</div>
+    ${detalhes.map(d=>`
+      <div style="margin-bottom:10px;font-size:13px">
+        <span class="badge ${d.acertou?'ok':'warn'}">${d.i+1}. ${d.acertou?'Certa':'Errada'} — gabarito: ${d.q.correta}${d.respondida?' · você: '+d.respondida:' · não respondida'}</span>
+        <p style="color:var(--text-dim);margin:4px 0 0">${d.q.justificativa||''}</p>
+      </div>
+    `).join('')}
+    ${teste
+      ? '<p style="color:var(--danger);font-size:12px;margin-top:10px">🧪 Modo teste ligado — este resultado NÃO foi salvo.</p>'
+      : '<p style="color:var(--seal);font-size:12px;margin-top:10px">✓ Resultado já registrado no seu histórico e nas revisões, se necessário.</p>'
+    }
+  `;
+
+  if(teste) return;
+
+  const data = new Date().toISOString().slice(0,10);
+  questoes.push({id:'q'+Date.now(), materiaId: questoesGeradasMateriaId, dificuldade: questoesGeradasDificuldade, qtd: questoesGeradas.length, acertos, data});
+  await salvarQuestoes();
+
+  if(acertos < questoesGeradas.length){
+    const jaExiste = revisoes.some(r=>r.materiaId===questoesGeradasMateriaId && !r.topicoNome);
+    if(!jaExiste){
+      const prox = new Date(); prox.setDate(prox.getDate()+1);
+      revisoes.push({id:'r'+Date.now(), materiaId: questoesGeradasMateriaId, topicoNome:'', proximaData: prox.toISOString().slice(0,10)});
+      await salvarRevisoes();
+    }
+  }
+  renderTudo();
+}
+
+async function registrarQuestoes(){
+  if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
+  const materiaId = document.getElementById('qtMateria').value;
+  const dificuldade = document.getElementById('qtDificuldade').value;
+  const qtd = Number(document.getElementById('qtQtd').value)||10;
+  const acertos = Math.min(Number(document.getElementById('qtAcertos').value)||0, qtd);
+  const data = new Date().toISOString().slice(0,10);
+  questoes.push({id:'q'+Date.now(), materiaId, dificuldade, qtd, acertos, data});
+  await salvarQuestoes();
+
+  if(acertos < qtd){
+    const m = materias.find(mm=>mm.id===materiaId);
+    const jaExiste = revisoes.some(r=>r.materiaId===materiaId && !r.topicoNome);
+    if(!jaExiste){
+      const prox = new Date(); prox.setDate(prox.getDate()+1);
+      revisoes.push({id:'r'+Date.now(), materiaId, topicoNome:'', proximaData: prox.toISOString().slice(0,10)});
+      await salvarRevisoes();
+    }
+  }
+  renderTudo();
+}
+
+async function salvarConfig(){
+  config.provaData = document.getElementById('cProva').value;
+  config.metaDiariaMin = Number(document.getElementById('cMeta').value)||60;
+  await salvarConfigData();
+  renderHoje();
+  renderTrilha();
+}
+
+async function resetarTudo(){
+  if(!confirm('Tem certeza? Isso apaga todo o progresso e histórico salvos deste concurso.')) return;
+  materias = materiasIniciais();
+  sessoes = [];
+  questoes = [];
+  revisoes = [];
+  await salvarMaterias();
+  await salvarSessoes();
+  await salvarQuestoes();
+  await salvarRevisoes();
+  renderTudo();
+}
+
+/* ============ PERFIL E ONBOARDING ============ */
+let perfil = null; // {nome,email,telefone,horario,notificacoesAtivas}
+const K_PERFIL = 'perfil-usuario';
+
+async function carregarPerfil(){
+  try{ const r = await DB.get(K_PERFIL); perfil = JSON.parse(r.value); }
+  catch(e){ perfil = null; }
+}
+async function salvarPerfil(){ await DB.set(K_PERFIL, JSON.stringify(perfil)); }
+
+let onbStep = 1;
+const ONB_TOTAL = 5;
+let onbDraft = {};
+let onbEditando = false;
+
+function abrirOnboarding(editando){
+  onbEditando = !!editando;
+  onbDraft = perfil ? {...perfil} : { nome:'', email:'', telefone:'', horario:'19:00', notificacoesAtivas:false };
+  if(fbAuth && fbAuth.currentUser) onbDraft.email = fbAuth.currentUser.email;
+  onbDraft.metaDiariaMin = config.metaDiariaMin || 60;
+  onbDraft.topicosPorDia = (config.trilha && config.trilha.topicosPorDia) || 4;
+  onbDraft.provaData = config.provaData || '';
+  onbDraft.inicio = (config.trilha && config.trilha.inicio) || hojeISO();
+  onbStep = 1;
+  document.getElementById('onboardingOverlay').classList.add('active');
+  renderOnboardingStep();
+  atualizarNagBanner();
+}
+function fecharOnboarding(){
+  document.getElementById('onboardingOverlay').classList.remove('active');
+  atualizarNagBanner();
+}
+
+function atualizarNagBanner(){
+  const el = document.getElementById('perfilNagBanner');
+  if(!el) return;
+  const overlayAberto = document.getElementById('onboardingOverlay').classList.contains('active');
+  el.classList.toggle('active', !perfil && !overlayAberto);
+}
+
+function onbDots(){
+  let html = '<div class="onb-dots">';
+  for(let i=1;i<=ONB_TOTAL;i++) html += `<span class="${i<onbStep?'done':(i===onbStep?'on':'')}"></span>`;
+  return html+'</div>';
+}
+
+function capturarEtapaAtual(){
+  if(onbStep===1){
+    const n = document.getElementById('onbNome'), e = document.getElementById('onbEmail');
+    if(n) onbDraft.nome = n.value.trim();
+    if(e) onbDraft.email = e.value.trim();
+  }
+  if(onbStep===2){
+    const t = document.getElementById('onbTelefone'), h = document.getElementById('onbHorario');
+    if(t) onbDraft.telefone = t.value.trim();
+    if(h) onbDraft.horario = h.value || onbDraft.horario;
+  }
+  if(onbStep===3){
+    const m = document.getElementById('onbTempo'), tp = document.getElementById('onbTopicos');
+    if(m) onbDraft.metaDiariaMin = Number(m.value) || onbDraft.metaDiariaMin;
+    if(tp) onbDraft.topicosPorDia = Number(tp.value) || onbDraft.topicosPorDia;
+  }
+  if(onbStep===4){
+    const p = document.getElementById('onbProva'), i = document.getElementById('onbInicio');
+    if(p) onbDraft.provaData = p.value || '';
+    if(i) onbDraft.inicio = i.value || onbDraft.inicio;
+  }
+}
+
+function onbVoltar(){ capturarEtapaAtual(); if(onbStep>1){ onbStep--; renderOnboardingStep(); } }
+function onbAvancar(){
+  capturarEtapaAtual();
+  if(onbStep < ONB_TOTAL){ onbStep++; renderOnboardingStep(); }
+  else finalizarOnboarding();
+}
+
+async function onbPedirNotificacao(){
+  if(!('Notification' in window)){
+    const el = document.getElementById('onbNotifStatus');
+    if(el) el.innerHTML = '<span class="st off">Este navegador não suporta notificações</span>';
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  onbDraft.notificacoesAtivas = perm === 'granted';
+  renderOnbNotifStatus();
+}
+function renderOnbNotifStatus(){
+  const el = document.getElementById('onbNotifStatus');
+  if(!el) return;
+  if(!('Notification' in window)){ el.innerHTML = '<span class="st off">Não suportado neste navegador</span>'; return; }
+  const perm = Notification.permission;
+  if(perm === 'granted' && onbDraft.notificacoesAtivas) el.innerHTML = '<span class="st on">✓ Ativadas</span>';
+  else if(perm === 'denied') el.innerHTML = '<span class="st off">Bloqueadas — ative nas permissões do navegador</span>';
+  else el.innerHTML = '<span class="st">Não ativadas</span>';
+}
+
+function onbIlustracao(step){
+  const svgs = {
+    1: `<svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="46" fill="var(--accent-soft)"/><g class="float"><rect x="24" y="30" width="48" height="36" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="3"/><circle cx="38" cy="46" r="6" fill="var(--accent)"/><rect x="50" y="42" width="16" height="3.5" rx="1.75" fill="var(--accent)" opacity=".55"/><rect x="50" y="49" width="12" height="3.5" rx="1.75" fill="var(--accent)" opacity=".35"/><rect x="30" y="58" width="36" height="3.5" rx="1.75" fill="var(--accent)" opacity=".25"/></g></svg>`,
+    2: `<svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="46" fill="var(--warn-soft)"/><g class="float"><path d="M48 26c-8 0-13 6-13 15v9l-5 8h36l-5-8v-9c0-9-5-15-13-15z" fill="var(--warn)"/><path d="M41 62a7 7 0 0 0 14 0" stroke="var(--warn)" stroke-width="3.5" fill="none" stroke-linecap="round"/><circle cx="67" cy="33" r="11" fill="var(--surface)" stroke="var(--warn)" stroke-width="3"/><path d="M67 28v6l4 3" stroke="var(--warn)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`,
+    3: `<svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="46" fill="var(--accent-soft)"/><g class="float"><rect x="41" y="20" width="14" height="7" rx="3.5" fill="var(--accent)"/><path d="M64 30l5 5" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/><circle cx="48" cy="55" r="23" fill="var(--surface)" stroke="var(--accent)" stroke-width="4"/><path d="M48 55V40" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round"/><path d="M48 55l11 6" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round"/></g></svg>`,
+    4: `<svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="46" fill="var(--seal-soft)"/><g class="float"><rect x="25" y="30" width="46" height="39" rx="7" fill="var(--surface)" stroke="var(--seal)" stroke-width="3"/><path d="M25 41h46" stroke="var(--seal)" stroke-width="3"/><path d="M36 24v10M60 24v10" stroke="var(--seal)" stroke-width="3.5" stroke-linecap="round"/><circle cx="60" cy="55" r="10" fill="var(--seal)"/><path d="M56 55l3 3 6-6" stroke="var(--surface)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`,
+    5: `<svg viewBox="0 0 96 96" fill="none"><circle cx="48" cy="48" r="46" fill="var(--seal-soft)"/><g class="float"><circle cx="48" cy="48" r="25" fill="var(--seal)"/><path d="M38 49l7 7 14-14" stroke="var(--surface)" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g></svg>`
+  };
+  return `<div class="onb-illus">${svgs[step]||''}</div>`;
+}
+
+function renderOnboardingStep(){
+  const box = document.getElementById('onboardingBox');
+  let corpo = '';
+  if(onbStep===1){
+    corpo = `
+      ${onbIlustracao(1)}
+      <div class="onb-eyebrow">Passo 1 de ${ONB_TOTAL} · Quem é você</div>
+      <h2 class="onb-title">Bem-vindo(a) ao SIPC</h2>
+      <p class="onb-sub">Antes de montar sua trilha pro ${EDITAIS[concursoAtivo].nome}, algumas perguntas rápidas.</p>
+      <button class="btn ghost mini" onclick="abrirEditalModal()" style="margin-bottom:16px">📎 Estudando outro concurso? Adicionar meu edital</button>
+      <div class="onb-field"><label class="f">Seu nome</label><input type="text" id="onbNome" value="${esc(onbDraft.nome||'')}" placeholder="Como quer ser chamado"></div>
+      ${(fbAuth && fbAuth.currentUser) ? '' : `<div class="onb-field"><label class="f">E-mail</label><input type="text" id="onbEmail" value="${esc(onbDraft.email||'')}" placeholder="seu@email.com"></div>`}`;
+  } else if(onbStep===2){
+    corpo = `
+      ${onbIlustracao(2)}
+      <div class="onb-eyebrow">Passo 2 de ${ONB_TOTAL} · Lembrete</div>
+      <h2 class="onb-title">Quando te lembrar de estudar</h2>
+      <p class="onb-sub">O lembrete é uma notificação do navegador — não é WhatsApp de verdade, então só chega com a aba (ou o navegador) aberta no horário. O telefone fica salvo caso um lembrete por WhatsApp seja conectado no futuro.</p>
+      <div class="onb-row2">
+        <div class="onb-field"><label class="f">Telefone (opcional)</label><input type="text" id="onbTelefone" value="${esc(onbDraft.telefone||'')}" placeholder="(11) 90000-0000"></div>
+        <div class="onb-field"><label class="f">Horário preferido</label><input type="time" id="onbHorario" value="${onbDraft.horario||'19:00'}"></div>
+      </div>
+      <div class="onb-notif-btn">
+        <div><div style="font-weight:600;font-size:13px">Ativar notificação do navegador</div><div id="onbNotifStatus" class="st">Não ativadas</div></div>
+        <button class="btn ghost mini" onclick="onbPedirNotificacao()">Ativar</button>
+      </div>`;
+  } else if(onbStep===3){
+    corpo = `
+      ${onbIlustracao(3)}
+      <div class="onb-eyebrow">Passo 3 de ${ONB_TOTAL} · Seu ritmo</div>
+      <h2 class="onb-title">Quanto tempo e quantas matérias</h2>
+      <p class="onb-sub">Isso define sua meta diária e como a trilha distribui os 51 tópicos do edital.</p>
+      <div class="onb-field"><label class="f">Minutos disponíveis por dia — <span id="onbTempoLbl">${onbDraft.metaDiariaMin||60}</span> min</label>
+        <input type="range" id="onbTempo" min="15" max="240" step="15" value="${onbDraft.metaDiariaMin||60}" oninput="document.getElementById('onbTempoLbl').textContent=this.value"></div>
+      <div class="onb-field"><label class="f">Tópicos por dia — <span id="onbTopicosLbl">${onbDraft.topicosPorDia||4}</span></label>
+        <input type="range" id="onbTopicos" min="2" max="6" value="${onbDraft.topicosPorDia||4}" oninput="document.getElementById('onbTopicosLbl').textContent=this.value"></div>
+      <p class="hint">A trilha mistura matérias diferentes a cada dia sozinha — você só define o ritmo.</p>`;
+  } else if(onbStep===4){
+    corpo = `
+      ${onbIlustracao(4)}
+      <div class="onb-eyebrow">Passo 4 de ${ONB_TOTAL} · Datas</div>
+      <h2 class="onb-title">Sua prova e seu início</h2>
+      <div class="onb-row2">
+        <div class="onb-field"><label class="f">Data da prova (se souber)</label><input type="date" id="onbProva" value="${onbDraft.provaData||''}"></div>
+        <div class="onb-field"><label class="f">Quando você começa</label><input type="date" id="onbInicio" value="${onbDraft.inicio||hojeISO()}" min="${hojeISO()}"></div>
+      </div>
+      <p class="hint">Sem data da prova, a trilha roda do mesmo jeito — só não avisa se o ritmo é suficiente.</p>`;
+  } else if(onbStep===5){
+    corpo = `
+      ${onbIlustracao(5)}
+      <div class="onb-eyebrow">Passo 5 de ${ONB_TOTAL} · Confirmar</div>
+      <h2 class="onb-title">Tudo pronto, ${esc(onbDraft.nome||'estudante')}</h2>
+      <div class="onb-resumo">
+        <div>Meta diária: <b>${onbDraft.metaDiariaMin||60} min</b> · <b>${onbDraft.topicosPorDia||4}</b> tópicos/dia</div>
+        <div>Lembrete: <b>${onbDraft.horario||'19:00'}</b> ${onbDraft.notificacoesAtivas?'· notificação ativada':'· notificação não ativada'}</div>
+        <div>Início da trilha: <b>${new Date((onbDraft.inicio||hojeISO())+'T00:00').toLocaleDateString('pt-BR')}</b></div>
+        <div>Prova: <b>${onbDraft.provaData ? new Date(onbDraft.provaData+'T00:00').toLocaleDateString('pt-BR') : 'ainda não definida'}</b></div>
+      </div>
+      <p class="hint" style="margin-top:12px">Dá pra mudar tudo isso depois em Configurações.</p>`;
+  }
+
+  box.innerHTML = `<button class="modal-close" onclick="fecharOnboarding()" title="Fechar — você pode configurar depois">✕</button>`
+    + onbDots() + corpo + `
+    <div class="onb-actions">
+      ${onbStep>1 ? `<button class="btn ghost" onclick="onbVoltar()">Voltar</button>` : (onbEditando ? `<button class="btn ghost" onclick="fecharOnboarding()">Cancelar</button>` : `<span></span>`)}
+      <button class="btn" onclick="onbAvancar()">${onbStep<ONB_TOTAL?'Continuar':(onbEditando?'Salvar':'Começar minha trilha')}</button>
+    </div>`;
+  if(onbStep===2) renderOnbNotifStatus();
+}
+
+async function finalizarOnboarding(){
+  perfil = {
+    nome: onbDraft.nome||'', email: onbDraft.email||'', telefone: onbDraft.telefone||'',
+    horario: onbDraft.horario||'19:00', notificacoesAtivas: !!onbDraft.notificacoesAtivas
+  };
+  await salvarPerfil();
+
+  config.metaDiariaMin = onbDraft.metaDiariaMin || 60;
+  if(!config.trilha) config.trilha = { modo:'trilha', topicosPorDia:4, familiaridade:{}, inicio:null };
+  config.trilha.topicosPorDia = onbDraft.topicosPorDia || 4;
+  config.trilha.inicio = onbDraft.inicio || hojeISO();
+  config.trilha.modo = 'trilha';
+  config.provaData = onbDraft.provaData || '';
+  await salvarConfigData();
+
+  document.getElementById('onboardingOverlay').classList.remove('active');
+  document.getElementById('cProva').value = config.provaData || '';
+  document.getElementById('cMeta').value = config.metaDiariaMin || 60;
+  renderTudo();
+  renderPerfilResumo();
+  atualizarNagBanner();
+  const abaTrilha = document.querySelector('.tab[data-tab="trilha"]');
+  if(abaTrilha) abaTrilha.click();
+}
+
+function renderPerfilResumo(){
+  const el = document.getElementById('perfilResumo');
+  if(!el) return;
+  if(!perfil){ el.innerHTML = '<p class="hint" style="margin:0">Perfil ainda não configurado.</p>'; return; }
+  const notifOk = ('Notification' in window) && Notification.permission==='granted' && perfil.notificacoesAtivas;
+  const notifTxt = notifOk ? '<span class="badge ok">ativadas</span>' : '<span class="badge warn">desativadas</span>';
+  el.innerHTML = `
+    <div class="log-item"><span>${esc(perfil.nome||'—')}${perfil.email?' · '+esc(perfil.email):''}</span><span class="meta">${esc(perfil.telefone||'sem telefone')}</span></div>
+    <div class="log-item"><span>Lembrete diário às <b>${perfil.horario||'—'}</b></span>${notifTxt}</div>`;
+}
+
+/* Checagem periódica do lembrete — só funciona com a aba/navegador aberto,
+   já que a página não tem service worker nem envio próprio de notificações. */
+function checarLembreteEstudo(){
+  if(!perfil || !perfil.notificacoesAtivas) return;
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const agora = new Date();
+  const hhmm = String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+  if(hhmm !== perfil.horario) return;
+  const hoje = hojeISO();
+  if(localStorage.getItem('sipc::notif-ultima-data') === hoje) return;
+  localStorage.setItem('sipc::notif-ultima-data', hoje);
+  try{
+    new Notification('Hora de estudar — ' + EDITAIS[concursoAtivo].nome, {
+      body: (perfil.nome ? perfil.nome+', seu' : 'Seu') + ' horário de estudo chegou. ' + progressoGeral() + '% do edital concluído.'
+    });
+  }catch(e){}
+}
+setInterval(checarLembreteEstudo, 30000);
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+async function iniciarApp(){
+  await carregarEditaisCustom();
+  try{
+    const r = await DB.get('concurso-ativo');
+    concursoAtivo = r.value;
+  }catch(e){ concursoAtivo = 'datprev'; }
+  if(!EDITAIS[concursoAtivo]){ concursoAtivo = Object.keys(EDITAIS)[0]; }
+  await carregarConcurso();
+  await carregarPerfil();
+  renderPerfilResumo();
+  renderContaResumo();
+  renderBackup();
+  atualizarNagBanner();
+  if(!perfil) abrirOnboarding(false);
+}
+
+function initShell(){
+  try{ modoTeste = JSON.parse(localStorage.getItem('sipc::pref-modo-teste') || 'false'); }catch(e){ modoTeste = false; }
+  document.getElementById('chkModoTeste').checked = modoTeste;
+  document.getElementById('testBanner').classList.toggle('active', modoTeste);
+
+  if(!firebaseConfigurado){
+    // sem Firebase configurado: só dá pra usar em modo teste
+    if(modoTeste){ esconderAuthOverlay(); iniciarApp(); }
+    else mostrarAuthOverlay();
+    return;
+  }
+
+  fbAuth.onAuthStateChanged(async (user) => {
+    if(user){
+      modoTeste = false;
+      document.getElementById('chkModoTeste').checked = false;
+      document.getElementById('testBanner').classList.remove('active');
+      esconderAuthOverlay();
+      await iniciarApp();
+    } else if(modoTeste){
+      esconderAuthOverlay();
+      await iniciarApp();
+    } else {
+      mostrarAuthOverlay();
+    }
+  });
+}
+
+initShell();
+</script>
+</body>
+</html>

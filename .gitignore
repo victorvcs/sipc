@@ -1,0 +1,28 @@
+# Dependências
+node_modules/
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*.log
+
+# Lixo do Windows / OneDrive
+Thumbs.db
+desktop.ini
+ehthumbs.db
+*~
+# Arquivos de conflito gerados pelo OneDrive ao sincronizar
+*-*[Cc]onflito*
+*[Cc]ópia em Conflito*
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Arquivos locais com segredos de verdade (a firebaseConfig NÃO entra aqui:
+# ela é pública por design e deve ser versionada junto com o HTML).
+.env
+.env.local
+*.local

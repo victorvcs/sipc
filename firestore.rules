@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// SIPC — Regras de Segurança do Firestore
+//
+// Cada usuário autenticado só enxerga e escreve dentro da própria subárvore
+// users/{uid}/sipc/{doc}. É ESTA regra — e não o sigilo da firebaseConfig —
+// que protege os dados de cada pessoa. Sem ela (ou em "modo de teste" do
+// console, que expira), qualquer pessoa com o link do projeto consegue ler
+// o banco inteiro.
+//
+// Para publicar: Console Firebase › Firestore Database › aba "Rules" ›
+// colar este conteúdo › Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Dados de estudo do usuário: matérias, progresso, sessões, questões, perfil.
+    // O app grava em users/{uid}/sipc/{chave} (ver o objeto DB no HTML).
+    match /users/{uid}/sipc/{doc} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Tudo o mais fica bloqueado por padrão. Negar explicitamente evita que
+    // uma coleção criada por engano no futuro nasça aberta.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
