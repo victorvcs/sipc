@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SIPC — Sistema Integrado de Preparação para Concursos</title>
+<title>SIPC — Sistema Integrado de Preparação para Concursos e Exames</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
@@ -299,6 +299,21 @@
   .auth-sep::before,.auth-sep::after{content:"";flex:1;height:1px;background:var(--line);}
   .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;}
   .btn-google svg{width:17px;height:17px;flex:none;}
+
+  /* Sem edital cadastrado: só o convite para começar. */
+  .estado-vazio{display:none;text-align:center;padding:40px 22px;}
+  .estado-vazio h2{font-family:'Fraunces',serif;font-size:24px;margin:0 0 8px;}
+  .estado-vazio p{color:var(--text-dim);font-size:14px;line-height:1.6;max-width:520px;margin:0 auto 20px;}
+  .estado-vazio .passos{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:620px;margin:0 auto 24px;text-align:left;}
+  .estado-vazio .passo{border:1px solid var(--line);border-radius:var(--radius);padding:12px;font-size:12px;color:var(--text-dim);background:var(--surface);}
+  .estado-vazio .passo b{display:block;color:var(--text);font-size:13px;margin-bottom:4px;}
+  body.sem-edital .estado-vazio{display:block;}
+  body.sem-edital .tabs, body.sem-edital .panel, body.sem-edital #countdownWrap,
+  body.sem-edital #perfilNagBanner, body.sem-edital .proto-num{display:none !important;}
+  @media (max-width:640px){ .estado-vazio .passos{grid-template-columns:1fr;} }
+
+  .ed-topicos{width:100%;margin:-2px 0 12px;font-size:12px;min-height:56px;}
+  .ed-materia{border:1px solid var(--line);border-radius:var(--radius);padding:10px 10px 0;margin-bottom:10px;background:var(--surface);}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js"></script>
@@ -328,6 +343,72 @@
     fbApp = firebase.initializeApp(firebaseConfig);
     fbAuth = firebase.auth();
     fbDb = firebase.firestore();
+  }
+
+  // ID da chave do reCAPTCHA Enterprise (Google Cloud › Segurança › reCAPTCHA).
+  // Também é pública: só funciona nos domínios cadastrados na própria chave.
+  const RECAPTCHA_SITE_KEY = '6LdLwPUtAAAAAFuNqGyZsEV2KaRmNOoaZZj1b_wH';
+  const IA_MODELO = 'gemini-3.6-flash';
+</script>
+
+<!--
+  Firebase AI Logic. Fica num módulo à parte porque o AI Logic só existe no SDK
+  modular; o resto do app usa o SDK compat acima. É um app Firebase separado,
+  do mesmo projeto, usado só para a IA.
+-->
+<script type="module">
+  const V = 'https://www.gstatic.com/firebasejs/12.17.1/';
+  window.sipcIA = { pronto:false, erro:null, debugToken:null };
+  try{
+    const { initializeApp } = await import(V + 'firebase-app.js');
+    const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import(V + 'firebase-app-check.js');
+    const { getAI, getGenerativeModel, GoogleAIBackend } = await import(V + 'firebase-ai.js');
+
+    const app = initializeApp(firebaseConfig, 'sipc-ia');
+
+    // Em localhost o reCAPTCHA não vale (a chave só aceita o domínio publicado):
+    // usa um token de depuração, que precisa ser cadastrado uma vez no console
+    // (App Check › Apps › Gerenciar tokens de depuração). Ele aparece em Configurações.
+    const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    if(local){
+      let tok = null;
+      try{ tok = localStorage.getItem('sipc::appcheck-debug'); }catch(e){}
+      if(!tok){ tok = crypto.randomUUID(); try{ localStorage.setItem('sipc::appcheck-debug', tok); }catch(e){} }
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = tok;
+      window.sipcIA.debugToken = tok;
+    }
+    if(local || RECAPTCHA_SITE_KEY.indexOf('COLE_AQUI') === -1){
+      window.sipcIA.appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true
+      });
+    }
+
+    const ai = getAI(app, { backend: new GoogleAIBackend() });
+    function modelo(o){
+      const generationConfig = { maxOutputTokens: o.maxTokens };
+      if(o.json) generationConfig.responseMimeType = 'application/json';
+      const cfg = { model: IA_MODELO, generationConfig };
+      if(o.system) cfg.systemInstruction = o.system;
+      return getGenerativeModel(ai, cfg);
+    }
+
+    window.sipcIA.gerar = async (o) => {
+      const r = await modelo(o).generateContent(o.user);
+      return r.response.text();
+    };
+    window.sipcIA.stream = async (o, onPedaco) => {
+      const r = await modelo(o).generateContentStream(o.user);
+      for await (const chunk of r.stream){
+        const t = chunk.text();
+        if(t) onPedaco(t);
+      }
+    };
+    window.sipcIA.pronto = true;
+    if(typeof renderIAStatus === 'function') renderIAStatus();
+  }catch(e){
+    window.sipcIA.erro = 'não foi possível carregar a IA (' + e.message + ')';
+    if(typeof renderIAStatus === 'function') renderIAStatus();
   }
 </script>
 
@@ -360,6 +441,19 @@
   </div>
 
   <div class="concurso-switch" id="concursoSwitch"></div>
+
+  <div class="card estado-vazio" id="estadoVazio">
+    <h2>O que você vai estudar?</h2>
+    <p>O SIPC monta sua trilha a partir do edital ou do programa da prova: concurso, vestibular, ENEM, certificação ou prova da faculdade. Comece cadastrando as matérias.</p>
+    <div class="passos">
+      <div class="passo"><b>1. Cadastre o edital</b>Anexe o PDF ou cole a lista de matérias e tópicos.</div>
+      <div class="passo"><b>2. Ajuste seu ritmo</b>Diga quanto tempo tem por dia e quando é a prova.</div>
+      <div class="passo"><b>3. Siga a trilha</b>Estude, faça questões e revise no tempo certo.</div>
+    </div>
+    <button class="btn" onclick="abrirEditalModal()">+ Cadastrar meu edital</button>
+    <p class="hint" id="vazioConta" style="margin:18px 0 0"></p>
+    <p class="hint" id="vazioIA" style="margin:12px auto 0;max-width:520px"></p>
+  </div>
 
   <div class="tabs">
     <button class="tab active" data-tab="hoje">Hoje</button>
@@ -398,7 +492,7 @@
   <div class="panel" id="panel-trilha">
     <div class="trilha-hero">
       <h3>Comece por aqui</h3>
-      <p>A trilha distribui os 51 tópicos do edital ao longo dos dias, misturando matérias diferentes a cada dia e dando mais tempo ao que vale mais ponto. Você pode segui-la ou estudar por conta própria — o progresso é o mesmo nos dois casos.</p>
+      <p>A trilha distribui os tópicos do edital ao longo dos dias, misturando matérias diferentes a cada dia e dando mais tempo ao que vale mais ponto. Você pode segui-la ou estudar por conta própria — o progresso é o mesmo nos dois casos.</p>
       <div class="modo-switch">
         <button id="btnModoTrilha" onclick="setModoTrilha('trilha')">Seguir a trilha</button>
         <button id="btnModoLivre" onclick="setModoTrilha('livre')">Por conta própria</button>
@@ -452,13 +546,15 @@
     <div class="section-title">Gerar e responder questões</div>
     <div class="card">
       <div class="row">
-        <div><label class="f">Matéria / Tópico</label><select id="qgMateria"></select></div>
+        <div><label class="f">Matéria</label><select id="qgMateria" onchange="preencherTopicos('qgMateria','qgTopico')"></select></div>
         <div><label class="f">Dificuldade</label>
           <select id="qgDificuldade"><option value="fácil">Fácil</option><option value="médio" selected>Médio</option><option value="difícil">Difícil</option></select>
         </div>
-        <div style="display:flex;align-items:flex-end"><button class="btn" style="width:100%" id="btnGerarQ" onclick="gerarQuestoesAPI()">Gerar 10 questões</button></div>
       </div>
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Estilo FGV, geradas na hora — nunca reproduz questão real, só o padrão da banca.</p>
+      <label class="f">Tópico</label>
+      <select id="qgTopico" style="margin-bottom:12px"></select>
+      <button class="btn" style="width:100%" id="btnGerarQ" onclick="gerarQuestoesAPI()">Gerar 10 questões</button>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Geradas na hora no padrão da banca do seu edital — nunca reproduzem questão real.</p>
     </div>
 
     <div id="areaQuestoesGeradas"></div>
@@ -466,16 +562,18 @@
     <div class="section-title">Registrar manualmente (se você resolveu em outro lugar)</div>
     <div class="card">
       <div class="row">
-        <div><label class="f">Matéria / Tópico</label><select id="qtMateria"></select></div>
+        <div><label class="f">Matéria</label><select id="qtMateria" onchange="preencherTopicos('qtMateria','qtTopico')"></select></div>
         <div><label class="f">Dificuldade</label>
           <select id="qtDificuldade"><option value="facil">Fácil</option><option value="medio" selected>Médio</option><option value="dificil">Difícil</option></select>
         </div>
         <div><label class="f">Quantidade</label><input type="number" id="qtQtd" min="1" value="10"></div>
       </div>
+      <label class="f">Tópico</label>
+      <select id="qtTopico" style="margin-bottom:12px"></select>
       <label class="f">Acertos</label>
       <input type="number" id="qtAcertos" min="0" value="7">
       <div style="margin-top:12px"><button class="btn ghost" onclick="registrarQuestoes()">Registrar resultado</button></div>
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Errar questões manda o tópico automaticamente para a fila de revisão.</p>
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:0">Errar questões manda o tópico para a fila de revisão. Abaixo de 70% de acerto, um tópico que já estava sendo revisado volta ao primeiro intervalo.</p>
     </div>
     <div class="section-title">Histórico de questões</div>
     <div id="questoesLista"></div>
@@ -517,17 +615,11 @@
       <input type="number" id="cMeta" min="15" step="15">
       <div style="margin-top:16px"><button class="btn" onclick="salvarConfig()">Salvar configurações</button></div>
     </div>
-    <div class="section-title">Chave da API e backup</div>
+    <div class="section-title">IA e backup</div>
     <div class="card">
       <p class="hint" style="margin-top:0" id="bkAmbiente"></p>
       <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
-        <label class="f">Provedor de IA</label>
-        <select id="iaProvedorSel" onchange="trocarProvedor(this.value)" style="max-width:340px"></select>
-        <p class="hint" id="iaProvedorInfo" style="margin-bottom:14px"></p>
-        <label class="f">Sua chave (fica só neste navegador)</label>
-        <input id="apiKey" type="password" placeholder="cole a chave do provedor escolhido" style="max-width:340px">
-        <button class="btn ghost" onclick="salvarChaveApi()">Salvar chave</button>
-        <p class="hint">Usada só para gerar conteúdo de estudo e questões — nunca sai deste navegador além de ir direto para a API do provedor escolhido. Cada provedor guarda a sua própria chave, então dá pra ter as duas salvas e alternar.</p>
+        <p class="hint" id="iaStatus" style="margin:0"></p>
       </div>
       <div style="margin:14px 0;padding-top:14px;border-top:1px solid var(--line);">
         <p class="hint" style="margin-top:0">Com conta, seu progresso já fica salvo automaticamente a cada ação. Exportar/restaurar serve como cópia extra ou para levar seus dados para outra conta.</p>
@@ -541,8 +633,11 @@
     </div>
     <div class="section-title">Zona de risco</div>
     <div class="card">
-      <p style="font-size:13px;color:var(--text-dim);margin-top:0">Isso apaga todo o progresso, sessões, questões e revisões salvos <b>deste concurso</b>. O checklist de matérias volta ao estado inicial.</p>
-      <button class="btn ghost" onclick="resetarTudo()">Zerar dados deste concurso</button>
+      <p style="font-size:13px;color:var(--text-dim);margin-top:0"><b>Zerar</b> apaga o progresso, as sessões, as questões e as revisões <b>deste edital</b>, mantendo as matérias. <b>Excluir</b> remove o edital inteiro.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn ghost" onclick="resetarTudo()">Zerar dados deste edital</button>
+        <button class="btn ghost" style="color:var(--danger)" onclick="excluirEdital()">Excluir este edital</button>
+      </div>
     </div>
   </div>
 </div>
@@ -566,34 +661,40 @@
 <div class="modal-overlay" id="editalModal">
   <div class="modal-box edital-box">
     <button class="modal-close" onclick="fecharEditalModal()">✕</button>
-    <h2 class="modal-title">Adicionar edital</h2>
-    <p class="modal-subtitle">Cadastre outro concurso e suas matérias — a trilha é gerada a partir disso, do mesmo jeito que a do DATAPREV.</p>
+    <h2 class="modal-title">Cadastrar edital</h2>
+    <p class="modal-subtitle">Concurso, vestibular, certificação ou prova da faculdade: cadastre as matérias e os tópicos, e a trilha é montada a partir disso.</p>
 
-    <div class="row" style="grid-template-columns:2fr 1fr 1fr">
-      <div><label class="f">Concurso / cargo</label><input type="text" id="edNome" placeholder="Ex.: Concurso XYZ — Analista"></div>
-      <div><label class="f">Banca (opcional)</label><input type="text" id="edBanca" placeholder="FGV, Cesgranrio..."></div>
-      <div><label class="f">Data da prova (opcional)</label><input type="date" id="edData"></div>
+    <div class="row">
+      <div><label class="f">Nome</label><input type="text" id="edNome" placeholder="Ex.: Concurso TRT 2027, ENEM, Cálculo I"></div>
+      <div><label class="f">Banca</label><input type="text" id="edBanca" placeholder="Opcional"></div>
+      <div><label class="f">Data da prova</label><input type="date" id="edData"></div>
     </div>
 
     <div class="modo-switch" style="margin:14px 0">
-      <button id="edTabLista" class="on" onclick="editalSetModo('lista')">Colar lista de matérias</button>
-      <button id="edTabPdf" onclick="editalSetModo('pdf')">Anexar PDF do edital</button>
+      <button id="edTabPdf" class="on" onclick="editalSetModo('pdf')">Anexar PDF do edital</button>
+      <button id="edTabLista" onclick="editalSetModo('lista')">Colar texto ou lista</button>
     </div>
 
-    <div id="edModoLista">
-      <label class="f">Matérias (uma por linha)</label>
-      <textarea id="edLista" rows="5" placeholder="Direito Constitucional - 10&#10;Português - 8&#10;Raciocínio Lógico"></textarea>
-      <p class="hint">Formato: <code>Nome da matéria - peso</code> (peso é opcional; sem ele, todas ficam com peso igual). Pra detalhar tópicos: <code>Nome - peso: tópico 1; tópico 2</code>. Esse é o jeito mais confiável — recomendado.</p>
-      <button class="btn ghost mini" onclick="editalParseLista()">Gerar lista abaixo</button>
-    </div>
+    <label class="f">Seu cargo ou área (só se o edital tiver vários)</label>
+    <input type="text" id="edFiltro" placeholder="Ex.: Técnico Judiciário — Área Administrativa" style="margin-bottom:12px">
 
-    <div id="edModoPdf" style="display:none">
+    <div id="edModoPdf">
       <label class="f">Edital em PDF</label>
       <input type="file" id="edPdf" accept="application/pdf" onchange="editalHandlePdf(this.files[0])">
-      <p class="hint" id="edPdfStatus">A extração usa sua chave da API (Configurações › Backup) pra identificar cargo, matérias e pesos automaticamente. A leitura pode errar — sempre revise a lista abaixo antes de confirmar.</p>
+      <p class="hint" id="edPdfStatus"></p>
     </div>
 
-    <div class="section-title" style="margin-top:20px;margin-bottom:10px">Revisar matérias</div>
+    <div id="edModoLista" style="display:none">
+      <label class="f">Cole o conteúdo programático</label>
+      <textarea id="edLista" rows="7" placeholder="Cole aqui o trecho do edital com as matérias e os assuntos, do jeito que estiver.&#10;&#10;Ou, se preferir, uma matéria por linha:&#10;Português - 10: Interpretação de texto; Crase; Concordância&#10;Raciocínio Lógico - 5: Proposições; Tabelas-verdade"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn mini" onclick="editalOrganizarTextoComIA()">Organizar com IA</button>
+        <button class="btn ghost mini" onclick="editalParseLista()">Usar como lista (sem IA)</button>
+      </div>
+      <p class="hint" id="edListaStatus">A IA lê o texto colado e separa matérias, pesos e tópicos. Sem IA, use o formato <code>Matéria - peso: tópico 1; tópico 2</code>, uma matéria por linha.</p>
+    </div>
+
+    <div class="section-title" style="margin-top:20px;margin-bottom:10px">Revisar matérias e tópicos</div>
     <div id="edReview"></div>
     <button class="btn ghost mini" onclick="editalAddRow()" style="margin-top:4px">+ matéria</button>
 
@@ -633,7 +734,8 @@
 </div>
 
 <script>
-let EDITAIS = {"datprev": {"nome": "DATAPREV 2026", "subtitulo": "Analista de TI · Perfil 1 · Análise de Negócios de TI", "materias": [{"id": "geral__lingua-portuguesa", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Língua Portuguesa", "topicos": ["Compreensão e interpretação de textos", "Tipos e gêneros textuais", "Ortografia oficial", "Coesão textual", "Estrutura morfossintática do período", "Reescrita de frases e parágrafos"]}, {"id": "geral__lingua-inglesa", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Língua Inglesa", "topicos": ["Compreensão de textos e gramática"]}, {"id": "geral__raciocinio-logico", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Raciocínio Lógico", "topicos": ["Estruturas lógicas", "Lógica de argumentação", "Lógica sentencial/proposicional", "Lógica de primeira ordem", "Problemas aritméticos, geométricos e matriciais"]}, {"id": "geral__atualidades-e-inteligencia-artificial", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Atualidades e Inteligência Artificial", "topicos": ["Tópicos atuais diversos", "Fundamentos e aplicações de IA", "Aprendizado de máquina", "Modelos generativos e LLMs", "Ética, governança e privacidade em IA"]}, {"id": "geral__legislacao-si-e-protecao-de-dados", "bloco": "Módulo I — Conhecimentos Gerais", "nome": "Legislação SI e Proteção de Dados", "topicos": ["Lei 12.527/2011 — LAI", "Lei 12.737/2012 — Delitos Informáticos", "Lei 12.965/2014 — Marco Civil da Internet", "Lei 13.709/2018 — LGPD"]}, {"id": "especifico__perfil-1", "bloco": "Módulo II — Perfil 1", "nome": "Análise de Negócios de TI", "topicos": ["Análise de negócios", "Gestão por processos e PDCA", "BPM CBOK v.4.0", "Tipologia dos processos", "Hierarquia do processo", "Reengenharia de processos", "Melhoria de processos", "Notação BPMN", "Ferramentas de BPM e BPMS", "Indicadores, metas e resultados", "Gestão Ágil de Projetos", "Gerenciamento de produtos", "COBIT 2019", "ITIL v4", "Engenharia de software", "Arquitetura de Soluções", "User Experience (UX)", "Storytelling com dados", "Prototipação", "Design thinking", "Análise de personas", "MVP", "Modelagem e Data Mining", "Arquitetura de Dados", "Análise de dados e BI", "Negociação", "Comunicação assertiva", "Gestão Comercial e Relacionamento", "Gestão de Contratos com Clientes", "IA e Big Data"]}]}};
+// Começa vazio: cada pessoa cadastra o próprio edital (PDF ou lista colada).
+let EDITAIS = {};
 
 
 /* ============ PERSISTENCIA ============
@@ -686,152 +788,55 @@ const DB = {
   }
 };
 
-/* ============ PROVEDORES DE IA ============
-   O app fala com dois provedores. A Anthropic cobra por uso; o Gemini tem
-   camada gratuita, que e o que permite testar o sistema sem gastar nada.
-   Tudo o que difere entre eles — endpoint, cabecalhos, formato do corpo e da
-   resposta — mora aqui. O resto do app so chama iaGerarTexto/iaStreamTexto e
-   nao precisa saber qual esta ativo.
+/* ============ IA (Firebase AI Logic) ============
+   O app chama o Gemini pelo Firebase AI Logic: a chave do Gemini fica guardada
+   no próprio Firebase, nunca no código publicado nem com o usuário. Quem impede
+   que outro site use a cota do projeto é o App Check (reCAPTCHA Enterprise).
+   O módulo que conversa com o Firebase está no <script type="module"> logo
+   depois da firebaseConfig e expõe window.sipcIA; o resto do app só chama
+   iaGerarTexto / iaStreamTexto. */
+function iaDisponivel(){ return !!(window.sipcIA && window.sipcIA.pronto); }
 
-   A chave de cada provedor fica so no localStorage deste navegador: nunca vai
-   para o Firebase, nunca entra no codigo publicado, e so sai daqui para a API
-   do proprio provedor. */
-const IA_PROVEDORES = {
-  gemini: {
-    nome: 'Google Gemini',
-    modelo: 'gemini-3.6-flash',
-    chaveLS: 'sipc::gemini-key',
-    gratuito: true,
-    ondePegar: 'aistudio.google.com — camada gratuita, nao pede cartao'
-  },
-  anthropic: {
-    nome: 'Anthropic (Claude)',
-    modelo: 'claude-haiku-4-5',
-    chaveLS: 'sipc::anthropic-key',
-    gratuito: false,
-    ondePegar: 'console.anthropic.com — cobra por uso, exige credito'
-  }
-};
-
-// Padrao no gratuito: melhor o app funcionar sem custo do que exibir erro a
-// quem ainda nao decidiu pagar por nada.
-function iaProvedor(){
-  const p = localStorage.getItem('sipc::provedor');
-  return IA_PROVEDORES[p] ? p : 'gemini';
-}
-function iaSetProvedor(p){
-  if(IA_PROVEDORES[p]) localStorage.setItem('sipc::provedor', p);
-}
-function iaChave(p){
-  return localStorage.getItem(IA_PROVEDORES[p || iaProvedor()].chaveLS) || '';
-}
-function iaTemChave(p){ return !!iaChave(p); }
-
-function iaExigirChave(){
-  const p = iaProvedor();
-  const k = iaChave(p);
-  if(!k) throw new Error('sem chave da API — configure em Configurações › Backup');
-  return { p: p, k: k, cfg: IA_PROVEDORES[p] };
+function iaExigir(){
+  if(!iaDisponivel()) throw new Error((window.sipcIA && window.sipcIA.erro) || 'a IA ainda está carregando — tente de novo em alguns segundos');
+  return window.sipcIA;
 }
 
-function iaMontarRequisicao(opts){
-  const alvo = iaExigirChave();
-  const system = opts.system, user = opts.user, stream = !!opts.stream;
+// Gemini: o raciocínio interno sai do mesmo orçamento de maxOutputTokens e
+// consome ~2x o tamanho da resposta; pedir o tamanho "nu" corta a resposta.
+function iaOrcamento(maxTokens){ return Math.max(8000, (maxTokens||2000) * 4); }
 
-  if(alvo.p === 'anthropic'){
-    const corpo = {
-      model: alvo.cfg.modelo,
-      max_tokens: opts.maxTokens,
-      messages: [{ role:'user', content: user }]
-    };
-    if(system) corpo.system = system;
-    if(stream) corpo.stream = true;
-    return {
-      url: 'https://api.anthropic.com/v1/messages',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': alvo.k,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify(corpo)
-    };
-  }
-
-  // Gemini. Medido na pratica: o raciocinio interno consome ~2x o tamanho da
-  // resposta e sai do MESMO orcamento de maxOutputTokens. Pedir o tamanho
-  // "nu" faz a resposta ser cortada antes de comecar, entao multiplicamos.
-  const gen = { maxOutputTokens: Math.max(8000, opts.maxTokens * 4) };
-  // Fora do streaming da para exigir JSON valido do proprio servidor, o que
-  // dispensa limpar cerca de markdown na mao.
-  if(!stream && opts.json) gen.responseMimeType = 'application/json';
-  const corpo = {
-    contents: [{ role:'user', parts:[{ text: user }] }],
-    generationConfig: gen
-  };
-  if(system) corpo.system_instruction = { parts:[{ text: system }] };
-  return {
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/' +
-         alvo.cfg.modelo + ':' + (stream ? 'streamGenerateContent?alt=sse' : 'generateContent'),
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': alvo.k },
-    body: JSON.stringify(corpo)
-  };
+// A camada gratuita responde 503 quando está sem capacidade e 429 quando
+// estoura a cota do minuto. Nenhum dos dois é erro de código, e repetir resolve.
+function iaErroTemporario(e){
+  return /\b(503|429)\b|overloaded|unavailable|resource.?exhausted|quota/i.test(String(e && e.message));
 }
 
-function iaExtrairTexto(p, data){
-  if(p === 'anthropic'){
-    return (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-  }
-  const cand = (data.candidates || [])[0];
-  const parts = (cand && cand.content && cand.content.parts) || [];
-  return parts.map(x=>x.text||'').join('');
-}
-
-// Um pedaco de texto de um evento SSE, seja qual for o provedor.
-function iaDeltaSSE(p, ev){
-  if(p === 'anthropic'){
-    if(ev.type === 'error') throw new Error((ev.error && ev.error.message) || 'erro no stream');
-    if(ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') return ev.delta.text;
-    return '';
-  }
-  if(ev.error) throw new Error(ev.error.message || 'erro no stream');
-  return iaExtrairTexto('gemini', ev);
-}
-
-/* Chamada sem streaming, com repeticao. A camada gratuita do Gemini responde
-   503 quando esta sem capacidade e 429 quando estoura a cota do minuto —
-   nenhum dos dois e erro de codigo ou de chave, e repetir costuma resolver.
-   Sem isso o usuario ve "nao consegui gerar" sem motivo aparente. */
 async function iaGerarTexto(opts){
-  const p = iaProvedor();
+  const TENTATIVAS = 4; // em teste real vieram dois 503 seguidos antes do acerto
   let ultimoErro = null;
-  for(let tentativa = 1; tentativa <= 3; tentativa++){
-    const req = iaMontarRequisicao(opts);
-    const resp = await fetch(req.url, { method:'POST', headers:req.headers, body:req.body });
-    if(resp.status === 503 || resp.status === 429){
-      ultimoErro = new Error('serviço ocupado (' + resp.status + ')');
-      if(tentativa < 3) await new Promise(r => setTimeout(r, 1500 * tentativa));
-      continue;
+  for(let tentativa = 1; tentativa <= TENTATIVAS; tentativa++){
+    try{
+      const txt = await iaExigir().gerar({
+        system: opts.system, user: opts.user, json: !!opts.json, maxTokens: iaOrcamento(opts.maxTokens)
+      });
+      if(!txt || !txt.trim()) throw new Error('resposta vazia');
+      return txt;
+    }catch(e){
+      if(!iaErroTemporario(e)) throw e;
+      ultimoErro = new Error('serviço de IA ocupado — tente de novo em instantes');
+      if(tentativa < TENTATIVAS) await new Promise(r => setTimeout(r, 1500 * tentativa));
     }
-    if(!resp.ok) throw new Error('API retornou ' + resp.status);
-    const txt = iaExtrairTexto(p, await resp.json());
-    if(!txt.trim()) throw new Error('resposta vazia');
-    return txt;
   }
-  throw ultimoErro || new Error('falhou após 3 tentativas');
+  throw ultimoErro;
 }
 
-// Pesos oficiais — Edital DATAPREV 2026, item 9.5 e 9.6
-const PESOS = {
-  'geral__lingua-portuguesa':                    {q:12, peso:1,   pontos:12},
-  'geral__lingua-inglesa':                       {q:12, peso:1,   pontos:12},
-  'geral__raciocinio-logico':                    {q:5,  peso:1,   pontos:5},
-  'geral__atualidades-e-inteligencia-artificial':{q:6,  peso:1,   pontos:6},
-  'geral__legislacao-si-e-protecao-de-dados':    {q:5,  peso:1,   pontos:5},
-  'especifico__perfil-1':                        {q:30, peso:2.5, pontos:75}
-};
-const TOTAL_PONTOS = 115;
-const NOTA_CORTE = 57.5;
+// Entrega o texto em pedaços conforme chega (onPedaco recebe cada pedaço).
+async function iaStreamTexto(opts, onPedaco){
+  await iaExigir().stream({
+    system: opts.system, user: opts.user, maxTokens: iaOrcamento(opts.maxTokens)
+  }, onPedaco);
+}
 
 function slugify(s){
   const semAcento = s.toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]','g'),'');
@@ -851,7 +856,7 @@ async function carregarEditaisCustom(){
   }catch(e){}
 }
 
-let concursoAtivo = 'datprev';
+let concursoAtivo = null; // null = nenhum edital cadastrado ainda
 let modoTeste = false;
 
 function emModoTeste(){ return modoTeste; }
@@ -997,7 +1002,23 @@ function materiasIniciais(){
   }));
 }
 
+// Sem edital não há o que carregar: zera o estado e mostra só o convite.
+function mostrarEstadoVazio(){
+  materias = []; sessoes = []; questoes = []; revisoes = [];
+  config = { provaData:"", metaDiariaMin:60, trilha:{ modo:'trilha', topicosPorDia:4, familiaridade:{}, inicio:null } };
+  document.body.classList.add('sem-edital');
+  document.getElementById('tituloConcurso').textContent = 'SIPC';
+  document.getElementById('subtituloConcurso').textContent = 'Sistema Integrado de Preparação para Concursos e Exames';
+  const conta = document.getElementById('vazioConta');
+  conta.innerHTML = (fbAuth && fbAuth.currentUser)
+    ? 'Conectado como <b>' + fbAuth.currentUser.email + '</b> · <a href="#" onclick="authSair();return false">sair</a>'
+    : '';
+  renderSwitch();
+}
+
 async function carregarConcurso(){
+  if(!concursoAtivo || !EDITAIS[concursoAtivo]){ mostrarEstadoVazio(); return; }
+  document.body.classList.remove('sem-edital');
   try{
     const r = await DB.get(kMaterias());
     materias = JSON.parse(r.value);
@@ -1008,6 +1029,7 @@ async function carregarConcurso(){
   try{ const r = await DB.get(kSessoes()); sessoes = JSON.parse(r.value); }catch(e){ sessoes = []; }
   try{ const r = await DB.get(kQuestoes()); questoes = JSON.parse(r.value); }catch(e){ questoes = []; }
   try{ const r = await DB.get(kRevisoes()); revisoes = JSON.parse(r.value); }catch(e){ revisoes = []; }
+  normalizarRevisoes();
   try{ const r = await DB.get(kConfig()); config = JSON.parse(r.value); }catch(e){ config = { provaData:"", metaDiariaMin:60 }; }
   if(!config.trilha) config.trilha = { modo:'trilha', topicosPorDia:4, familiaridade:{} };
   if(!config.trilha.familiaridade) config.trilha.familiaridade = {};
@@ -1033,7 +1055,8 @@ async function trocarConcurso(id){
 function renderSwitch(){
   const el = document.getElementById('concursoSwitch');
   const ids = Object.keys(EDITAIS);
-  el.style.display = 'flex';
+  // No estado vazio o próprio convite já tem o botão de cadastrar.
+  el.style.display = ids.length ? 'flex' : 'none';
   el.innerHTML = ids.map(id => `
     <button class="csw-btn ${id===concursoAtivo?'active':''}" onclick="trocarConcurso('${id}')">${EDITAIS[id].nome}</button>
   `).join('') + `<button class="csw-btn csw-add" onclick="abrirEditalModal()" title="Cadastrar outro concurso a partir do edital">+ Novo edital</button>`;
@@ -1047,10 +1070,11 @@ function abrirEditalModal(){
   document.getElementById('edNome').value = '';
   document.getElementById('edBanca').value = '';
   document.getElementById('edData').value = '';
+  document.getElementById('edFiltro').value = '';
   document.getElementById('edLista').value = '';
   document.getElementById('edPdf').value = '';
-  document.getElementById('edPdfStatus').textContent = 'A extração usa sua chave da API (Configurações › Backup) pra identificar cargo, matérias e pesos automaticamente. A leitura pode errar — sempre revise a lista abaixo antes de confirmar.';
-  editalSetModo('lista');
+  document.getElementById('edPdfStatus').textContent = 'A IA lê o edital e separa matérias, pesos e tópicos. A leitura pode errar — revise a lista abaixo antes de confirmar.';
+  editalSetModo('pdf');
   editalRenderReview();
   document.getElementById('editalModal').classList.add('active');
 }
@@ -1088,20 +1112,31 @@ function editalRemoveRow(i){ edRows.splice(i,1); editalRenderReview(); }
 function editalAtualizarRow(i, campo, valor){
   if(!edRows[i]) return;
   if(campo==='peso') edRows[i].peso = parseFloat(String(valor).replace(',','.')) || 0;
+  else if(campo==='topicos') edRows[i].topicos = String(valor).split('\n').map(t=>t.trim()).filter(Boolean);
   else edRows[i].nome = valor;
 }
 
+// esc() escapa para dentro de string JS (onclick); aqui o valor vai num atributo HTML.
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 function editalRenderReview(){
   const el = document.getElementById('edReview');
-  if(!edRows.length){ el.innerHTML = '<div class="empty">Nenhuma matéria ainda. Cole a lista acima, anexe o PDF, ou use "+ matéria".</div>'; return; }
+  if(!edRows.length){ el.innerHTML = '<div class="empty">Nenhuma matéria ainda. Anexe o PDF, cole o texto, ou use "+ matéria".</div>'; return; }
   el.innerHTML = edRows.map((r,i)=>`
-    <div class="ed-row">
-      <input type="text" value="${esc(r.nome||'')}" oninput="editalAtualizarRow(${i},'nome',this.value)" placeholder="Nome da matéria">
-      <input type="text" value="${r.peso}" oninput="editalAtualizarRow(${i},'peso',this.value)" placeholder="peso">
-      <button class="btn ghost mini" onclick="editalRemoveRow(${i})" title="Remover">🗑</button>
+    <div class="ed-materia">
+      <div class="ed-row">
+        <input type="text" value="${escHtml(r.nome||'')}" oninput="editalAtualizarRow(${i},'nome',this.value)" placeholder="Nome da matéria">
+        <input type="text" value="${r.peso}" oninput="editalAtualizarRow(${i},'peso',this.value)" placeholder="peso" title="Peso na nota (ex.: nº de questões × valor de cada uma)">
+        <button class="btn ghost mini" onclick="editalRemoveRow(${i})" title="Remover matéria">🗑</button>
+      </div>
+      <textarea class="ed-topicos" oninput="editalAtualizarRow(${i},'topicos',this.value)" placeholder="Tópicos, um por linha (sem tópicos, a matéria vira um item só na trilha)">${escHtml((r.topicos||[]).join('\n'))}</textarea>
     </div>
   `).join('');
 }
+
+// Editais grandes trazem o conteúdo programático nos anexos, no fim do
+// arquivo. Até o limite manda tudo; acima dele, manda o final.
+const ED_LIMITE_CHARS = 150000;
 
 async function editalHandlePdf(file){
   if(!file) return;
@@ -1119,49 +1154,74 @@ async function editalHandlePdf(file){
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({data:buf}).promise;
     let texto = '';
-    for(let p=1; p<=pdf.numPages && texto.length < 40000; p++){
+    for(let p=1; p<=pdf.numPages; p++){
       const page = await pdf.getPage(p);
       const content = await page.getTextContent();
       texto += content.items.map(it=>it.str).join(' ') + '\n';
     }
-    status.textContent = `PDF lido (${pdf.numPages} páginas). Extraindo matérias...`;
-    await editalExtrairComIA(texto.slice(0, 18000));
+    if(!texto.trim()) throw new Error('o PDF não tem texto selecionável (pode ser imagem escaneada)');
+    if(texto.length > ED_LIMITE_CHARS) texto = texto.slice(-ED_LIMITE_CHARS);
+    status.textContent = `PDF lido (${pdf.numPages} páginas). Organizando matérias e tópicos com IA — pode levar até um minuto...`;
+    await editalExtrairComIA(texto, status);
   }catch(e){
-    status.textContent = 'Não foi possível ler o PDF automaticamente (' + e.message + '). Use "Colar lista de matérias" pra digitar manualmente.';
+    status.textContent = 'Não foi possível ler o PDF automaticamente (' + e.message + '). Use "Colar texto ou lista".';
   }
 }
 
-async function editalExtrairComIA(texto){
-  const status = document.getElementById('edPdfStatus');
-  if(!iaTemChave()){
-    status.textContent = 'PDF lido, mas a extração automática precisa da sua chave da API (Configurações › Backup). Por enquanto, use "Colar lista de matérias" pra digitar.';
-    return;
-  }
+async function editalOrganizarTextoComIA(){
+  const texto = document.getElementById('edLista').value.trim();
+  const status = document.getElementById('edListaStatus');
+  if(!texto){ status.textContent = 'Cole o texto do edital primeiro.'; return; }
+  status.textContent = 'Organizando matérias e tópicos com IA...';
+  await editalExtrairComIA(texto.slice(-ED_LIMITE_CHARS), status);
+}
+
+async function editalExtrairComIA(texto, status){
+  const filtro = document.getElementById('edFiltro').value.trim();
   try{
     const txt = await iaGerarTexto({
-      maxTokens: 2000,
+      maxTokens: 8000,
       json: true,
       user:
-        'Extraia do texto de edital de concurso abaixo: o nome do cargo, a banca (se houver) e a lista de matérias/disciplinas cobradas com seu peso relativo ou número de questões (se indicado). ' +
-        'Responda SOMENTE com um JSON válido, sem markdown, no formato {"cargo":"...","banca":"...","materias":[{"nome":"...","peso":numero}]}. Se não souber o peso de uma matéria, use 1.\n\nTEXTO:\n' + texto
+        'Você recebe o texto de um edital ou programa de prova (concurso, vestibular, certificação ou disciplina). Extraia:\n' +
+        '- "nome": nome curto da prova/concurso (ex.: "Concurso TRT 2ª Região 2027");\n' +
+        '- "banca": banca ou instituição organizadora, se houver, senão "";\n' +
+        '- "dataProva": data da prova objetiva no formato AAAA-MM-DD, se constar, senão "";\n' +
+        '- "materias": as disciplinas cobradas, cada uma com "nome", "peso" e "topicos".\n' +
+        'Peso: pontos da matéria na prova (nº de questões × valor de cada questão). Quando o edital só der o total de um bloco ' +
+        '(ex.: "Conhecimentos Específicos: 30 questões, valor 2,0") sem separar por matéria, divida os pontos do bloco igualmente ' +
+        'entre as matérias dele (no exemplo, 60 pontos para 2 matérias = 30 cada). Só use 1 quando não houver informação nenhuma.\n' +
+        'Tópicos: os assuntos do conteúdo programático daquela matéria, na ordem do edital, cada um curto (até ~90 caracteres), sem numeração. ' +
+        'Não invente assunto que não está no texto. Se uma matéria tiver mais de 40 itens, agrupe os vizinhos até ficar com no máximo 40.\n' +
+        (filtro
+          ? 'O edital pode ter vários cargos/áreas. Considere SOMENTE: "' + filtro + '" (e as matérias comuns a todos).\n'
+          : 'Se houver vários cargos/áreas com conteúdos diferentes, use as matérias comuns e as do primeiro cargo listado.\n') +
+        'Responda SOMENTE com JSON válido, sem markdown: {"nome":"...","banca":"...","dataProva":"","materias":[{"nome":"...","peso":1,"topicos":["..."]}]}\n\nTEXTO:\n' + texto
     });
     const jsonMatch = txt.match(/\{[\s\S]*\}/);
     if(!jsonMatch) throw new Error('resposta sem JSON');
     const parsed = JSON.parse(jsonMatch[0]);
-    if(parsed.cargo && !document.getElementById('edNome').value) document.getElementById('edNome').value = parsed.cargo;
+    if(parsed.nome && !document.getElementById('edNome').value) document.getElementById('edNome').value = parsed.nome;
     if(parsed.banca && !document.getElementById('edBanca').value) document.getElementById('edBanca').value = parsed.banca;
-    edRows = (parsed.materias||[]).map(m => ({ nome: m.nome, peso: Number(m.peso)||1, topicos:[] }));
+    if(/^\d{4}-\d{2}-\d{2}$/.test(parsed.dataProva||'') && !document.getElementById('edData').value) document.getElementById('edData').value = parsed.dataProva;
+    edRows = (parsed.materias||[]).filter(m=>m && m.nome).map(m => ({
+      nome: String(m.nome).trim(), peso: Number(m.peso)||1,
+      topicos: Array.isArray(m.topicos) ? m.topicos.map(t=>String(t).trim()).filter(Boolean) : []
+    }));
     editalRenderReview();
-    status.textContent = edRows.length ? 'Extração concluída — revise os nomes e pesos abaixo antes de confirmar.' : 'Não encontrei matérias no PDF. Use "Colar lista de matérias" pra digitar manualmente.';
+    const nTop = edRows.reduce((a,r)=>a+r.topicos.length,0);
+    status.textContent = edRows.length
+      ? `Pronto: ${edRows.length} matérias e ${nTop} tópicos. Revise abaixo antes de confirmar.`
+      : 'Não encontrei matérias no texto. Confira se é o trecho do conteúdo programático.';
   }catch(e){
-    status.textContent = 'Não consegui extrair automaticamente (' + e.message + '). Use "Colar lista de matérias" pra digitar manualmente.';
+    status.textContent = 'Não consegui organizar automaticamente (' + e.message + '). Tente de novo ou use o formato de lista.';
   }
 }
 
 async function editalConfirmar(){
   const nome = document.getElementById('edNome').value.trim();
-  if(!nome){ alert('Dê um nome ao concurso/cargo.'); return; }
-  if(!edRows.length || !edRows.some(r=>r.nome && r.nome.trim())){ alert('Adicione ao menos uma matéria — cole a lista, anexe o PDF, ou use "+ matéria".'); return; }
+  if(!nome){ alert('Dê um nome a este edital (ex.: Concurso TRT 2027, ENEM).'); return; }
+  if(!edRows.length || !edRows.some(r=>r.nome && r.nome.trim())){ alert('Adicione ao menos uma matéria — anexe o PDF, cole o texto, ou use "+ matéria".'); return; }
   const banca = document.getElementById('edBanca').value.trim();
   const dataProva = document.getElementById('edData').value;
   const slug = slugify(nome);
@@ -1171,7 +1231,7 @@ async function editalConfirmar(){
     topicos: (r.topicos && r.topicos.length) ? r.topicos : ['Conteúdo geral de ' + r.nome.trim()]
   }));
   EDITAIS[slug] = {
-    nome, custom:true, dataProva: dataProva || '',
+    nome, banca, custom:true, dataProva: dataProva || '',
     subtitulo: [banca && ('Banca '+banca), dataProva && ('Prova em '+dataProva.split('-').reverse().join('/'))].filter(Boolean).join(' · ') || 'Edital personalizado',
     materias: materiasArr
   };
@@ -1187,6 +1247,22 @@ async function editalConfirmar(){
     renderHoje(); renderTrilha();
   }
   if(document.getElementById('onboardingOverlay').classList.contains('active')) renderOnboardingStep();
+  else if(!perfil) abrirOnboarding(false);
+}
+
+// Apaga o edital ativo e tudo o que foi registrado nele.
+async function excluirEdital(){
+  if(!concursoAtivo) return;
+  const nome = EDITAIS[concursoAtivo].nome;
+  if(!confirm('Excluir "' + nome + '" e todo o progresso, sessões, questões e revisões dele? Não dá para desfazer.')) return;
+  if(!emModoTeste()){
+    for(const k of chavesDoConcurso()){ try{ await DB.delete(k); }catch(e){} }
+  }
+  delete EDITAIS[concursoAtivo];
+  await salvarEditaisCustom();
+  concursoAtivo = Object.keys(EDITAIS)[0] || null;
+  await DB.set('concurso-ativo', concursoAtivo);
+  await carregarConcurso();
 }
 
 async function salvarMaterias(){ await DB.set(kMaterias(), JSON.stringify(materias)); }
@@ -1197,7 +1273,7 @@ async function salvarConfigData(){ await DB.set(kConfig(), JSON.stringify(config
 
 function gerarProtocolo(){
   const now = new Date();
-  const num = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + concursoAtivo.toUpperCase();
+  const num = now.getFullYear() + '.' + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '-' + String(concursoAtivo||'').slice(-4).toUpperCase();
   document.getElementById('protoNum').textContent = num;
   document.getElementById('protoData').textContent = now.toLocaleDateString('pt-BR');
 }
@@ -1208,10 +1284,33 @@ function progressoGeral(){ const all = todosTopicos(); if(!all.length) return 0;
 
 function preencherSelects(){
   const opts = materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
-  document.getElementById('qMateria').innerHTML = opts;
-  document.getElementById('sMateria').innerHTML = opts;
-  document.getElementById('qtMateria').innerHTML = opts;
-  document.getElementById('qgMateria').innerHTML = opts;
+  // renderTudo roda depois de quase toda ação; sem preservar a escolha, o
+  // select voltaria para a primeira matéria a cada clique.
+  ['qMateria','sMateria','qtMateria','qgMateria'].forEach(id=>{
+    const el = document.getElementById(id);
+    const antes = el.value;
+    el.innerHTML = opts;
+    if(materias.some(m=>m.id===antes)) el.value = antes;
+  });
+  preencherTopicos('qtMateria','qtTopico');
+  preencherTopicos('qgMateria','qgTopico');
+}
+
+function preencherTopicos(selMateriaId, selTopicoId){
+  const m = materias.find(mm=>mm.id===document.getElementById(selMateriaId).value);
+  const el = document.getElementById(selTopicoId);
+  const antes = el.value;
+  el.innerHTML = '<option value="">Matéria inteira</option>' +
+    (m ? m.topicos.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('') : '');
+  if(m && m.topicos.some(t=>t.id===antes)) el.value = antes;
+}
+
+// Erros em questões alimentam a revisão. Qualquer erro põe o item na fila;
+// abaixo de 70% de acerto, um item que já estava na escada volta ao começo.
+function revisaoPorQuestoes(materiaId, topicoId, acertos, qtd){
+  if(acertos >= qtd) return false;
+  agendarRevisao(materiaId, topicoId || null, acertos/qtd < 0.7);
+  return true;
 }
 
 function esc(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
@@ -1246,7 +1345,11 @@ async function toggleTopico(materiaId, topicoId){
   const m = materias.find(m=>m.id===materiaId);
   const t = m.topicos.find(t=>t.id===topicoId);
   t.feito = !t.feito;
-  if(!emModoTeste()) await salvarMaterias();
+  // Estudar é o que dá início à curva do esquecimento; desmarcar devolve o
+  // tópico à trilha, e aí não faz sentido ele continuar na fila de revisão.
+  if(t.feito) agendarRevisao(materiaId, topicoId);
+  else removerRevisao(materiaId, topicoId);
+  if(!emModoTeste()){ await salvarMaterias(); await salvarRevisoes(); }
   renderTudo();
 }
 
@@ -1276,11 +1379,12 @@ function renderHoje(){
       <span class="badge ${progressoMateria(m)<30?'warn':'ok'}">${progressoMateria(m)}% concluído</span>
     </div>`).join('') || '<div class="empty">Nenhuma matéria cadastrada.</div>';
 
-  const atrasadas = revisoes.filter(r => r.proximaData <= hoje);
-  document.getElementById('revisoesHoje').innerHTML = atrasadas.length ? atrasadas.map(r=>{
-    const m = materias.find(mm=>mm.id===r.materiaId);
-    return `<div class="log-item"><span>${m?m.nome:'—'} — ${r.topicoNome||''}</span><span class="meta">desde ${new Date(r.proximaData+'T00:00').toLocaleDateString('pt-BR')}</span></div>`;
-  }).join('') : '<div class="empty">Nenhuma revisão pendente. 🎯</div>';
+  const hojeLocal = hojeISO();
+  const atrasadas = revisoes.filter(r => r.proximaData <= hojeLocal)
+    .sort((a,b)=> a.proximaData.localeCompare(b.proximaData));
+  document.getElementById('revisoesHoje').innerHTML = atrasadas.length
+    ? atrasadas.map(r=>renderItemRevisao(r, hojeLocal)).join('')
+    : '<div class="empty">Nenhuma revisão pendente. 🎯</div>';
 
   if(config.provaData){
     const dif = Math.ceil((new Date(config.provaData) - new Date()) / 86400000);
@@ -1307,33 +1411,104 @@ function renderQuestoes(){
   document.getElementById('questoesLista').innerHTML = ordenadas.map(q=>{
     const m = materias.find(m=>m.id===q.materiaId);
     const pct = Math.round(100*q.acertos/q.qtd);
+    const t = m && q.topicoId ? m.topicos.find(tt=>tt.id===q.topicoId) : null;
     return `<div class="log-item">
-      <span>${m?m.nome:'—'} <span class="badge ${pct>=70?'ok':'warn'}">${q.acertos}/${q.qtd} (${pct}%)</span></span>
+      <span>${m?m.nome:'—'}${t?' — '+t.nome:''} <span class="badge ${pct>=70?'ok':'warn'}">${q.acertos}/${q.qtd} (${pct}%)</span></span>
       <span class="meta">${q.dificuldade} · ${new Date(q.data+'T00:00').toLocaleDateString('pt-BR')}</span>
     </div>`;
   }).join('') || '<div class="empty">Nenhum resultado de questões registrado ainda.</div>';
 }
 
-function renderRevisoes(){
-  const hoje = new Date().toISOString().slice(0,10);
-  const ordenadas = [...revisoes].sort((a,b)=> a.proximaData.localeCompare(b.proximaData));
-  document.getElementById('revisoesLista').innerHTML = ordenadas.map(r=>{
-    const m = materias.find(mm=>mm.id===r.materiaId);
-    const atrasada = r.proximaData <= hoje;
-    return `<div class="log-item">
-      <span>${m?m.nome:'—'} — ${r.topicoNome||''}</span>
-      <span style="display:flex;align-items:center;gap:8px">
-        <span class="meta">${atrasada?'venceu ':''}${new Date(r.proximaData+'T00:00').toLocaleDateString('pt-BR')}</span>
-        <button class="btn mini" onclick="concluirRevisao('${r.id}')">Revisado</button>
-      </span>
-    </div>`;
-  }).join('') || '<div class="empty">Fila de revisão vazia.</div>';
+/* ============ REVISÃO ESPAÇADA ============
+   Um item por tópico (ou por matéria inteira, quando o erro em questões não
+   aponta tópico). Cada revisão bem-sucedida sobe um degrau na escada de
+   intervalos; esquecer volta ao primeiro degrau. É o sistema de Leitner,
+   aplicado à curva do esquecimento: o intervalo cresce enquanto a pessoa
+   continua lembrando, e encolhe assim que deixa de lembrar. */
+const REV_INTERVALOS = [1, 3, 7, 15, 30, 60]; // dias até a próxima revisão, por etapa
+
+function somarDias(iso, n){
+  const d = diaDe(iso); d.setDate(d.getDate() + n);
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 }
 
-async function concluirRevisao(id){
-  if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
-  revisoes = revisoes.filter(r=>r.id!==id);
-  await salvarRevisoes();
+// Revisões salvas antes desta versão não tinham etapa nem tópico: entram no
+// primeiro degrau, mantendo a data que já tinham.
+function normalizarRevisoes(){
+  revisoes = revisoes.map(r => ({
+    id: r.id, materiaId: r.materiaId,
+    topicoId: r.topicoId || null, topicoNome: r.topicoNome || '',
+    etapa: Number.isInteger(r.etapa) ? r.etapa : 0,
+    proximaData: r.proximaData || somarDias(hojeISO(), 1),
+    historico: r.historico || []
+  }));
+}
+
+function revisaoDe(materiaId, topicoId){
+  return revisoes.find(r => r.materiaId === materiaId && (r.topicoId || null) === (topicoId || null));
+}
+
+// Põe o tópico (ou a matéria) na escada. Com reiniciar=true, um item que já
+// existe volta ao primeiro degrau — é o que acontece quando a pessoa vai mal
+// em questões de algo que já estava sendo revisado.
+function agendarRevisao(materiaId, topicoId, reiniciar){
+  let r = revisaoDe(materiaId, topicoId);
+  if(r && !reiniciar) return;
+  if(!r){
+    const m = materias.find(mm=>mm.id===materiaId);
+    const t = m && topicoId ? m.topicos.find(tt=>tt.id===topicoId) : null;
+    r = { id:'r'+Date.now()+Math.random().toString(36).slice(2,6), materiaId,
+          topicoId: topicoId || null, topicoNome: t ? t.nome : '', historico: [] };
+    revisoes.push(r);
+  }
+  r.etapa = 0;
+  r.proximaData = somarDias(hojeISO(), REV_INTERVALOS[0]);
+}
+
+function removerRevisao(materiaId, topicoId){
+  revisoes = revisoes.filter(r => !(r.materiaId === materiaId && (r.topicoId || null) === (topicoId || null)));
+}
+
+// Resultado da revisão: 'esqueci' volta ao início, 'dificil' repete o
+// intervalo atual, 'lembrei' avança um degrau (o último se repete).
+function proximaEtapa(etapa, resultado){
+  if(resultado === 'esqueci') return 0;
+  if(resultado === 'dificil') return etapa;
+  return Math.min(etapa + 1, REV_INTERVALOS.length - 1);
+}
+
+function renderItemRevisao(r, hoje){
+  const m = materias.find(mm=>mm.id===r.materiaId);
+  const atrasada = r.proximaData <= hoje;
+  const titulo = (m ? m.nome : '—') + (r.topicoNome ? ' — ' + r.topicoNome : ' — matéria inteira');
+  const etapaTxt = `etapa ${r.etapa+1}/${REV_INTERVALOS.length} · ${REV_INTERVALOS[r.etapa]}d`;
+  const botoes = atrasada ? `
+        <button class="btn mini erro" onclick="concluirRevisao('${r.id}','esqueci')" title="Volta para revisão amanhã">Esqueci</button>
+        <button class="btn mini" onclick="concluirRevisao('${r.id}','dificil')" title="Repete o intervalo de ${REV_INTERVALOS[r.etapa]} dia(s)">Difícil</button>
+        <button class="btn mini acerto" onclick="concluirRevisao('${r.id}','lembrei')" title="Próxima revisão em ${REV_INTERVALOS[proximaEtapa(r.etapa,'lembrei')]} dia(s)">Lembrei</button>` : '';
+  return `<div class="log-item">
+      <span>${titulo}</span>
+      <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <span class="meta">${etapaTxt} · ${atrasada?'venceu ':''}${new Date(r.proximaData+'T00:00').toLocaleDateString('pt-BR')}</span>${botoes}
+      </span>
+    </div>`;
+}
+
+function renderRevisoes(){
+  const hoje = hojeISO();
+  const ordenadas = [...revisoes].sort((a,b)=> a.proximaData.localeCompare(b.proximaData));
+  document.getElementById('revisoesLista').innerHTML = ordenadas.map(r=>renderItemRevisao(r, hoje)).join('')
+    || '<div class="empty">Fila de revisão vazia. Tópicos marcados como estudados entram aqui automaticamente.</div>';
+}
+
+async function concluirRevisao(id, resultado){
+  const r = revisoes.find(rr=>rr.id===id);
+  if(!r) return;
+  const hoje = hojeISO();
+  r.historico.push({ data: hoje, resultado, etapa: r.etapa });
+  r.etapa = proximaEtapa(r.etapa, resultado);
+  r.proximaData = somarDias(hoje, REV_INTERVALOS[r.etapa]);
+  if(!emModoTeste()) await salvarRevisoes();
   renderTudo();
 }
 
@@ -1444,18 +1619,15 @@ function renderInicioTrilha(totalDias){
 }
 
 function pontosDe(materiaId){
-  if(concursoAtivo === 'datprev') return PESOS[materiaId] ? PESOS[materiaId].pontos : 0;
   const m = materias.find(x=>x.id===materiaId);
   return (m && m.pesoPontos) ? m.pesoPontos : 0;
 }
 
 function totalPontosConcurso(){
-  if(concursoAtivo === 'datprev') return TOTAL_PONTOS;
   return materias.reduce((a,m)=>a+(m.pesoPontos||0),0) || 1;
 }
 
 function notaCorteConcurso(){
-  if(concursoAtivo === 'datprev') return NOTA_CORTE;
   const ed = EDITAIS[concursoAtivo];
   return (ed && ed.notaCorte) || null;
 }
@@ -1477,8 +1649,8 @@ function minutosTopico(materiaId){
   return base;
 }
 
-// Espalha os topicos de cada materia uniformemente pelo ciclo.
-// Como Especificos tem 30 dos 51 topicos, ele naturalmente ocupa ~59% dos slots.
+// Espalha os topicos de cada materia uniformemente pelo ciclo: materias com
+// mais topicos naturalmente ocupam mais slots.
 function gerarTrilha(){
   const porDia = config.trilha.topicosPorDia || 4;
   const itens = [];
@@ -1534,19 +1706,15 @@ function salvarTrilhaConfig(){
 }
 
 function renderPesos(){
-  const datprev = concursoAtivo === 'datprev';
-  const linhas = (datprev
-    ? materias.map(m=>({m, p:PESOS[m.id]})).filter(x=>x.p).map(({m,p})=>({m, pontos:p.pontos, extra:`${p.q} questões × peso ${String(p.peso).replace('.',',')}`}))
-    : materias.map(m=>({m, pontos:pontosDe(m.id), extra:''}))
-  ).sort((a,b)=> b.pontos - a.pontos);
+  const linhas = materias.map(m=>({m, pontos:pontosDe(m.id), extra:''}))
+    .sort((a,b)=> b.pontos - a.pontos);
   const total = totalPontosConcurso();
   const maxP = Math.max(1, ...linhas.map(x=>x.pontos));
   document.getElementById('trilhaPesos').innerHTML = linhas.map(({m,pontos,extra})=>{
     const pct = total ? (pontos/total*100).toFixed(1) : '0.0';
-    const esp = datprev && m.bloco.indexOf('Módulo II') === 0;
     return `<div class="peso-row">
       <span>${m.nome}${extra?` <span class="slot-mat">· ${extra}</span>`:''}</span>
-      <span class="peso-bar"><i class="${esp?'':'geral'}" style="width:${pontos/maxP*100}%"></i></span>
+      <span class="peso-bar"><i style="width:${pontos/maxP*100}%"></i></span>
       <span class="peso-val"><b>${pontos}</b> pts · ${pct}%</span>
     </div>`;
   }).join('') + `<div class="peso-row tot">
@@ -1557,18 +1725,6 @@ function renderPesos(){
 
 function renderInsights(){
   const box = document.getElementById('trilhaInsights');
-  if(concursoAtivo === 'datprev'){
-    const esp = PESOS['especifico__perfil-1'];
-    const pctEsp = (esp.pontos/TOTAL_PONTOS*100).toFixed(0);
-    const ing = PESOS['geral__lingua-inglesa'];
-    const mIng = materias.find(x=>x.id==='geral__lingua-inglesa');
-    const pptIng = mIng ? (ing.pontos/mIng.topicos.length).toFixed(0) : '—';
-    box.innerHTML = `
-      <div class="insight">Conhecimentos Específicos são <b>${esp.pontos} dos ${TOTAL_PONTOS} pontos (${pctEsp}%)</b>. Cada questão vale 2,5 contra 1 do Módulo I — errar uma específica custa o mesmo que errar duas e meia de português.</div>
-      <div class="insight">Língua Inglesa vale <b>12 pontos num único tópico</b> ("Compreensão de textos e gramática"), ou ~${pptIng} pontos por tópico — a maior densidade do edital inteiro. É o item com melhor retorno por hora estudada, e a trilha o trata como prática recorrente, não como assunto que se fecha e nunca mais se vê.</div>
-      <div class="insight alerta">O item 9.17 exige <b>${String(NOTA_CORTE).replace('.',',')} pontos E não zerar nenhuma disciplina</b>. Raciocínio Lógico vale só 5 pontos, mas zerá-lo elimina você mesmo com nota alta. Por isso nenhuma matéria sai da trilha — mesmo as que você domina.</div>`;
-    return;
-  }
   const total = totalPontosConcurso();
   const linhas = materias.map(m=>({m,pontos:pontosDe(m.id)})).sort((a,b)=>b.pontos-a.pontos);
   const maior = linhas[0];
@@ -1709,41 +1865,30 @@ async function importarBackup(){
   }catch(e){ bkStatus('Falhou: ' + e.message, 'danger'); }
 }
 
-function salvarChaveApi(){
-  const v = document.getElementById('apiKey').value.trim();
-  if(!v){ bkStatus('Cole a chave antes de salvar.', 'danger'); return; }
-  const p = iaProvedor();
-  localStorage.setItem(IA_PROVEDORES[p].chaveLS, v);
-  document.getElementById('apiKey').value = '';
-  renderProvedor();
-  bkStatus('Chave do ' + IA_PROVEDORES[p].nome + ' salva neste navegador.', 'seal');
-}
-
-function trocarProvedor(p){
-  iaSetProvedor(p);
-  renderProvedor();
-  bkStatus('Provedor agora é ' + IA_PROVEDORES[iaProvedor()].nome + '.', 'seal');
-}
-
-function renderProvedor(){
-  const sel = document.getElementById('iaProvedorSel');
-  if(!sel) return;
-  const ativo = iaProvedor();
-  sel.innerHTML = Object.keys(IA_PROVEDORES).map(function(p){
-    const c = IA_PROVEDORES[p];
-    return '<option value="' + p + '"' + (p===ativo ? ' selected' : '') + '>' +
-           esc(c.nome) + (c.gratuito ? ' — grátis' : ' — pago') + '</option>';
-  }).join('');
-  const cfg = IA_PROVEDORES[ativo];
-  document.getElementById('iaProvedorInfo').innerHTML =
-    'Modelo: <b>' + esc(cfg.modelo) + '</b><br>Onde pegar a chave: ' + esc(cfg.ondePegar) + '<br>' +
-    (iaTemChave(ativo)
-      ? '<b>✓ chave salva</b> neste navegador.'
-      : '<b>⚠ sem chave</b> — gerar conteúdo e questões fica indisponível. O resto do app funciona normalmente.');
+// A IA não pede nada ao usuário; aqui só se mostra se ela está disponível.
+function renderIAStatus(){
+  const el = document.getElementById('iaStatus');
+  if(!el) return;
+  const ia = window.sipcIA || {};
+  // No estado vazio a aba Configurações fica escondida; o token de depuração
+  // (só existe em localhost) aparece também no convite inicial.
+  const vazio = document.getElementById('vazioIA');
+  if(vazio) vazio.innerHTML = ia.debugToken
+    ? 'Ambiente local · token de depuração do App Check:<br><code style="user-select:all;word-break:break-all">' + escHtml(ia.debugToken) + '</code>'
+    : '';
+  let html = ia.pronto
+    ? '<b>✓ IA disponível</b> — geração de conteúdo, questões e leitura de edital funcionam sem configurar nada.'
+    : '<b>' + (ia.erro ? '⚠ ' + escHtml(ia.erro) : 'Carregando a IA…') + '</b>';
+  if(ia.debugToken){
+    html += '<br><br>Ambiente local: cadastre este token de depuração uma vez no Firebase ' +
+      '(App Check › Apps › menu ⋮ do app › Gerenciar tokens de depuração):<br>' +
+      '<code style="user-select:all;word-break:break-all">' + escHtml(ia.debugToken) + '</code>';
+  }
+  el.innerHTML = html;
 }
 
 function renderBackup(){
-  renderProvedor();
+  renderIAStatus();
   const el = document.getElementById('bkAmbiente');
   if(!el) return;
   if(emModoTeste()){
@@ -1854,8 +1999,22 @@ function wrapMapaMental(html){
   return before + heading + '<div class="mapa-mental">' + mapaContent + '</div>' + rest;
 }
 
+// Os prompts descrevem a prova a partir do edital ativo — nada fixo de um
+// concurso específico.
+function bancaAtiva(){ const ed = EDITAIS[concursoAtivo]; return (ed && ed.banca) || ''; }
+function contextoProva(){
+  const ed = EDITAIS[concursoAtivo];
+  if(!ed) return 'O estudante está se preparando para uma prova.';
+  return `O estudante está se preparando para: ${ed.nome}${ed.banca ? ' (banca/instituição: ' + ed.banca + ')' : ''}.`;
+}
+function estiloBanca(){
+  const b = bancaAtiva();
+  return b ? `no estilo real da banca ${b}. Calibre pelo padrão observado historicamente em provas dessa banca (formato do enunciado, tipo de pegadinha, nível de profundidade)`
+           : 'no estilo de provas objetivas desse tipo de exame (formato do enunciado, tipo de pegadinha, nível de profundidade)';
+}
+
 async function gerarConteudoSessao(materiaNome, topicoNome, bloco){
-  const systemPrompt = `Você é o motor de conteúdo do SIPC, para o concurso DATAPREV 2026, banca FGV, cargo Analista de Tecnologia da Informação - Perfil 1 Análise de Negócios de TI.
+  const systemPrompt = `Você é o motor de conteúdo do SIPC, um sistema de estudos. ${contextoProva()}
 Gere o conteúdo de estudo no "Modo 30 minutos": precisa caber em cerca de 15 minutos de leitura, então seja CONCISO em cada seção - frases curtas, sem redundância. Responda em Markdown, seguindo EXATAMENTE esta estrutura de títulos (use estes emojis e este texto de título, sem variar):
 
 # [Matéria — Tópico]
@@ -1864,7 +2023,7 @@ Gere o conteúdo de estudo no "Modo 30 minutos": precisa caber em cerca de 15 mi
 Uma frase curta: motivo prático ou histórico.
 
 ## 🔗 Analogia com o dia a dia
-Um parágrafo curto (2-3 frases) com analogia fora do universo de TI/concursos. OMITA esta seção inteira se o tópico já for bem concreto.
+Um parágrafo curto (2-3 frases) com analogia fora do universo da matéria e de provas. OMITA esta seção inteira se o tópico já for bem concreto.
 
 ## 📍 Onde cai na prova
 Uma linha sobre como isso costuma ser cobrado.
@@ -1887,8 +2046,6 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
   const cancelado = () => meuId !== geracaoId;
 
   let texto = '', primeiroToken = false, ultimoRender = 0;
-  // fixado no inicio: trocar de provedor no meio de um stream quebraria o parser
-  const provStream = iaProvedor();
 
   function marcarPrimeiroToken(){
     if(primeiroToken) return;
@@ -1901,66 +2058,22 @@ Regras gerais: nunca inventar lei, norma, jurisprudência ou fato que não exist
     el.innerHTML = wrapMapaMental(marked.parse(texto)) + (final ? '' : '<span class="stream-cursor"></span>');
   }
 
-  // consome um pedaco de SSE e devolve o que sobrou incompleto no buffer
-  function consumirSSE(buffer){
-    const linhas = buffer.split('\n');
-    const resto = linhas.pop();
-    for(const linha of linhas){
-      if(!linha.startsWith('data:')) continue;
-      const payload = linha.slice(5).trim();
-      if(!payload || payload === '[DONE]') continue;
-      let ev; try{ ev = JSON.parse(payload); }catch(_){ continue; }
-      const pedaco = iaDeltaSSE(provStream, ev);
-      if(pedaco){
-        marcarPrimeiroToken();
-        texto += pedaco;
-        if(Date.now() - ultimoRender > 80) render(false);
-      }
-    }
-    return resto;
-  }
-
   const timeoutPromise = new Promise((_, reject) => setTimeout(()=>reject(new Error('timeout')), 60000));
 
   try{
-    // sem AbortSignal: o fetch daqui e um shim via postMessage e nao aceita objetos nao-clonaveis
-    const reqStream = iaMontarRequisicao({
-      stream: true,
-      maxTokens: 1300,
-      system: systemPrompt,
-      user: `Gere o conteúdo de: ${materiaNome} — ${topicoNome} (${bloco}).`
-    });
-    const response = await Promise.race([
-      fetch(reqStream.url, { method:'POST', headers:reqStream.headers, body:reqStream.body }),
+    await Promise.race([
+      iaStreamTexto({
+        maxTokens: 1300,
+        system: systemPrompt,
+        user: `Gere o conteúdo de: ${materiaNome} — ${topicoNome} (${bloco}).`
+      }, (pedaco) => {
+        if(cancelado()) return;
+        marcarPrimeiroToken();
+        texto += pedaco;
+        if(Date.now() - ultimoRender > 80) render(false);
+      }),
       timeoutPromise
     ]);
-    if(!response.ok) throw new Error('resposta '+response.status);
-
-    const temStream = response.body && typeof response.body.getReader === 'function';
-
-    if(temStream){
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while(true){
-        const {done, value} = await reader.read();
-        if(done) break;
-        if(cancelado()) return;
-        buffer += decoder.decode(value, {stream:true});
-        buffer = consumirSSE(buffer);
-      }
-      consumirSSE(buffer + '\n');
-    } else {
-      // shim devolveu tudo de uma vez: pode vir como SSE cru ou como JSON normal
-      const bruto = await response.text();
-      if(cancelado()) return;
-      if(bruto.includes('data:')){
-        consumirSSE(bruto + '\n');
-      } else {
-        texto = iaExtrairTexto(provStream, JSON.parse(bruto));
-        marcarPrimeiroToken();
-      }
-    }
 
     if(cancelado()) return;
     if(!texto.trim()) throw new Error('veio resposta, mas sem texto');
@@ -1981,7 +2094,7 @@ function renderAcoesModal(materiaNome, topicoNome){
   const m = materias.find(mm=>mm.id===sessaoAtualMateriaId);
   const t = m ? m.topicos.find(tt=>tt.id===sessaoAtualTopicoId) : null;
   const jaFeito = t && t.feito;
-  const query = encodeURIComponent((materiaNome||m?.nome||'') + ' ' + (topicoNome||t?.nome||'') + ' concurso FGV');
+  const query = encodeURIComponent((materiaNome||m?.nome||'') + ' ' + (topicoNome||t?.nome||'') + (bancaAtiva() ? ' ' + bancaAtiva() : ''));
   document.getElementById('modalAcoes').innerHTML = `
     <button class="btn" onclick="marcarEstudadoESair()">${jaFeito ? '✓ Já marcado como estudado' : 'Marcar como estudado'}</button>
     <button class="btn ghost" onclick="fecharSessaoEstudo()">Fechar sem marcar</button>
@@ -1997,7 +2110,8 @@ async function marcarEstudadoESair(){
   const t = m ? m.topicos.find(tt=>tt.id===sessaoAtualTopicoId) : null;
   if(t && !t.feito){
     t.feito = true;
-    if(!emModoTeste()) await salvarMaterias();
+    agendarRevisao(m.id, t.id);
+    if(!emModoTeste()){ await salvarMaterias(); await salvarRevisoes(); }
     renderTudo();
   }
   fecharSessaoEstudo();
@@ -2005,23 +2119,43 @@ async function marcarEstudadoESair(){
 
 let questoesGeradas = null;
 let questoesGeradasMateriaId = null;
+let questoesGeradasTopicoId = null;
 let questoesGeradasDificuldade = null;
+
+// O modelo "equilibra" o gabarito do jeito mais literal possível — na prática
+// veio A,B,C,D,E,A,B,C,D,E. Embaralhar aqui tira o padrão sem depender do prompt.
+function embaralharAlternativas(q){
+  const letras = ['A','B','C','D','E'];
+  if(!q.alternativas || !letras.every(l=>l in q.alternativas) || !letras.includes(q.correta)) return q;
+  const textos = letras.map(l=>({ texto:q.alternativas[l], certa: l===q.correta }));
+  for(let i=textos.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [textos[i], textos[j]] = [textos[j], textos[i]];
+  }
+  const alternativas = {};
+  let correta = q.correta;
+  textos.forEach((x,i)=>{ alternativas[letras[i]] = x.texto; if(x.certa) correta = letras[i]; });
+  return { ...q, alternativas, correta };
+}
 
 async function gerarQuestoesAPI(){
   const materiaId = document.getElementById('qgMateria').value;
   const dificuldade = document.getElementById('qgDificuldade').value;
   const m = materias.find(mm=>mm.id===materiaId);
   if(!m) return;
+  const topicoId = document.getElementById('qgTopico').value || null;
+  const t = topicoId ? m.topicos.find(tt=>tt.id===topicoId) : null;
+  const assunto = t ? `${t.nome} — ${m.nome}` : m.nome;
 
   const btn = document.getElementById('btnGerarQ');
   const area = document.getElementById('areaQuestoesGeradas');
   btn.disabled = true;
   btn.textContent = 'Gerando...';
-  area.innerHTML = '<div class="card"><p style="color:var(--text-dim);margin:0">Gerando 10 questões estilo FGV sobre "'+m.nome+'"...</p></div>';
+  area.innerHTML = '<div class="card"><p style="color:var(--text-dim);margin:0">Gerando 10 questões' + (bancaAtiva() ? ' estilo ' + bancaAtiva() : '') + ' sobre "'+assunto+'"...</p></div>';
 
-  const systemPrompt = `Você é o motor de questões do SIPC, para o concurso DATAPREV 2026, banca FGV, cargo Analista de Tecnologia da Informação - Perfil 1 Análise de Negócios de TI.
-Gere exatamente 10 questões de múltipla escolha (alternativas A a E, uma única correta) sobre o tópico indicado pelo usuário, no estilo real da banca FGV. Calibre pelo padrão observado historicamente em provas da FGV (formato do enunciado, tipo de pegadinha, nível de profundidade) sem NUNCA reproduzir texto de questão real - as 10 questões devem ser inéditas.
-Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; distribua o gabarito de forma equilibrada entre as 5 letras (aproximadamente 2 de cada); dificuldade: ${dificuldade}; seja conciso - enunciados e alternativas curtos, justificativa de no máximo 1 frase por questão, para caber no limite de tokens.
+  const systemPrompt = `Você é o motor de questões do SIPC, um sistema de estudos. ${contextoProva()}
+Gere exatamente 10 questões de múltipla escolha (alternativas A a E, uma única correta) sobre o tópico indicado pelo usuário, ${estiloBanca()}, sem NUNCA reproduzir texto de questão real - as 10 questões devem ser inéditas.
+Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; distribua o gabarito de forma equilibrada entre as 5 letras (aproximadamente 2 de cada); dificuldade: ${dificuldade}; seja conciso - enunciados e alternativas curtos, justificativa de no máximo 1 frase por questão, para caber no limite de tokens; a justificativa explica o conteúdo e NUNCA cita a letra da alternativa (as alternativas são reordenadas depois).
 Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato:
 {"questoes":[{"enunciado":"...","alternativas":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correta":"B","justificativa":"..."}]}
 O array "questoes" deve ter exatamente 10 itens.`;
@@ -2033,7 +2167,7 @@ O array "questoes" deve ter exatamente 10 itens.`;
       maxTokens: 12000,
       json: true,
       system: systemPrompt,
-      user: `Gere as 10 questões sobre: ${m.nome} (${m.bloco}).`
+      user: `Gere as 10 questões sobre: ${assunto} (${m.bloco}).`
     });
     const limpo = textoResposta.replace(/```json|```/g,'').trim();
 
@@ -2048,8 +2182,9 @@ O array "questoes" deve ter exatamente 10 itens.`;
     }
     if(!parsed.questoes || !parsed.questoes.length) throw new Error('formato inesperado');
 
-    questoesGeradas = parsed.questoes;
+    questoesGeradas = parsed.questoes.map(embaralharAlternativas);
     questoesGeradasMateriaId = materiaId;
+    questoesGeradasTopicoId = topicoId;
     questoesGeradasDificuldade = dificuldade;
     renderQuestoesGeradas();
   }catch(e){
@@ -2111,39 +2246,23 @@ async function corrigirQuestoesGeradas(){
   if(teste) return;
 
   const data = new Date().toISOString().slice(0,10);
-  questoes.push({id:'q'+Date.now(), materiaId: questoesGeradasMateriaId, dificuldade: questoesGeradasDificuldade, qtd: questoesGeradas.length, acertos, data});
+  questoes.push({id:'q'+Date.now(), materiaId: questoesGeradasMateriaId, topicoId: questoesGeradasTopicoId, dificuldade: questoesGeradasDificuldade, qtd: questoesGeradas.length, acertos, data});
   await salvarQuestoes();
-
-  if(acertos < questoesGeradas.length){
-    const jaExiste = revisoes.some(r=>r.materiaId===questoesGeradasMateriaId && !r.topicoNome);
-    if(!jaExiste){
-      const prox = new Date(); prox.setDate(prox.getDate()+1);
-      revisoes.push({id:'r'+Date.now(), materiaId: questoesGeradasMateriaId, topicoNome:'', proximaData: prox.toISOString().slice(0,10)});
-      await salvarRevisoes();
-    }
-  }
+  if(revisaoPorQuestoes(questoesGeradasMateriaId, questoesGeradasTopicoId, acertos, questoesGeradas.length)) await salvarRevisoes();
   renderTudo();
 }
 
 async function registrarQuestoes(){
   if(emModoTeste()){ alert('Modo teste ligado — isso não foi salvo de verdade.'); return; }
   const materiaId = document.getElementById('qtMateria').value;
+  const topicoId = document.getElementById('qtTopico').value || null;
   const dificuldade = document.getElementById('qtDificuldade').value;
   const qtd = Number(document.getElementById('qtQtd').value)||10;
   const acertos = Math.min(Number(document.getElementById('qtAcertos').value)||0, qtd);
   const data = new Date().toISOString().slice(0,10);
-  questoes.push({id:'q'+Date.now(), materiaId, dificuldade, qtd, acertos, data});
+  questoes.push({id:'q'+Date.now(), materiaId, topicoId, dificuldade, qtd, acertos, data});
   await salvarQuestoes();
-
-  if(acertos < qtd){
-    const m = materias.find(mm=>mm.id===materiaId);
-    const jaExiste = revisoes.some(r=>r.materiaId===materiaId && !r.topicoNome);
-    if(!jaExiste){
-      const prox = new Date(); prox.setDate(prox.getDate()+1);
-      revisoes.push({id:'r'+Date.now(), materiaId, topicoNome:'', proximaData: prox.toISOString().slice(0,10)});
-      await salvarRevisoes();
-    }
-  }
+  if(revisaoPorQuestoes(materiaId, topicoId, acertos, qtd)) await salvarRevisoes();
   renderTudo();
 }
 
@@ -2283,8 +2402,7 @@ function renderOnboardingStep(){
       ${onbIlustracao(1)}
       <div class="onb-eyebrow">Passo 1 de ${ONB_TOTAL} · Quem é você</div>
       <h2 class="onb-title">Bem-vindo(a) ao SIPC</h2>
-      <p class="onb-sub">Antes de montar sua trilha pro ${EDITAIS[concursoAtivo].nome}, algumas perguntas rápidas.</p>
-      <button class="btn ghost mini" onclick="abrirEditalModal()" style="margin-bottom:16px">📎 Estudando outro concurso? Adicionar meu edital</button>
+      <p class="onb-sub">Antes de montar sua trilha para ${escHtml(EDITAIS[concursoAtivo] ? EDITAIS[concursoAtivo].nome : 'a sua prova')}, algumas perguntas rápidas.</p>
       <div class="onb-field"><label class="f">Seu nome</label><input type="text" id="onbNome" value="${esc(onbDraft.nome||'')}" placeholder="Como quer ser chamado"></div>
       ${(fbAuth && fbAuth.currentUser) ? '' : `<div class="onb-field"><label class="f">E-mail</label><input type="text" id="onbEmail" value="${esc(onbDraft.email||'')}" placeholder="seu@email.com"></div>`}`;
   } else if(onbStep===2){
@@ -2306,7 +2424,7 @@ function renderOnboardingStep(){
       ${onbIlustracao(3)}
       <div class="onb-eyebrow">Passo 3 de ${ONB_TOTAL} · Seu ritmo</div>
       <h2 class="onb-title">Quanto tempo e quantas matérias</h2>
-      <p class="onb-sub">Isso define sua meta diária e como a trilha distribui os 51 tópicos do edital.</p>
+      <p class="onb-sub">Isso define sua meta diária e como a trilha distribui os ${todosTopicos().length} tópicos do edital.</p>
       <div class="onb-field"><label class="f">Minutos disponíveis por dia — <span id="onbTempoLbl">${onbDraft.metaDiariaMin||60}</span> min</label>
         <input type="range" id="onbTempo" min="15" max="240" step="15" value="${onbDraft.metaDiariaMin||60}" oninput="document.getElementById('onbTempoLbl').textContent=this.value"></div>
       <div class="onb-field"><label class="f">Tópicos por dia — <span id="onbTopicosLbl">${onbDraft.topicosPorDia||4}</span></label>
@@ -2393,6 +2511,7 @@ function checarLembreteEstudo(){
   if(localStorage.getItem('sipc::notif-ultima-data') === hoje) return;
   localStorage.setItem('sipc::notif-ultima-data', hoje);
   try{
+    if(!EDITAIS[concursoAtivo]) return;
     new Notification('Hora de estudar — ' + EDITAIS[concursoAtivo].nome, {
       body: (perfil.nome ? perfil.nome+', seu' : 'Seu') + ' horário de estudo chegou. ' + progressoGeral() + '% do edital concluído.'
     });
@@ -2414,15 +2533,17 @@ async function iniciarApp(){
   try{
     const r = await DB.get('concurso-ativo');
     concursoAtivo = r.value;
-  }catch(e){ concursoAtivo = 'datprev'; }
-  if(!EDITAIS[concursoAtivo]){ concursoAtivo = Object.keys(EDITAIS)[0]; }
+  }catch(e){ concursoAtivo = null; }
+  if(!EDITAIS[concursoAtivo]){ concursoAtivo = Object.keys(EDITAIS)[0] || null; }
   await carregarConcurso();
   await carregarPerfil();
   renderPerfilResumo();
   renderContaResumo();
   renderBackup();
   atualizarNagBanner();
-  if(!perfil) abrirOnboarding(false);
+  // O onboarding pergunta ritmo e datas de uma trilha — sem edital ainda não
+  // há trilha; ele abre logo depois do primeiro cadastro (editalConfirmar).
+  if(!perfil && concursoAtivo) abrirOnboarding(false);
 }
 
 function initShell(){

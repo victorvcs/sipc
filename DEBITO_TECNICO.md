@@ -2,48 +2,23 @@
 
 Este arquivo registra o que se sabe que está incompleto, **por que foi deixado assim** e o que dispara a hora de resolver. Nada aqui é descuido: são escolhas conscientes de quem está validando um protótipo, não operando um produto.
 
-Atualizado em 13/09/2026.
+Atualizado em 18/10/2026.
 
 ---
 
-## 1. Cada usuário precisa da própria chave de API
+## 1. ~~Cada usuário precisa da própria chave de API~~ — resolvido em 18/10/2026
 
-**Situação.** Para gerar conteúdo de estudo e questões, cada pessoa tem que criar uma chave no Google AI Studio (ou na Anthropic) e colá-la em *Configurações*. A chave fica no `localStorage` do navegador dela.
+**O que era.** Cada pessoa precisava criar uma chave no Google AI Studio (ou na Anthropic) e colá-la em *Configurações*. Isso inviabilizava o uso por participantes de pesquisa.
 
-**Por que está assim.** O SIPC é um HTML estático, servido pelo GitHub Pages, sem backend. Sem servidor não existe lugar seguro para uma chave compartilhada: qualquer chave embutida no arquivo fica visível no código-fonte da página, e qualquer pessoa poderia copiá-la e gastar por conta de quem a colocou lá.
+**Como foi resolvido.** A IA passou a ser chamada pelo **Firebase AI Logic** (provedor *Gemini Developer API*, plano Spark, sem custo). A chave do Gemini fica guardada no próprio Firebase; o HTML publicado não tem chave, e o usuário não configura nada. O abuso da cota por outros sites é barrado pelo **App Check com reCAPTCHA Enterprise** (chave `sipc-web`, só para `victorvcs.github.io`). Detalhes no guia de configuração.
 
-**Por que não foi resolvido agora.** O projeto está em fase de validação, com um único usuário. Construir a infraestrutura de proxy antes de saber se o sistema presta seria decidir arquitetura no escuro — inclusive sem conhecer o custo por pessoa, que é justamente o número que só o uso real revela.
+**O que continua valendo do raciocínio anterior.**
 
-**O que dispara a resolução.** O primeiro uso com pessoas que não sejam o autor. Em particular, o uso como instrumento de coleta em pesquisa com participantes, previsto no resumo do projeto: pedir que um participante crie conta no Google AI Studio inviabiliza o estudo.
+- Todo o uso de todos os usuários agora sai **da mesma cota do projeto**. No plano gratuito isso não vira dinheiro, vira indisponibilidade: quando a cota do minuto ou do dia estoura, todos recebem `429` ao mesmo tempo. O app repete a chamada até 4 vezes, mas não faz milagre.
+- O AI Logic tem limite **por usuário por minuto** (padrão 100), mas **não tem limite diário por pessoa**. Uma pessoa entusiasmada ainda pode consumir a cota do dia de todos. Se isso acontecer, as saídas são: ativar o *Modo de usuários autenticados* (AI Logic › Configurações — exige que a IA use o login do app, ver item 7) ou contar uso por usuário no Firestore.
+- **Não** voltar a pôr chave no código, nem distribuir a própria chave a testadores: continua sendo a pior opção, pelos motivos registrados no histórico deste arquivo.
 
-**Como se resolve.** Um proxy que guarde a chave do lado do servidor:
-
-```
-hoje:      navegador --[chave do usuário]--> provedor
-com proxy: navegador --> servidor próprio --[chave única]--> provedor
-```
-
-Caminhos possíveis, a avaliar quando chegar a hora:
-
-- **Firebase Cloud Functions** — natural, já que o Firebase está montado. Exige o plano Blaze (pago por uso); o projeto está no Spark hoje.
-- **Cloudflare Workers / Vercel** — camada gratuita sem cartão, funcionam bem como proxy fino, independentes do Firebase.
-- **Firebase AI Logic** — produto da Google feito para chamar Gemini a partir do cliente sem expor chave. Falta confirmar se também exige Blaze.
-
-**Consequência a não esquecer.** Com proxy, todo o uso de todos os usuários passa a ser custo de quem mantém o sistema. Isso torna obrigatório um limite por usuário — sem ele, uma única pessoa entusiasmada consome o crédito de todos em uma tarde.
-
-### O atalho que não deve ser tomado
-
-Quando chegar a hora de testar com outras pessoas, vai parecer prático simplesmente **mandar a própria chave para os testadores colarem**. É a pior das três opções, e vale registrar o porquê antes que a ideia pareça boa numa sexta-feira à noite:
-
-- A chave fica **na mão deles**, utilizável em qualquer outro projeto, sem que o dono saiba.
-- **Todos dividem a mesma cota** — no plano gratuito do Gemini o limite é por chave, não por pessoa. Alguns testadores simultâneos se derrubam com `429`.
-- **Não dá para revogar o acesso de um** sem revogar o de todos.
-
-As duas opções legítimas continuam sendo: cada pessoa com a própria chave (o desenho atual, com atrito), ou o proxy (sem atrito, com custo e limite por usuário). Não existe meio-termo seguro.
-
-### Nota sobre vocabulário
-
-No plano gratuito do Gemini não se gasta **dinheiro**, se gasta **cota**: requisições por minuto e por dia, sem cartão e sem fatura. O consumo só vira custo financeiro ao migrar para o plano pago ou para a Anthropic. Confundir os dois leva a decidir arquitetura por medo de uma conta que ainda não existe.
+**O que dispara rever.** Erros `429` frequentes, ou uso com muitos participantes simultâneos (pesquisa). Nesse ponto, avaliar o plano pago (Blaze) com orçamento e alerta de gasto.
 
 ---
 
@@ -69,11 +44,11 @@ No plano gratuito do Gemini não se gasta **dinheiro**, se gasta **cota**: requi
 
 ---
 
-## 4. App Check não está configurado
+## 4. App Check só protege a IA, não o login nem o Firestore
 
-**Situação.** A `firebaseConfig` é pública por design, e as Regras de Segurança do Firestore protegem os dados de cada usuário. Mas nada impede que alguém use essa configuração para criar contas em massa e consumir cota do projeto.
+**Situação.** Desde 18/10/2026 o App Check (reCAPTCHA Enterprise) está ativo e **aplicado ao Firebase AI Logic** — obrigatório a partir de 2/11/2026. Authentication e Firestore continuam sem App Check: nada impede que alguém use a `firebaseConfig` pública para criar contas em massa. Os dados de cada usuário seguem protegidos pelas Regras de Segurança.
 
-**Por que está assim.** É uma camada a mais de configuração, que atrapalharia a fase de teste sem trazer benefício enquanto o app tem um usuário.
+**Por que está assim.** O app compat (login e banco) e o app modular (IA) são instâncias separadas (item 7); estender o App Check ao compat é mais uma camada de configuração sem benefício enquanto o uso é pequeno.
 
 **O que dispara a resolução.** Publicação com divulgação real, ou qualquer sinal de uso anômalo no console.
 
@@ -94,3 +69,30 @@ No plano gratuito do Gemini não se gasta **dinheiro**, se gasta **cota**: requi
 **Por que foi mantida.** Referência histórica da evolução do projeto — pode ser útil na dissertação para mostrar o caminho entre o protótipo específico e o sistema generalizado.
 
 **O que dispara a remoção.** Nada urgente. Se nunca for citada na dissertação, pode sair.
+
+---
+
+## 7. A IA roda num app Firebase separado, sem login
+
+**Situação.** O AI Logic só existe no SDK modular do Firebase; o resto do app usa o SDK *compat*. Para não reescrever o app inteiro, a IA roda num segundo app Firebase (`sipc-ia`) do mesmo projeto, carregado num `<script type="module">`. Esse app não conhece o login do usuário.
+
+**Consequência.** Não dá para ativar o *Modo de usuários autenticados* do AI Logic sem antes migrar o app para o SDK modular (ou compartilhar a autenticação entre os dois). Hoje, quem usa "sem conta" (modo teste) também gera conteúdo e questões.
+
+**O que dispara a resolução.** Abuso de cota (item 1) ou necessidade de atribuir uso de IA a cada participante.
+
+---
+
+## 8. Token de depuração do App Check para testar em localhost
+
+**Situação.** Em `localhost` o reCAPTCHA não vale. O app gera um token de depuração (guardado no `localStorage`) e o mostra na tela; ele precisa ser cadastrado uma vez em *App Check › Apps › ⋮ › Gerenciar tokens de depuração*. Até ser cadastrado, a IA local responde `401 App Check token is invalid`.
+
+**Cuidado.** O token libera o acesso à IA do projeto sem reCAPTCHA. Não publicar, não commitar, e apagar do console quando não for mais usado.
+
+---
+
+## 9. Questões sempre no formato A–E
+
+**Situação.** O gerador sempre produz múltipla escolha com 5 alternativas. Bancas como o Cebraspe usam itens **Certo/Errado**, e algumas provas usam 4 alternativas.
+
+**O que falta.** Guardar o formato da prova no edital (detectável pela IA na leitura do PDF) e gerar no formato certo.
+
