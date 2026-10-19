@@ -90,9 +90,15 @@ Atualizado em 18/10/2026.
 
 ---
 
-## 9. Questões sempre no formato A–E
+## 9. ~~Questões sempre no formato A–E~~ — resolvido em 18/10/2026
 
-**Situação.** O gerador sempre produz múltipla escolha com 5 alternativas. Bancas como o Cebraspe usam itens **Certo/Errado**, e algumas provas usam 4 alternativas.
+**O que era.** O gerador sempre produzia múltipla escolha com 5 alternativas. Bancas como o Cebraspe usam itens **Certo/Errado**, e algumas provas usam 4 alternativas.
 
-**O que falta.** Guardar o formato da prova no edital (detectável pela IA na leitura do PDF) e gerar no formato certo.
+**Como foi resolvido.** Cada edital guarda `formatoQuestoes` (`multipla5`, `multipla4` ou `certoErrado`). A IA sugere o formato ao ler o edital e a pessoa confere no modal de cadastro. O gerador pede as questões nesse formato; o embaralhamento das alternativas continua só na múltipla escolha. A correção registra acertos/total do mesmo jeito nos três formatos.
+
+**O que continua em aberto.**
+
+- Editais cadastrados antes disso não têm o campo e valem como A–E. Ainda não há tela para editar um edital já criado: para mudar o formato, é preciso cadastrar de novo.
+- No Certo/Errado a tela mostra a nota líquida do Cebraspe (um erro anula um acerto), mas o histórico e as revisões guardam só acertos/total, para os números serem comparáveis entre formatos.
+- Itens Certo/Errado do Cebraspe costumam partir de um texto-base comum a vários itens; hoje cada item é uma afirmação isolada.
 

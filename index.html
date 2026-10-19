@@ -669,6 +669,13 @@
       <div><label class="f">Banca</label><input type="text" id="edBanca" placeholder="Opcional"></div>
       <div><label class="f">Data da prova</label><input type="date" id="edData"></div>
     </div>
+    <label class="f">Formato das questões</label>
+    <select id="edFormato">
+      <option value="multipla5">Múltipla escolha — 5 alternativas (A–E)</option>
+      <option value="multipla4">Múltipla escolha — 4 alternativas (A–D)</option>
+      <option value="certoErrado">Certo ou Errado (estilo Cebraspe)</option>
+    </select>
+    <p class="hint" style="margin-top:4px">A IA tenta descobrir pelo edital; confira. As questões geradas seguem este formato.</p>
 
     <div class="modo-switch" style="margin:14px 0">
       <button id="edTabPdf" class="on" onclick="editalSetModo('pdf')">Anexar PDF do edital</button>
@@ -1070,6 +1077,7 @@ function abrirEditalModal(){
   document.getElementById('edNome').value = '';
   document.getElementById('edBanca').value = '';
   document.getElementById('edData').value = '';
+  document.getElementById('edFormato').value = 'multipla5';
   document.getElementById('edFiltro').value = '';
   document.getElementById('edLista').value = '';
   document.getElementById('edPdf').value = '';
@@ -1187,6 +1195,9 @@ async function editalExtrairComIA(texto, status){
         '- "nome": nome curto da prova/concurso (ex.: "Concurso TRT 2ª Região 2027");\n' +
         '- "banca": banca ou instituição organizadora, se houver, senão "";\n' +
         '- "dataProva": data da prova objetiva no formato AAAA-MM-DD, se constar, senão "";\n' +
+        '- "formatoQuestoes": formato dos itens da prova objetiva: "certoErrado" se forem itens para julgar como CERTO ou ERRADO ' +
+        '(típico do Cebraspe/Cespe), "multipla4" se forem 4 alternativas (A a D), "multipla5" se forem 5 alternativas (A a E). ' +
+        'Na dúvida, ou se o edital não disser, use "multipla5";\n' +
         '- "materias": as disciplinas cobradas, cada uma com "nome", "peso" e "topicos".\n' +
         'Peso: pontos da matéria na prova (nº de questões × valor de cada questão). Quando o edital só der o total de um bloco ' +
         '(ex.: "Conhecimentos Específicos: 30 questões, valor 2,0") sem separar por matéria, divida os pontos do bloco igualmente ' +
@@ -1196,7 +1207,7 @@ async function editalExtrairComIA(texto, status){
         (filtro
           ? 'O edital pode ter vários cargos/áreas. Considere SOMENTE: "' + filtro + '" (e as matérias comuns a todos).\n'
           : 'Se houver vários cargos/áreas com conteúdos diferentes, use as matérias comuns e as do primeiro cargo listado.\n') +
-        'Responda SOMENTE com JSON válido, sem markdown: {"nome":"...","banca":"...","dataProva":"","materias":[{"nome":"...","peso":1,"topicos":["..."]}]}\n\nTEXTO:\n' + texto
+        'Responda SOMENTE com JSON válido, sem markdown: {"nome":"...","banca":"...","dataProva":"","formatoQuestoes":"multipla5","materias":[{"nome":"...","peso":1,"topicos":["..."]}]}\n\nTEXTO:\n' + texto
     });
     const jsonMatch = txt.match(/\{[\s\S]*\}/);
     if(!jsonMatch) throw new Error('resposta sem JSON');
@@ -1204,6 +1215,9 @@ async function editalExtrairComIA(texto, status){
     if(parsed.nome && !document.getElementById('edNome').value) document.getElementById('edNome').value = parsed.nome;
     if(parsed.banca && !document.getElementById('edBanca').value) document.getElementById('edBanca').value = parsed.banca;
     if(/^\d{4}-\d{2}-\d{2}$/.test(parsed.dataProva||'') && !document.getElementById('edData').value) document.getElementById('edData').value = parsed.dataProva;
+    // Ao contrário dos campos de texto, o select sempre tem valor: a leitura
+    // da IA vale como sugestão, e a pessoa corrige no modal se precisar.
+    if(FORMATOS_QUESTAO.includes(parsed.formatoQuestoes)) document.getElementById('edFormato').value = parsed.formatoQuestoes;
     edRows = (parsed.materias||[]).filter(m=>m && m.nome).map(m => ({
       nome: String(m.nome).trim(), peso: Number(m.peso)||1,
       topicos: Array.isArray(m.topicos) ? m.topicos.map(t=>String(t).trim()).filter(Boolean) : []
@@ -1224,6 +1238,7 @@ async function editalConfirmar(){
   if(!edRows.length || !edRows.some(r=>r.nome && r.nome.trim())){ alert('Adicione ao menos uma matéria — anexe o PDF, cole o texto, ou use "+ matéria".'); return; }
   const banca = document.getElementById('edBanca').value.trim();
   const dataProva = document.getElementById('edData').value;
+  const formatoQuestoes = document.getElementById('edFormato').value;
   const slug = slugify(nome);
   const materiasArr = edRows.filter(r=>r.nome && r.nome.trim()).map((r,i)=>({
     id: slug+'__m'+i, bloco:'Matérias do edital', nome:r.nome.trim(),
@@ -1231,7 +1246,7 @@ async function editalConfirmar(){
     topicos: (r.topicos && r.topicos.length) ? r.topicos : ['Conteúdo geral de ' + r.nome.trim()]
   }));
   EDITAIS[slug] = {
-    nome, banca, custom:true, dataProva: dataProva || '',
+    nome, banca, custom:true, dataProva: dataProva || '', formatoQuestoes,
     subtitulo: [banca && ('Banca '+banca), dataProva && ('Prova em '+dataProva.split('-').reverse().join('/'))].filter(Boolean).join(' · ') || 'Edital personalizado',
     materias: materiasArr
   };
@@ -2002,6 +2017,14 @@ function wrapMapaMental(html){
 // Os prompts descrevem a prova a partir do edital ativo — nada fixo de um
 // concurso específico.
 function bancaAtiva(){ const ed = EDITAIS[concursoAtivo]; return (ed && ed.banca) || ''; }
+// Editais cadastrados antes deste campo existir não têm formato: valem como A–E,
+// que era o único formato gerado até então.
+const FORMATOS_QUESTAO = ['multipla5','multipla4','certoErrado'];
+function formatoAtivo(){
+  const ed = EDITAIS[concursoAtivo];
+  return (ed && FORMATOS_QUESTAO.includes(ed.formatoQuestoes)) ? ed.formatoQuestoes : 'multipla5';
+}
+function letrasDoFormato(formato){ return formato === 'multipla4' ? ['A','B','C','D'] : ['A','B','C','D','E']; }
 function contextoProva(){
   const ed = EDITAIS[concursoAtivo];
   if(!ed) return 'O estudante está se preparando para uma prova.';
@@ -2121,11 +2144,13 @@ let questoesGeradas = null;
 let questoesGeradasMateriaId = null;
 let questoesGeradasTopicoId = null;
 let questoesGeradasDificuldade = null;
+// Guardado junto com as questões: se a pessoa trocar de edital antes de
+// corrigir, a correção ainda usa o formato em que elas foram geradas.
+let questoesGeradasFormato = 'multipla5';
 
 // O modelo "equilibra" o gabarito do jeito mais literal possível — na prática
 // veio A,B,C,D,E,A,B,C,D,E. Embaralhar aqui tira o padrão sem depender do prompt.
-function embaralharAlternativas(q){
-  const letras = ['A','B','C','D','E'];
+function embaralharAlternativas(q, letras){
   if(!q.alternativas || !letras.every(l=>l in q.alternativas) || !letras.includes(q.correta)) return q;
   const textos = letras.map(l=>({ texto:q.alternativas[l], certa: l===q.correta }));
   for(let i=textos.length-1; i>0; i--){
@@ -2138,6 +2163,49 @@ function embaralharAlternativas(q){
   return { ...q, alternativas, correta };
 }
 
+// Deixa cada formato na mesma forma interna ({enunciado, correta, justificativa}
+// e, na múltipla escolha, alternativas), para render e correção não terem que
+// conhecer o JSON da IA. Item sem gabarito válido é descartado: não dá para corrigir.
+function normalizarQuestao(q, formato){
+  if(!q) return null;
+  if(formato === 'certoErrado'){
+    const enunciado = q.afirmacao || q.enunciado;
+    const g = String(q.gabarito || q.correta || '').trim().toUpperCase();
+    const correta = g.startsWith('C') ? 'C' : g.startsWith('E') ? 'E' : null;
+    if(!enunciado || !correta) return null;
+    return { enunciado, correta, justificativa: q.justificativa || '' };
+  }
+  const letras = letrasDoFormato(formato);
+  const correta = String(q.correta || '').trim().toUpperCase();
+  if(!q.enunciado || !q.alternativas || !letras.every(l=>q.alternativas[l]) || !letras.includes(correta)) return null;
+  const alternativas = {};
+  letras.forEach(l=>{ alternativas[l] = q.alternativas[l]; }); // descarta um "E" que sobre no formato A–D
+  return embaralharAlternativas({ enunciado:q.enunciado, alternativas, correta, justificativa:q.justificativa || '' }, letras);
+}
+
+function promptQuestoes(formato, dificuldade){
+  const cabecalho = `Você é o motor de questões do SIPC, um sistema de estudos. ${contextoProva()}`;
+  if(formato === 'certoErrado'){
+    return `${cabecalho}
+Gere exatamente 10 itens para julgar como CERTO ou ERRADO sobre o tópico indicado pelo usuário, ${estiloBanca()}, sem NUNCA reproduzir texto de item real - os 10 itens devem ser inéditos.
+Cada item é uma única afirmação completa, que o estudante julga sozinha (sem alternativas). Itens errados devem errar por um detalhe plausível (troca de termo, exceção, extrapolação, generalização indevida), não por absurdo.
+Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; gabarito equilibrado (aproximadamente 5 certos e 5 errados), sem seguir padrão de alternância; dificuldade: ${dificuldade}; seja conciso - afirmações curtas, justificativa de no máximo 1 frase por item, para caber no limite de tokens; a justificativa explica por que a afirmação está certa ou errada.
+Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato ("gabarito" é "C" para certo ou "E" para errado):
+{"questoes":[{"afirmacao":"...","gabarito":"E","justificativa":"..."}]}
+O array "questoes" deve ter exatamente 10 itens.`;
+  }
+  const letras = letrasDoFormato(formato);
+  const n = letras.length;
+  const ultima = letras[n-1];
+  const exemploAlt = '{' + letras.map(l=>`"${l}":"..."`).join(',') + '}';
+  return `${cabecalho}
+Gere exatamente 10 questões de múltipla escolha (alternativas A a ${ultima}, exatamente ${n} alternativas, uma única correta) sobre o tópico indicado pelo usuário, ${estiloBanca()}, sem NUNCA reproduzir texto de questão real - as 10 questões devem ser inéditas.
+Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; distribua o gabarito de forma equilibrada entre as ${n} letras; dificuldade: ${dificuldade}; seja conciso - enunciados e alternativas curtos, justificativa de no máximo 1 frase por questão, para caber no limite de tokens; a justificativa explica o conteúdo e NUNCA cita a letra da alternativa (as alternativas são reordenadas depois).
+Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato:
+{"questoes":[{"enunciado":"...","alternativas":${exemploAlt},"correta":"B","justificativa":"..."}]}
+O array "questoes" deve ter exatamente 10 itens.`;
+}
+
 async function gerarQuestoesAPI(){
   const materiaId = document.getElementById('qgMateria').value;
   const dificuldade = document.getElementById('qgDificuldade').value;
@@ -2146,19 +2214,14 @@ async function gerarQuestoesAPI(){
   const topicoId = document.getElementById('qgTopico').value || null;
   const t = topicoId ? m.topicos.find(tt=>tt.id===topicoId) : null;
   const assunto = t ? `${t.nome} — ${m.nome}` : m.nome;
+  const formato = formatoAtivo();
+  const nomeItens = formato === 'certoErrado' ? '10 itens Certo/Errado' : '10 questões';
 
   const btn = document.getElementById('btnGerarQ');
   const area = document.getElementById('areaQuestoesGeradas');
   btn.disabled = true;
   btn.textContent = 'Gerando...';
-  area.innerHTML = '<div class="card"><p style="color:var(--text-dim);margin:0">Gerando 10 questões' + (bancaAtiva() ? ' estilo ' + bancaAtiva() : '') + ' sobre "'+assunto+'"...</p></div>';
-
-  const systemPrompt = `Você é o motor de questões do SIPC, um sistema de estudos. ${contextoProva()}
-Gere exatamente 10 questões de múltipla escolha (alternativas A a E, uma única correta) sobre o tópico indicado pelo usuário, ${estiloBanca()}, sem NUNCA reproduzir texto de questão real - as 10 questões devem ser inéditas.
-Regras: nunca inventar artigo de lei, jurisprudência ou norma que não existe; distribua o gabarito de forma equilibrada entre as 5 letras (aproximadamente 2 de cada); dificuldade: ${dificuldade}; seja conciso - enunciados e alternativas curtos, justificativa de no máximo 1 frase por questão, para caber no limite de tokens; a justificativa explica o conteúdo e NUNCA cita a letra da alternativa (as alternativas são reordenadas depois).
-Responda SOMENTE com JSON válido, sem markdown, sem texto antes ou depois, exatamente neste formato:
-{"questoes":[{"enunciado":"...","alternativas":{"A":"...","B":"...","C":"...","D":"...","E":"..."},"correta":"B","justificativa":"..."}]}
-O array "questoes" deve ter exatamente 10 itens.`;
+  area.innerHTML = '<div class="card"><p style="color:var(--text-dim);margin:0">Gerando ' + nomeItens + (bancaAtiva() ? ' estilo ' + bancaAtiva() : '') + ' sobre "'+assunto+'"...</p></div>';
 
   try{
     // 4096 cortava a resposta no meio da 6a ou 7a questao e caia no resgate
@@ -2166,8 +2229,8 @@ O array "questoes" deve ter exatamente 10 itens.`;
     const textoResposta = await iaGerarTexto({
       maxTokens: 12000,
       json: true,
-      system: systemPrompt,
-      user: `Gere as 10 questões sobre: ${assunto} (${m.bloco}).`
+      system: promptQuestoes(formato, dificuldade),
+      user: `Gere ${formato === 'certoErrado' ? 'os 10 itens' : 'as 10 questões'} sobre: ${assunto} (${m.bloco}).`
     });
     const limpo = textoResposta.replace(/```json|```/g,'').trim();
 
@@ -2176,16 +2239,18 @@ O array "questoes" deve ter exatamente 10 itens.`;
       parsed = JSON.parse(limpo);
     }catch(parseErr){
       // resposta pode ter sido cortada - tenta recuperar só as questões completas
-      const matches = limpo.match(/\{"enunciado".*?"justificativa":"[^"]*"\}/gs) || [];
+      const matches = limpo.match(/\{"(?:enunciado|afirmacao)".*?"justificativa":"[^"]*"\}/gs) || [];
       if(!matches.length) throw parseErr;
       parsed = { questoes: matches.map(s=>{ try{ return JSON.parse(s); }catch(e){ return null; } }).filter(Boolean) };
     }
-    if(!parsed.questoes || !parsed.questoes.length) throw new Error('formato inesperado');
+    const lista = (parsed.questoes || []).map(q=>normalizarQuestao(q, formato)).filter(Boolean);
+    if(!lista.length) throw new Error('formato inesperado');
 
-    questoesGeradas = parsed.questoes.map(embaralharAlternativas);
+    questoesGeradas = lista;
     questoesGeradasMateriaId = materiaId;
     questoesGeradasTopicoId = topicoId;
     questoesGeradasDificuldade = dificuldade;
+    questoesGeradasFormato = formato;
     renderQuestoesGeradas();
   }catch(e){
     area.innerHTML = '<div class="card"><p style="color:var(--danger);margin:0">Não consegui gerar as questões agora (erro: '+e.message+'). Tenta de novo.</p></div>';
@@ -2195,20 +2260,35 @@ O array "questoes" deve ter exatamente 10 itens.`;
   }
 }
 
+// Certo/Errado mostra as duas opções como as alternativas "C" e "E": assim a
+// correção compara letra com letra nos três formatos.
+function opcoesDaQuestao(q, formato){
+  if(formato === 'certoErrado') return [{valor:'C', rotulo:'Certo'}, {valor:'E', rotulo:'Errado'}];
+  return letrasDoFormato(formato).map(l=>({ valor:l, rotulo:`<b>${l})</b> ${q.alternativas[l]}` }));
+}
+function rotuloResposta(valor, formato){
+  if(formato === 'certoErrado') return valor === 'C' ? 'Certo' : 'Errado';
+  return valor;
+}
+
 function renderQuestoesGeradas(){
   const area = document.getElementById('areaQuestoesGeradas');
-  const letras = ['A','B','C','D','E'];
+  const formato = questoesGeradasFormato;
+  const ce = formato === 'certoErrado';
   area.innerHTML = `
     <div class="card">
+      ${ce ? '<p style="font-size:12px;color:var(--text-dim);margin:0 0 14px">Julgue cada item como Certo ou Errado.</p>' : ''}
       ${questoesGeradas.map((q,i)=>`
         <div style="margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)">
           <p style="font-weight:600;font-size:13px;margin:0 0 8px">${i+1}. ${q.enunciado}</p>
-          ${letras.map(l=>`
+          <div style="${ce ? 'display:flex;gap:18px' : ''}">
+          ${opcoesDaQuestao(q, formato).map(o=>`
             <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0;cursor:pointer">
-              <input type="radio" name="resp-${i}" value="${l}" style="margin-top:3px">
-              <span><b>${l})</b> ${q.alternativas[l]}</span>
+              <input type="radio" name="resp-${i}" value="${o.valor}" style="margin-top:3px">
+              <span>${o.rotulo}</span>
             </label>
           `).join('')}
+          </div>
         </div>
       `).join('')}
       <button class="btn" onclick="corrigirQuestoesGeradas()">Corrigir</button>
@@ -2217,23 +2297,31 @@ function renderQuestoesGeradas(){
 }
 
 async function corrigirQuestoesGeradas(){
-  const letras = ['A','B','C','D','E'];
-  let acertos = 0;
+  const formato = questoesGeradasFormato;
+  let acertos = 0, erros = 0;
   const detalhes = questoesGeradas.map((q,i)=>{
     const sel = document.querySelector(`input[name="resp-${i}"]:checked`);
     const respondida = sel ? sel.value : null;
     const acertou = respondida === q.correta;
     if(acertou) acertos++;
+    else if(respondida) erros++;
     return {q, i, respondida, acertou};
   });
 
   const teste = emModoTeste();
+  // No Cebraspe um item errado anula um certo, e deixar em branco não desconta.
+  // Só informativo: o histórico e as revisões continuam contando acertos/total,
+  // igual aos outros formatos, para os números serem comparáveis.
+  const liquida = formato === 'certoErrado'
+    ? `<p style="font-size:12px;color:var(--text-dim);margin:0 0 10px">Na regra Cebraspe (um erro anula um acerto; em branco não conta): ${acertos - erros} ponto(s) líquido(s).</p>`
+    : '';
 
   document.getElementById('resultadoCorrecao').innerHTML = `
     <div class="section-title">Resultado: ${acertos}/${questoesGeradas.length}</div>
+    ${liquida}
     ${detalhes.map(d=>`
       <div style="margin-bottom:10px;font-size:13px">
-        <span class="badge ${d.acertou?'ok':'warn'}">${d.i+1}. ${d.acertou?'Certa':'Errada'} — gabarito: ${d.q.correta}${d.respondida?' · você: '+d.respondida:' · não respondida'}</span>
+        <span class="badge ${d.acertou?'ok':'warn'}">${d.i+1}. ${d.acertou?'Certa':'Errada'} — gabarito: ${rotuloResposta(d.q.correta, formato)}${d.respondida?' · você: '+rotuloResposta(d.respondida, formato):' · não respondida'}</span>
         <p style="color:var(--text-dim);margin:4px 0 0">${d.q.justificativa||''}</p>
       </div>
     `).join('')}
