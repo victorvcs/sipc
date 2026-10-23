@@ -377,6 +377,9 @@ function deEdital(ed, fonte){
 // Erros da IA em português e, em localhost, o lembrete do token de depuração.
 function mensagemIA(e){
   const m = String(e && e.message || e);
+  // Depois de um único 403, o App Check trava as tentativas por 24 horas
+  // neste navegador. Apagar o registro local libera na próxima carga.
+  if(/throttl/i.test(m)){ try{ indexedDB.deleteDatabase('firebase-app-check-database'); }catch(x){} return 'A verificação de segurança da IA falhou uma vez. Recarregue a página e tente de novo.'; }
   if(/app.?check|401|403/i.test(m) && SIPC.debugToken) return 'A IA recusou o acesso em localhost: cadastre o token de depuração do App Check no console do Firebase (' + SIPC.debugToken + ').';
   if(/app.?check|401|403/i.test(m)) return 'A IA recusou o acesso deste navegador. Recarregue a página e tente de novo.';
   return m.charAt(0).toUpperCase() + m.slice(1);

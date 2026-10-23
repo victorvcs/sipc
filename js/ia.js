@@ -129,7 +129,8 @@ export async function gerarQuestoes({ banca, formato = 'multipla5', materia, top
     ? `{"blocos":[{"base":"texto-base ou situação hipotética","comando":"julgue os itens a seguir","itens":[{"afirmacao":"","certo":true,"justificativa":""}]}]} ` +
       `com ${blocos} bloco(s) e ${qtd} itens no total`
     : `{"questoes":[{"enunciado":"","alternativas":[${n} textos sem a letra],"correta":0,"justificativa":""}]} com ${qtd} questões; ` +
-      '"correta" é o índice (0 = primeira) e a justificativa explica por que a certa está certa e por que cada errada está errada';
+      '"correta" é o índice (0 = primeira) e a justificativa explica por que a certa está certa e por que cada errada está errada, ' +
+      'citando cada alternativa pelo conteúdo e NUNCA por letra (A, B, C...): as alternativas são reordenadas depois';
   const o = await gerarJSON({
     system: 'Você elabora questões inéditas de concurso em português do Brasil. Nunca copie questões existentes. ' +
       'Nunca invente lei, artigo, súmula ou número. ' + ESTILO_BANCA[estiloDe(banca)] + ' Responda SOMENTE com JSON válido.',
