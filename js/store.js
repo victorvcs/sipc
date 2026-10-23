@@ -11,11 +11,14 @@ export function setModoTeste(on) { teste = on; if (!on) memoria.clear(); }
 const agora = () => new Date().toISOString();
 async function ler(ref) {
   if (teste && memoria.has(ref.path)) return memoria.get(ref.path);
-  return (await getDoc(ref)).data() ?? null;
+  // No modo teste sem conta as Regras recusam a leitura: vale como "nada salvo".
+  try { return (await getDoc(ref)).data() ?? null; } catch (e) { if (teste) return null; throw e; }
 }
-async function gravar(ref, dados) {
-  if (teste) { memoria.set(ref.path, { ...(memoria.get(ref.path) || {}), ...dados }); return; }
-  await setDoc(ref, dados, { merge: true });
+// substituir: grava o documento inteiro. Com merge, uma chave apagada no app
+// (ex.: o tópico saiu de "continuar de onde parou") continuaria no banco.
+async function gravar(ref, dados, substituir = false) {
+  if (teste) { memoria.set(ref.path, substituir ? dados : { ...(memoria.get(ref.path) || {}), ...dados }); return; }
+  await setDoc(ref, dados, substituir ? {} : { merge: true });
 }
 
 /* perfil */
@@ -24,7 +27,9 @@ export const salvarPerfil = (uid, dados) => gravar(doc(db, 'users', uid), { ...d
 
 /* trilhas */
 export async function listarTrilhas(uid) {
-  const reais = (await getDocs(collection(db, 'users', uid, 'trilhas'))).docs.map(d => ({ id: d.id, ...d.data() }));
+  let reais = [];
+  try { reais = (await getDocs(collection(db, 'users', uid, 'trilhas'))).docs.map(d => ({ id: d.id, ...d.data() })); }
+  catch (e) { if (!teste) throw e; }
   if (!teste) return reais;
   const prefixo = `users/${uid}/trilhas/`;
   const daMemoria = [...memoria].filter(([p]) => p.startsWith(prefixo) && p.split('/').length === 4)
@@ -48,8 +53,13 @@ export const carregarEstado = (uid, tid) => ler(doc(db, 'users', uid, 'trilhas',
 let pendente = null, ultimo = null;
 export function salvarEstado(uid, tid, estado) {
   clearTimeout(pendente);
-  ultimo = () => gravar(doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual'), estado);
-  pendente = setTimeout(() => { const f = ultimo; ultimo = null; f && f(); }, 800);
+  const copia = JSON.parse(JSON.stringify(estado)); // o app segue mexendo no objeto durante a espera
+  ultimo = () => gravar(doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual'), copia, true);
+  pendente = setTimeout(() => {
+    const f = ultimo; ultimo = null;
+    // Falha de gravação não pode passar em silêncio: o aluno acharia que salvou.
+    f && f().catch(e => dispatchEvent(new CustomEvent('sipc-erro-salvar', { detail: e })));
+  }, 800);
 }
 // Grava na hora o que estiver pendente (ao sair da página ou trocar de trilha).
 export function salvarAgora() { clearTimeout(pendente); const f = ultimo; ultimo = null; return f ? f() : Promise.resolve(); }
