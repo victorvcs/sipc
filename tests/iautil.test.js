@@ -25,6 +25,12 @@ test('embaralhar mantém a alternativa certa', () => {
     assert.equal(r.alts[r.c], 'c');
     assert.deepEqual([...r.alts].sort(), q.alts);
   }
+  const j = { enun: 'x', alts: ['a', 'b', 'c', 'd', 'e'], c: 1, just: 'A alternativa B está correta; a letra E erra e (C) também.' };
+  for (let k = 0; k < 20; k++) {
+    const r = embaralhar(j), letra = i => 'ABCDE'[r.alts.indexOf(['a', 'b', 'c', 'd', 'e'][i])];
+    assert.equal(r.just, `A alternativa ${letra(1)} está correta; a letra ${letra(4)} erra e (${letra(2)}) também.`);
+    assert.equal('ABCDE'[r.c], letra(1));
+  }
   const ce = { ce: true, alts: ['Certo', 'Errado'], c: 1 };
   assert.equal(embaralhar(ce), ce);
 });

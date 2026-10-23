@@ -27,10 +27,18 @@ export function extrairJSON(txt) {
 // normalizada ({alts, c}); Certo/Errado não se embaralha.
 export function embaralhar(q, aleatorio = Math.random) {
   if (q.ce) return q;
-  const itens = q.alts.map((t, i) => ({ t, certa: i === q.c }));
+  const itens = q.alts.map((t, i) => ({ t, i, certa: i === q.c }));
   for (let i = itens.length - 1; i > 0; i--) {
     const j = Math.floor(aleatorio() * (i + 1));
     [itens[i], itens[j]] = [itens[j], itens[i]];
   }
-  return { ...q, alts: itens.map(x => x.t), c: itens.findIndex(x => x.certa) };
+  // A IA cita letras na justificativa mesmo quando o prompt proíbe: troca
+  // "alternativa B" pela letra que essa alternativa ganhou depois do embaralho.
+  const L = 'ABCDE', novo = q.alts.map((_, i) => itens.findIndex(x => x.i === i));
+  const just = String(q.just || '').replace(/\b(alternativas?|letras?|op[cç](?:ão|ões))\s+([A-E])\b|\(([A-E])\)/g, (m, pal, a, b) => {
+    const l = a || b, n = novo[L.indexOf(l)];
+    if (n === undefined || n < 0) return m;
+    return pal ? `${pal} ${L[n]}` : `(${L[n]})`;
+  });
+  return { ...q, alts: itens.map(x => x.t), c: itens.findIndex(x => x.certa), just };
 }
