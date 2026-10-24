@@ -19,11 +19,27 @@ export function validarEdital(o) {
   };
 }
 
+// O modelo às vezes devolve {pergunta, resposta} onde se pediu [pergunta, resposta].
+// Normaliza os dois jeitos (e descarta itens quebrados) para a tela nunca
+// receber um formato que derrube o render. Vale também para o cache, que
+// pode ter sido gravado por uma versão antiga ou adulterado.
+const par = (x, a, b) => Array.isArray(x) ? x : (x && typeof x === 'object') ? [x[a] ?? Object.values(x)[0], x[b] ?? Object.values(x)[1]] : null;
+const listaDeTextos = v => (Array.isArray(v) ? v : v == null ? [] : [v]).filter(i => i != null && typeof i !== 'object').map(String).filter(t => t.trim());
+
 export function validarConteudo(o) {
   for (const k of ['historia', 'resumo5', 'pergunta']) exigir(texto(o?.[k]), 'conteúdo sem ' + k);
-  for (const k of ['resumo1', 'analogias', 'checklist', 'flashcards']) exigir(Array.isArray(o?.[k]) && o[k].length, 'conteúdo sem ' + k);
-  exigir(Array.isArray(o.mapa) && texto(o.mapa[0]) && Array.isArray(o.mapa[1]), 'conteúdo sem mapa');
-  return o;
+  const lista = v => (Array.isArray(v) ? v : []);
+  const resumo1 = lista(o.resumo1).map(x => par(x, 'rotulo', 'itens')).filter(p => p && texto(String(p[0] ?? '')))
+    .map(([r, i]) => [String(r), listaDeTextos(i)]);
+  const flashcards = lista(o.flashcards).map(x => par(x, 'pergunta', 'resposta')).filter(p => p && texto(String(p[0] ?? '')) && texto(String(p[1] ?? '')))
+    .map(([q, a]) => [String(q), String(a)]);
+  const analogias = listaDeTextos(o.analogias), checklist = listaDeTextos(o.checklist);
+  const m = Array.isArray(o.mapa) ? o.mapa : (o.mapa && typeof o.mapa === 'object') ? [o.mapa.centro, o.mapa.ramos] : null;
+  exigir(m && texto(m[0]) && Array.isArray(m[1]), 'conteúdo sem mapa');
+  const ramos = m[1].map(r => par(r, 'ramo', 'folhas')).filter(r => r && texto(String(r[0] ?? ''))).map(([r, f]) => [String(r), listaDeTextos(f)]).slice(0, 6);
+  for (const [k, v] of Object.entries({ resumo1, analogias, checklist, flashcards, mapa: ramos })) exigir(v.length, 'conteúdo sem ' + k);
+  return { pergunta: o.pergunta, historia: o.historia, resumo5: o.resumo5, resumo1, analogias, checklist, flashcards,
+           mapa: [String(m[0]), ramos], tempo: Math.min(60, Math.max(5, Number(o.tempo) || 15)) };
 }
 
 export function validarQuestoes(o, { formato, qtd }) {

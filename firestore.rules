@@ -15,6 +15,7 @@ service cloud.firestore {
 
     function logado() { return request.auth != null; }
     function dono(uid) { return logado() && request.auth.uid == uid; }
+    function texto(v, max) { return v is string && v.size() <= max; }
     function admin() {
       return logado()
         && request.auth.token.email == 'victorvcs@gmail.com'
@@ -33,17 +34,46 @@ service cloud.firestore {
 
     // Conteúdo gerado pela IA, compartilhado entre alunos para economizar
     // cota: qualquer aluno logado lê; cria quem gerou; só o admin altera.
+    // Formato e tamanho fixos: um documento lixo (ou enorme) quebraria o
+    // tópico para todos. O app também revalida o que lê daqui.
     match /conteudos/{id} {
       allow read: if logado();
-      allow create: if logado() && request.resource.data.uid == request.auth.uid;
+      allow create: if logado()
+        && request.resource.data.keys().hasOnly(['json', 'banca', 'materia', 'topico', 'uid', 'modelo', 'criadoEm'])
+        && request.resource.data.uid == request.auth.uid
+        && texto(request.resource.data.json, 60000)
+        && texto(request.resource.data.banca, 120)
+        && texto(request.resource.data.materia, 300)
+        && texto(request.resource.data.topico, 300);
       allow update, delete: if admin();
     }
 
     // Reportes de bug e melhoria: o aluno cria em seu nome; só o admin lê.
+    // Cada campo é conferido porque o admin vê tudo isto na tela: o e-mail tem
+    // de ser o do login (ninguém reporta em nome de outro) e o print só pode
+    // ser a imagem JPEG que o próprio app gera.
     match /feedback/{id} {
       allow create: if logado()
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'nome', 'tipo', 'texto', 'tela', 'disp', 'trilha', 'print',
+                                                  'sev', 'area', 'valor', 'esforco', 'status', 'modoTeste', 'criadoEm'])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.tipo in ['bug', 'melhoria'];
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.tipo in ['bug', 'melhoria']
+        && texto(request.resource.data.texto, 4000) && request.resource.data.texto.size() > 0
+        && texto(request.resource.data.nome, 120)
+        && texto(request.resource.data.tela, 120)
+        && texto(request.resource.data.disp, 40)
+        && texto(request.resource.data.trilha, 200)
+        && texto(request.resource.data.area, 60)
+        && (request.resource.data.print == null
+            || (texto(request.resource.data.print, 760000)
+                && request.resource.data.print.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')))
+        && (request.resource.data.sev == null || request.resource.data.sev in ['alta', 'media', 'baixa'])
+        && request.resource.data.valor is int && request.resource.data.valor >= 1 && request.resource.data.valor <= 5
+        && request.resource.data.esforco is int && request.resource.data.esforco >= 1 && request.resource.data.esforco <= 3
+        && request.resource.data.status == 'novo'
+        && request.resource.data.modoTeste is bool
+        && request.resource.data.criadoEm == request.time;
       allow read, update, delete: if admin();
     }
 

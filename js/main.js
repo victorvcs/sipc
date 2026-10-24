@@ -6,7 +6,7 @@ import * as store from './store.js';
 import * as ia from './ia.js';
 import { lerArquivo } from './leitura.js';
 import { planilhaParaEdital } from './nucleo/planilha.js';
-import { agendar, avaliar, vencidas, somarDias, ETAPAS } from './nucleo/revisao.js';
+import { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS } from './nucleo/revisao.js';
 import { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO } from './nucleo/trilha.js';
 import { classificar, quadrante, ordenar } from './nucleo/prioridade.js';
 
@@ -61,12 +61,19 @@ window.SIPC = {
   atualizarNome: nome => fb.updateProfile(auth.currentUser, { displayName: nome }),
   sair: () => fb.signOut(auth),
   store, ia, lerArquivo, planilhaParaEdital,
-  revisao: { agendar, avaliar, vencidas, somarDias, ETAPAS },
+  revisao: { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS },
   trilha: { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO },
   prioridade: { classificar, quadrante, ordenar },
 };
 
 addEventListener('sipc-erro-salvar', e => window.aoErroSalvar && window.aoErroSalvar(e.detail));
+// No celular o pagehide muitas vezes nem dispara: esconder a aba é o último
+// momento confiável para guardar onde o aluno parou. Ao voltar, relê o estado
+// (pode ter estudado em outro aparelho nesse meio-tempo).
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { window.guardarProgresso && window.guardarProgresso(); store.salvarAgora(); }
+  else window.releEstado && window.releEstado();
+});
 addEventListener('pagehide', () => { store.salvarAgora(); });
 
 fb.onAuthStateChanged(auth, u => window.aoMudarLogin(u));

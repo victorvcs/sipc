@@ -29,6 +29,13 @@ export function avaliar(rev, resultado, hojeISO) {
   return { ...r, etapa, proxima: maior(somarDias(r.estudadoEm, ETAPAS[etapa]), amanha) };
 }
 
+// Tópico que já estava consolidado (ou adiantado) e foi mal nas questões volta
+// para o começo da escada: revisão em 24 horas.
+export function reabrir(rev, hojeISO) {
+  return { ...rev, etapa: 0, estudadoEm: hojeISO, proxima: somarDias(hojeISO, ETAPAS[0]), consolidado: false,
+           historico: [...(rev.historico || []), { data: hojeISO, resultado: 'reaberto', etapa: rev.etapa }] };
+}
+
 export function vencidas(revs, hojeISO) {
   return revs.filter(r => !r.consolidado && r.proxima && r.proxima <= hojeISO);
 }

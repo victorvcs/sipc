@@ -6,7 +6,9 @@ import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query,
 let teste = false;
 const memoria = new Map();
 export const modoTeste = () => teste;
-export function setModoTeste(on) { teste = on; if (!on) memoria.clear(); }
+// Trocar de modo descarta o que estava na fila: uma gravação feita no teste
+// não pode cair no banco real depois que o teste foi desligado.
+export function setModoTeste(on) { descartarPendentes(); teste = on; if (!on) memoria.clear(); }
 
 const agora = () => new Date().toISOString();
 async function ler(ref) {
@@ -16,8 +18,8 @@ async function ler(ref) {
 }
 // substituir: grava o documento inteiro. Com merge, uma chave apagada no app
 // (ex.: o tópico saiu de "continuar de onde parou") continuaria no banco.
-async function gravar(ref, dados, substituir = false) {
-  if (teste) { memoria.set(ref.path, substituir ? dados : { ...(memoria.get(ref.path) || {}), ...dados }); return; }
+async function gravar(ref, dados, substituir = false, emTeste = teste) {
+  if (emTeste) { memoria.set(ref.path, substituir ? dados : { ...(memoria.get(ref.path) || {}), ...dados }); return; }
   await setDoc(ref, dados, substituir ? {} : { merge: true });
 }
 
@@ -43,6 +45,7 @@ export async function criarTrilha(uid, dados) {
 }
 export const salvarTrilha = (uid, tid, dados) => gravar(doc(db, 'users', uid, 'trilhas', tid), { ...dados, atualizadaEm: agora() });
 export async function excluirTrilha(uid, tid) {
+  descartarPendentes(tid); // senão a gravação atrasada recria um estado órfão
   if (teste) { memoria.set(`users/${uid}/trilhas/${tid}`, { excluida: true }); return; }
   await deleteDoc(doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual'));
   await deleteDoc(doc(db, 'users', uid, 'trilhas', tid));
@@ -50,19 +53,33 @@ export async function excluirTrilha(uid, tid) {
 
 /* estado de estudo (feito, revisões, parcial, questões, minutos, rascunhos) */
 export const carregarEstado = (uid, tid) => ler(doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual'));
-let pendente = null, ultimo = null;
-export function salvarEstado(uid, tid, estado) {
-  clearTimeout(pendente);
-  const copia = JSON.parse(JSON.stringify(estado)); // o app segue mexendo no objeto durante a espera
-  ultimo = () => gravar(doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual'), copia, true);
-  pendente = setTimeout(() => {
-    const f = ultimo; ultimo = null;
-    // Falha de gravação não pode passar em silêncio: o aluno acharia que salvou.
-    f && f().catch(e => dispatchEvent(new CustomEvent('sipc-erro-salvar', { detail: e })));
-  }, 800);
+// Uma fila por trilha: salvar a trilha B logo depois da A não pode descartar a A.
+// O documento só é copiado na hora de gravar (copiar a cada tecla do rascunho
+// pesava), e o modo (teste ou real) fica preso ao momento do agendamento.
+const pendentes = new Map(); // tid → {timer, gravar}
+function descartarPendentes(tid) {
+  for (const [t, p] of pendentes) if (!tid || t === tid) { clearTimeout(p.timer); pendentes.delete(t); }
 }
-// Grava na hora o que estiver pendente (ao sair da página ou trocar de trilha).
-export function salvarAgora() { clearTimeout(pendente); const f = ultimo; ultimo = null; return f ? f() : Promise.resolve(); }
+const avisarErro = e => dispatchEvent(new CustomEvent('sipc-erro-salvar', { detail: e }));
+export function salvarEstado(uid, tid, estado) {
+  const antigo = pendentes.get(tid); if (antigo) clearTimeout(antigo.timer);
+  const emTeste = teste, ref = doc(db, 'users', uid, 'trilhas', tid, 'estado', 'atual');
+  const p = { gravar: () => gravar(ref, JSON.parse(JSON.stringify(estado)), true, emTeste) };
+  p.timer = setTimeout(() => {
+    if (pendentes.get(tid) !== p) return;
+    pendentes.delete(tid);
+    // Falha de gravação não pode passar em silêncio: o aluno acharia que salvou.
+    p.gravar().catch(avisarErro);
+  }, 800);
+  pendentes.set(tid, p);
+}
+// Grava na hora o que estiver pendente (ao esconder a página ou trocar de
+// trilha). Nunca rejeita: quem chama segue em frente, e o aluno é avisado.
+export async function salvarAgora() {
+  const fila = [...pendentes.values()];
+  descartarPendentes();
+  await Promise.all(fila.map(p => p.gravar().catch(avisarErro)));
+}
 
 /* conteúdo gerado pela IA, compartilhado entre alunos */
 export const lerConteudo = id => ler(doc(db, 'conteudos', id));

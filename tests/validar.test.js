@@ -9,6 +9,18 @@ test('conteúdo exige as partes', () => {
   assert.throws(() => validarConteudo({ historia: 'x' }), /resumo/);
   assert.equal(validarConteudo(conteudoOk).historia, 'h');
 });
+test('conteúdo aceita objetos no lugar de pares e descarta itens quebrados', () => {
+  const c = validarConteudo({ ...conteudoOk,
+    flashcards: [{ pergunta: 'P?', resposta: 'R' }, ['ok', 'sim'], null, ['só pergunta']],
+    resumo1: [{ rotulo: 'Regra', itens: 'uma só' }, 7],
+    mapa: { centro: 'Crase', ramos: [{ ramo: 'Quando', folhas: ['a', { x: 1 }] }, null] },
+    tempo: 'abc' });
+  assert.deepEqual(c.flashcards, [['P?', 'R'], ['ok', 'sim']]);
+  assert.deepEqual(c.resumo1, [['Regra', ['uma só']]]);
+  assert.deepEqual(c.mapa, ['Crase', [['Quando', ['a']]]]);
+  assert.equal(c.tempo, 15);
+  assert.throws(() => validarConteudo({ ...conteudoOk, flashcards: [{ a: 1 }] }), /flashcards/);
+});
 test('questões A–E: 5 alternativas e gabarito válido', () => {
   const q = { questoes: [{ enunciado: 'e', alternativas: ['a', 'b', 'c', 'd', 'e'], correta: 2, justificativa: 'j' }] };
   assert.deepEqual(validarQuestoes(q, { formato: 'multipla5', qtd: 1 })[0], { enun: 'e', alts: ['a', 'b', 'c', 'd', 'e'], c: 2, just: 'j' });

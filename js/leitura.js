@@ -20,7 +20,7 @@ function carregarScript(src) {
 async function lerPdf(file) {
   await carregarScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
   let texto = '';
   for (let p = 1; p <= pdf.numPages; p++) {
     const content = await (await pdf.getPage(p)).getTextContent();

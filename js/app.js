@@ -68,7 +68,24 @@ function somarDiasHoje(n){ const d = new Date(); d.setDate(d.getDate()+n); retur
 function estadoVazio(){ return {feito:{}, revisoes:[], parcial:{}, questoes:[], minutos:{}, rascunhos:{}, diario:{}}; }
 const uid = () => S.usuario ? S.usuario.uid : 'visitante';
 const ehAdmin = () => !!(S.usuario && S.usuario.email === SIPC.ADMIN_EMAIL);
-function salvarE(){ if(S.trilhaAtual) SIPC.store.salvarEstado(uid(), S.trilhaAtual, S.E); }
+// estadoOk só fica verdadeiro depois que o estado da trilha foi lido: gravar
+// um estado vazio por falha de rede apagaria semanas de progresso.
+function salvarE(){ if(S.trilhaAtual && S.estadoOk){ podarEstado(S.E); SIPC.store.salvarEstado(uid(), S.trilhaAtual, S.E); } }
+// O documento do Firestore tem limite de 1 MB. "Continuar de onde parou" guarda
+// as questões geradas, e os rascunhos também crescem: fica só o recente.
+const MAX_PARCIAIS = 6, LIMITE_ESTADO = 700000;
+function podarEstado(E){
+  const parc = Object.entries(E.parcial||{}).sort((a,b)=>(b[1].em||0)-(a[1].em||0));
+  parc.slice(MAX_PARCIAIS).forEach(([k]) => delete E.parcial[k]);
+  if(JSON.stringify(E).length <= LIMITE_ESTADO) return;
+  // Ainda grande: rascunhos de levas que não estão mais abertas saem, depois as questões dos parciais antigos.
+  const abertos = new Set(Object.values(E.parcial).map(p => p.estudo ? p.estudo.chave+'#'+(p.estudo.geradoEm||0) : null).filter(Boolean));
+  Object.keys(E.rascunhos||{}).forEach(k => { if(![...abertos].some(a => k.startsWith(a+'#'))) delete E.rascunhos[k]; });
+  for(const [k, p] of parc.slice(1).reverse()){
+    if(JSON.stringify(E).length <= LIMITE_ESTADO) break;
+    if(p.estudo && E.parcial[k]){ E.parcial[k].estudo.questoes = null; E.parcial[k].estudo.resp = {}; }
+  }
+}
 window.aoErroSalvar = e => avisar('Não consegui salvar seu progresso agora (' + (e && e.message || e) + '). Confira a internet; o que está na tela continua aqui.');
 
 /* ------------------------- cálculo do ritmo ------------------------- */
@@ -88,7 +105,7 @@ function telaAssist(){
   if(p===1){ corpo = passoEdital(); podeSeguir = S.edStatus==='pronto'; }
   if(p===2){ corpo = passoMaterias(); podeSeguir = S.materias.length>0; }
   if(p===3){ corpo = passoBanca(); podeSeguir = S.bancas.length>0; }
-  if(p===4){ corpo = passoRitmo(); }
+  if(p===4){ corpo = passoRitmo(); podeSeguir = S.dias.some(Boolean); }
   if(p===5){ corpo = passoPronto(); rotuloSeguir = S.ocupado ? 'Salvando…' : 'Começar hoje'; podeSeguir = !S.ocupado; }
   return `<div class="wiz">
     <div class="wiz-top"><span class="marca">SIPC</span><span class="dim" style="font-size:13px;display:flex;align-items:center;gap:12px">${chaveTeste()}${S.usuario ? `Olá, ${escHtml(S.usuario.nome)} · ` : ''}Configuração · cerca de 3 min${S.trilhas.length ? ` · <button class="mini" onclick="irTrilhas()">minhas trilhas</button>` : ''}</span></div>
@@ -139,8 +156,8 @@ function passoEdital(){
     estado = `<div class="leitura" aria-live="polite"><ol>${passos.map((t,i)=>`<li class="${i<S.edPasso?'on':''}">${ico('check')}<span>${escHtml(t)}</span></li>`).join('')}</ol>
       ${S.edStatus==='lendo' && S.edPasso>=passos.length-1 ? '<p class="dim" style="font-size:13px;margin:8px 0 0">A IA ainda está lendo. Edital grande pode levar até um minuto.</p>' : ''}
       ${S.edStatus==='pronto' ? `<div class="achado"><b>Achei ${S.materias.length} matérias e ${totalTopicos()} tópicos ${fontes}.</b><br>${escHtml(S.prova.nome)}${S.prova.cargo?' · '+escHtml(S.prova.cargo):''}${S.prova.bancaEdital?' · banca '+escHtml(S.prova.bancaEdital):' · banca a definir'}${S.prova.semEdital?' · edital ainda não publicado':S.prova.data?' · prova em '+fmtData(dataDe(S.prova.data),{day:'2-digit',month:'2-digit',year:'numeric'}):''}.<br><span style="font-size:13px">A leitura pode errar: confira no próximo passo.</span></div>` : ''}
-      ${S.edStatus==='erro' ? `<div class="erro"><b>${S.erroLeitura ? escHtml(S.erroLeitura) : 'Não encontrei a lista de matérias.'}</b><br>Pode ser um PDF escaneado (imagem), uma planilha sem a coluna das matérias ou só o aviso de abertura do concurso. Tente o edital completo, outro arquivo, ou cole o trecho do conteúdo programático.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn sec" onclick="escolherEdital('arquivo')">Anexar outro arquivo</button><button class="btn sec" onclick="escolherEdital('texto')">Colar o texto</button></div>` : ''}
+      ${S.edStatus==='erro' ? `<div class="erro"><b>${S.erroLeitura ? escHtml(S.erroLeitura) : 'Não encontrei a lista de matérias.'}</b>${S.erroIA ? '' : '<br>Pode ser um PDF escaneado (imagem), uma planilha sem a coluna das matérias ou só o aviso de abertura do concurso. Tente o edital completo, outro arquivo, ou cole o trecho do conteúdo programático.'}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${S.erroIA ? '<button class="btn" onclick="tentarLeituraDeNovo()">Tentar de novo</button>' : ''}<button class="btn sec" onclick="escolherEdital('arquivo')">Anexar outro arquivo</button><button class="btn sec" onclick="escolherEdital('texto')">Colar o texto</button></div>` : ''}
     </div>`;
   }
   const cargo = `<div class="campo-f" style="margin-top:14px"><label class="f" for="edCargo">Seu cargo ou área (só se o edital tiver vários)</label><input type="text" id="edCargo" value="${escHtml(S.filtroCargo)}" oninput="S.filtroCargo=this.value" placeholder="Ex.: Técnico Judiciário — Área Administrativa"></div>`;
@@ -164,6 +181,7 @@ function passoEdital(){
   }
   if(S.edStatus==='ocioso' && S.edModo==='texto'){
     entrada = `<label class="f" for="edTexto">Cole o conteúdo programático</label><textarea id="edTexto" rows="7" placeholder="Cole do jeito que estiver no edital: nomes das matérias, número de questões e assuntos."></textarea>
+       ${S.edErroTexto ? `<p class="erro-f" role="alert">${escHtml(S.edErroTexto)}</p>` : ''}
        ${cargo}
        <div style="margin-top:12px"><button class="btn" onclick="lerEdital()">Organizar com IA</button></div>`;
   }
@@ -195,6 +213,7 @@ function passoMaterias(){
       <div class="campo-f"><label class="f" for="nmNome">Nome da matéria</label><input type="text" id="nmNome" value="${escHtml(S.novaMat.nome)}" oninput="S.novaMat.nome=this.value" placeholder="Ex.: Língua Inglesa"></div>
       <div class="campo-f"><label class="f" for="nmPeso">${chance?'Chance de cair (%)':'Peso (pontos na prova)'}</label><input type="text" id="nmPeso" inputmode="decimal" value="${escHtml(S.novaMat.peso)}" oninput="S.novaMat.peso=this.value" style="max-width:140px"></div>
       <div class="campo-f"><label class="f" for="nmTop">Tópicos, um por linha (opcional)</label><textarea id="nmTop" rows="3" oninput="S.novaMat.topicos=this.value" placeholder="Interpretação de texto">${escHtml(S.novaMat.topicos)}</textarea></div>
+      ${S.novaMat.erro ? `<p class="erro-f" role="alert">${escHtml(S.novaMat.erro)}</p>` : ''}
       <div style="display:flex;gap:8px"><button class="btn" onclick="salvarMateria()">Adicionar</button><button class="btn sec" onclick="S.novaMat=null;render(true)">Cancelar</button></div>
     </div>` : `<button class="btn sec" style="width:100%;margin-top:4px" onclick="S.novaMat={nome:'',peso:'',topicos:''};render(true);setTimeout(()=>document.getElementById('nmNome').focus())">+ Adicionar matéria que faltou</button>`;
   return `<h1>Confira o que foi lido</h1>
@@ -208,11 +227,15 @@ function passoMaterias(){
 }
 function removerMateria(i){ if(confirm('Remover "'+S.materias[i].nome+'" da trilha?')){ S.materias.splice(i,1); S.abertas={}; render(true); } }
 function salvarMateria(){
-  const n = S.novaMat, nome = n.nome.trim();
-  if(!nome){ document.getElementById('nmNome').focus(); return; }
-  const peso = parseFloat(String(n.peso).replace(',','.')) || (S.prova.pesoTipo==='chance' ? 50 : 1);
-  const topicos = String(n.topicos).split('\n').map(t=>t.trim()).filter(Boolean);
-  if(S.materias.some(m=>semAcento(m.nome)===semAcento(nome))){ alert('Já existe uma matéria com esse nome.'); return; }
+  const n = S.novaMat, nome = nomeLimpo(n.nome);
+  const erro = (msg, campo) => { n.erro = msg; render(true); const el = document.getElementById(campo); if(el) el.focus(); };
+  if(!nome) return erro('Dê um nome à matéria.', 'nmNome');
+  if(S.materias.some(m=>semAcento(m.nome)===semAcento(nome))) return erro('Já existe uma matéria com esse nome.', 'nmNome');
+  const txtPeso = String(n.peso).trim(), lido = parseFloat(txtPeso.replace(',','.'));
+  // Peso vazio vale o padrão; zero ou negativo não faz sentido (a matéria sumiria da trilha).
+  if(txtPeso && !(lido > 0)) return erro('O peso precisa ser um número maior que zero.', 'nmPeso');
+  const peso = lido > 0 ? lido : (S.prova.pesoTipo==='chance' ? 50 : 1);
+  const topicos = [...new Set(String(n.topicos).split('\n').map(nomeLimpo).filter(Boolean))];
   S.materias.push({nome, peso, topicos: topicos.length ? topicos : ['Conteúdo geral de '+nome], faixa:'Adicionada por você'});
   S.novaMat = null; S.abertas = {[S.materias.length-1]: true}; render(true);
 }
@@ -273,12 +296,12 @@ function passoRitmo(){
     <div class="campo"><label class="f" for="rHoras">Por dia</label>
       <div class="horas"><input type="range" id="rHoras" min="0.5" max="6" step="0.25" value="${S.horas}" oninput="S.horas=+this.value;render(true)"><span class="num">${h}h${m?pad(m):''}</span></div></div>
     <div class="campo"><span class="f">Dias da semana</span>
-      <div class="dias">${nomesDia.map((d,i)=>`<button class="dia ${S.dias[i]?'on':''}" aria-pressed="${S.dias[i]}" onclick="S.dias[${i}]=!S.dias[${i}];render(true)">${d}</button>`).join('')}</div></div>
+      <div class="dias">${nomesDia.map((d,i)=>`<button class="dia ${S.dias[i]?'on':''}" aria-pressed="${S.dias[i]}" onclick="S.dias[${i}]=!S.dias[${i}];render(true)">${d}</button>`).join('')}</div>${S.dias.some(Boolean) ? '' : '<p class="erro-f" role="alert">Marque pelo menos um dia de estudo.</p>'}</div>
     <div class="campo"><span class="f">Questões por tópico</span>
       <p class="dim" style="font-size:13px;margin:0 0 8px">Quantas questões gerar depois de cada tópico. Dá para mudar na hora, a cada estudo.</p>
       ${escolhaQtd(S.qtdQuestoes, 'definirQtdPadrao')}</div>
     <div class="campo"><label class="f" for="rProva">Data da prova</label>
-      ${S.prova.semEdital ? `<p class="dim" style="font-size:13px;margin:0 0 8px">Sem edital ainda: coloque uma data estimada.</p>` : ''}<input type="date" id="rProva" value="${S.dataProva}" min="${somar(hojeISO(),1)}" onchange="S.dataProva=this.value||S.dataProva;render(true)" style="max-width:220px"></div>
+      ${S.prova.semEdital ? `<p class="dim" style="font-size:13px;margin:0 0 8px">Sem edital ainda: coloque uma data estimada.</p>` : ''}<input type="date" id="rProva" value="${S.dataProva}" min="${somar(hojeISO(),1)}" onchange="definirDataProva(this.value)" style="max-width:220px"></div>
     <div class="previsao" aria-live="polite">
       <p>${fecha
         ? `Cada tópico leva uns 40 minutos (leitura e questões). Nesse ritmo você estuda <b>${r.topDia} ${r.topDia===1?'tópico':'tópicos'} por dia</b> e fecha o edital em <b class="num">${r.diasCorridos}</b> dias. Sobram <b class="num">${r.folga}</b> dias só para revisão e questões antes da prova.`
@@ -316,6 +339,11 @@ function passoPronto(){
           <button class="btn link" onclick="irEntrada()">Entrar ou criar conta</button></div>`}`;
 }
 
+// Data vazia ou que já passou não vale: a trilha toda se calcula até a prova.
+function definirDataProva(v){
+  if(!v || v <= hojeISO()){ avisar('A data da prova precisa ser depois de hoje. Mantive ' + fmtData(dataDe(S.dataProva),{day:'2-digit',month:'2-digit',year:'numeric'}) + '.'); render(true); return; }
+  S.dataProva = v; render(true);
+}
 function definirQtdPadrao(n){ S.qtdQuestoes = n; render(true); }
 function irPasso(n){ S.passo=n; window.scrollTo(0,0); render(); }
 function escolherEdital(m){ S.edModo=m; S.edStatus='ocioso'; S.edPasso=0; S.erroLeitura=null; if(m==='arquivo'){ S.arquivos=[]; S.recusados=[]; } render(); }
@@ -329,24 +357,34 @@ function bancaDaLista(txt){
   return b ? b.n : String(txt).trim();
 }
 
+// Erro de IA (ocupada, sem rede, verificação) não é culpa do arquivo: a dica de
+// "PDF escaneado" só aparece quando a leitura em si falhou.
+const ehErroDeIA = m => /ocupad|503|429|overload|recusou|verifica|conex|network|fetch|limite do modo|incomplet/i.test(String(m));
 async function lerEdital(){
   let texto = '';
   if(S.edModo==='texto'){
     texto = (document.getElementById('edTexto')||{}).value || '';
-    if(!texto.trim()){ alert('Cole o texto do edital primeiro.'); return; }
+    S.textoColado = texto;
+    if(!texto.trim()){ S.edErroTexto = 'Cole o texto do edital primeiro.'; render(true); return; }
   }
-  S.edStatus='lendo'; S.edPasso=0; S.erroLeitura=null; render();
+  S.edErroTexto = null;
+  // Token da leitura: se a pessoa trocar de tela ou começar outra trilha no
+  // meio (leva até um minuto), o resultado atrasado é descartado.
+  const gen = S.genEdital = (S.genEdital||0) + 1;
+  const valendo = () => gen === S.genEdital && S.tela === 'assist' && !S.trilhaAtual;
+  S.edStatus='lendo'; S.edPasso=0; S.erroLeitura=null; S.erroIA=false; render();
   const total = passosLeitura().length;
   // Os passos andam enquanto a leitura real acontece; o último só fecha quando ela termina.
-  const t = setInterval(()=>{ if(S.edStatus==='lendo' && S.edPasso < total-1){ S.edPasso++; render(true); } }, 900);
+  const t = setInterval(()=>{ if(valendo() && S.edStatus==='lendo' && S.edPasso < total-1){ S.edPasso++; render(true); } }, 900);
   try{
     let res;
     if(S.edModo==='texto'){
-      const ed = await SIPC.ia.extrairEdital(texto.slice(-150000), S.filtroCargo);
-      res = deEdital(ed, 'texto');
+      limiteVisitante();
+      res = deEdital(await SIPC.ia.extrairEdital(texto.slice(-150000), S.filtroCargo), 'texto');
     } else {
       const lidos = [];
       for(const a of S.arquivos){
+        if(a.file && a.file.size > 20e6) throw new Error('O arquivo ' + a.nome + ' passa de 20 MB. Use só o trecho do conteúdo programático.');
         try{ lidos.push({a, r: await SIPC.lerArquivo(a.file)}); }
         catch(e){ throw new Error('Não consegui ler ' + a.nome + ': ' + e.message + '.'); }
       }
@@ -356,23 +394,51 @@ async function lerEdital(){
         res = {materias: p.materias, prova: {...p.prova, bancaEdital: bancaDaLista(p.prova.banca), fonte:'planilha', data:''}};
         if(!p.prova.nome || p.prova.nome==='Minha trilha') res.prova.nome = plan.a.nome.replace(/\.[^.]+$/,'');
       } else {
+        limiteVisitante();
         const junto = lidos.map(x=>x.r.texto).join('\n\n').slice(-150000);
         res = deEdital(await SIPC.ia.extrairEdital(junto, S.filtroCargo), 'ia');
       }
     }
-    S.materias = res.materias; S.prova = res.prova; S.abertas = {};
+    if(!valendo()) return;
+    S.materias = limparMaterias(res.materias); S.prova = res.prova; S.abertas = {};
     S.bancas = S.prova.bancaEdital ? [S.prova.bancaEdital] : [];
     if(S.prova.data && S.prova.data > hojeISO()) S.dataProva = S.prova.data;
     S.edPasso = total; S.edStatus='pronto';
   }catch(e){
-    S.edStatus='erro'; S.erroLeitura = mensagemIA(e);
-  }finally{ clearInterval(t); render(); }
+    if(!valendo()) return;
+    S.edStatus='erro'; S.erroLeitura = mensagemIA(e); S.erroIA = ehErroDeIA(S.erroLeitura);
+  }finally{ clearInterval(t); if(valendo()) render(); }
 }
+// Volta ao passo de envio guardando os arquivos e o texto já colados.
+function tentarLeituraDeNovo(){ S.edStatus='ocioso'; S.edPasso=0; S.erroLeitura=null; render(); const ta = document.getElementById('edTexto'); if(ta && S.textoColado) ta.value = S.textoColado; }
 function deEdital(ed, fonte){
   S.formatoQuestoes = ed.formatoQuestoes || 'multipla5';
   return {materias: ed.materias.map(m=>({...m, faixa:''})), prova: {
     nome: ed.nome || 'Minha trilha', cargo: S.filtroCargo.trim(), bancaEdital: bancaDaLista(ed.banca), bancaADefinir: !ed.banca,
     semEdital:false, pesoTipo:'pontos', fonte, data: ed.dataProva || '', formatoQuestoes: S.formatoQuestoes }};
+}
+// "::" separa matéria e tópico na chave do progresso; nome repetido faria dois
+// tópicos dividirem o mesmo progresso. Os dois saem já na entrada.
+const nomeLimpo = s => String(s||'').replace(/::+/g, ':').replace(/\s+/g, ' ').trim();
+function limparMaterias(mats){
+  const vistas = new Set();
+  return mats.map(m => ({...m, nome: nomeLimpo(m.nome)})).filter(m => {
+    const k = semAcento(m.nome); if(!m.nome || vistas.has(k)) return false; vistas.add(k); return true;
+  }).map(m => {
+    const tv = new Set();
+    const topicos = (m.topicos||[]).map(nomeLimpo).filter(t => { const k = semAcento(t); if(!t || tv.has(k)) return false; tv.add(k); return true; });
+    return {...m, peso: Number(m.peso) > 0 ? Number(m.peso) : 1, topicos: topicos.length ? topicos : ['Conteúdo geral de ' + m.nome]};
+  });
+}
+// O modo sem conta também usa a cota de IA do projeto, que é de todos: um teto
+// diário por navegador evita que um curioso esgote a cota dos alunos.
+const LIMITE_IA_VISITANTE = 20;
+function limiteVisitante(){
+  if(!S.visitante) return;
+  const k = 'sipc::ia-visitante::' + hojeISO();
+  let n = 0; try{ n = +localStorage.getItem(k) || 0; }catch(e){}
+  if(n >= LIMITE_IA_VISITANTE) throw new Error('limite do modo sem conta atingido hoje. Crie uma conta (é grátis) para continuar');
+  try{ localStorage.setItem(k, String(n+1)); }catch(e){}
 }
 // Erros da IA em português e, em localhost, o lembrete do token de depuração.
 function mensagemIA(e){
@@ -382,24 +448,35 @@ function mensagemIA(e){
   if(/throttl/i.test(m)){ try{ indexedDB.deleteDatabase('firebase-app-check-database'); }catch(x){} return 'A verificação de segurança da IA falhou uma vez. Recarregue a página e tente de novo.'; }
   if(/app.?check|401|403/i.test(m) && SIPC.debugToken) return 'A IA recusou o acesso em localhost: cadastre o token de depuração do App Check no console do Firebase (' + SIPC.debugToken + ').';
   if(/app.?check|401|403/i.test(m)) return 'A IA recusou o acesso deste navegador. Recarregue a página e tente de novo.';
+  if(/\b(503|429)\b|overload/i.test(m)) return 'O serviço de IA está ocupado. Tente de novo em instantes.';
+  if(/failed to fetch|network/i.test(m)) return 'Sem conexão com a internet. Confira e tente de novo.';
   return m.charAt(0).toUpperCase() + m.slice(1);
 }
 function abrirMateria(i){ S.abertas[i]=!S.abertas[i]; render(true); }
 function removerTopico(i,j){ S.materias[i].topicos.splice(j,1); if(!S.materias[i].topicos.length) S.materias[i].topicos.push('Conteúdo geral de '+S.materias[i].nome); render(true); }
-function adicionarTopico(i){ const n = prompt('Nome do tópico'); if(n && n.trim() && !S.materias[i].topicos.includes(n.trim())){ S.materias[i].topicos.push(n.trim()); render(true); } }
+function adicionarTopico(i){
+  const n = nomeLimpo(prompt('Nome do tópico') || '');
+  if(n && !S.materias[i].topicos.some(t => semAcento(t)===semAcento(n))){ S.materias[i].topicos.push(n); render(true); }
+}
 
-async function comecar(){
-  S.ocupado = true; render(true);
-  const dados = JSON.parse(JSON.stringify({
+// Dados da trilha como vão para o Firestore (também usado ao guardar a trilha
+// do modo sem conta quando a pessoa cria a conta).
+function dadosDaTrilha(){
+  return JSON.parse(JSON.stringify({
     prova: {...S.prova, formatoQuestoes: S.formatoQuestoes},
     materias: S.materias.map(m=>({nome:m.nome, peso:m.peso, faixa:m.faixa||'', topicos:m.topicos})),
-    bancas: S.bancas, ritmo: {horas:S.horas, dias:S.dias, dataProva:S.dataProva, qtdQuestoes:S.qtdQuestoes}
+    bancas: S.bancas, ritmo: {horas:S.horas, dias:S.dias, dataProva:S.dataProva, qtdQuestoes:S.qtdQuestoes},
+    criadaDia: hojeISO() // criadaEm é UTC; à noite no Brasil já seria "amanhã"
   }));
+}
+async function comecar(){
+  if(S.ocupado) return;
+  S.ocupado = true; render(true);
   try{
-    const id = await SIPC.store.criarTrilha(uid(), dados);
+    const id = await SIPC.store.criarTrilha(uid(), dadosDaTrilha());
     S.trilhas = await SIPC.store.listarTrilhas(uid());
     await abrirTrilha(id);
-  }catch(e){ alert('Não consegui salvar a trilha: ' + mensagemIA(e)); }
+  }catch(e){ avisar('Não consegui salvar a trilha: ' + mensagemIA(e)); }
   finally{ S.ocupado = false; render(true); }
 }
 
@@ -512,7 +589,7 @@ function abaHoje(){
       ${folga ? `<div class="nota">${ico('info')}<div><b>Hoje está fora do seu ritmo.</b> Se quiser, adiante a lista abaixo; senão, até o próximo dia de estudo.</div></div>` : ''}
       ${cont ? `<div class="continuar"><div><b>Continuar de onde parou</b><span>${escHtml(cont.titulo)} · ${escHtml(cont.rot)}</span></div><button class="btn" onclick="continuar()">Continuar</button></div>` : ''}
       ${alertaDoDia(itens)}
-      ${tudo ? `<div class="nota" style="background:var(--seal-soft);color:#155f37">${ico('check')}<div><b>Plano de hoje concluído.</b> Amanhã já tem o próximo. Se quiser continuar, adiante um tópico na Trilha.</div></div>` : ''}
+      ${tudo ? `<div class="nota" style="background:var(--seal-soft);color:#155f37">${ico('check')}<div><b>Plano de hoje concluído.</b> Amanhã já tem o próximo.${proximoTopico() ? ' <button class="btn link" onclick="adiantarTopico()">Adiantar o próximo tópico</button>' : ''}</div></div>` : ''}
       ${!itens.length ? `<div class="nota">${ico('check')}<div><b>Edital todo estudado.</b> Agora é revisão: os tópicos voltam no dia certo.</div></div>` : ''}
       <ul class="plano">${lista}</ul>
     </div>
@@ -538,8 +615,10 @@ function alertaDoDia(itens){
     ${novos.length ? `<p><span class="dim">Estudar hoje:</span> ${novos.map(x=>`<b>${escHtml(x.titulo)}</b>`).join(' · ')}. <span class="dim">Voltam amanhã, em ${dataMais(7)} e em ${dataMais(30)}.</span></p>` : ''}
   </div>`;
 }
+// O mais recente primeiro: o Firestore devolve as chaves de um map em ordem
+// alfabética, então a ordem de inserção não vale depois de recarregar.
 function continuarDeOndeParou(){
-  const e = Object.entries(S.E.parcial||{})[0]; if(!e) return null;
+  const e = Object.entries(S.E.parcial||{}).sort((a,b)=>(b[1].em||0)-(a[1].em||0))[0]; if(!e) return null;
   const [id, p] = e;
   return {id, p, rot:p.rot, titulo: p.quiz ? 'Questões do dia' : (p.estudo && p.estudo.topico) || id};
 }
@@ -548,6 +627,12 @@ function continuar(){
   if(c.p.quiz){ S.itemAtual = c.id; S.quiz = c.p.quiz; S.vista = 'quiz'; window.scrollTo(0,0); render(); return; }
   const E = c.p.estudo; abrirEstudo(E.topico, E.mat, E.rev);
 }
+// Próximo tópico da fila que ainda não foi estudado nem está no plano de hoje.
+function proximoTopico(){
+  const noPlano = new Set((S._itens||[]).map(i=>i.id));
+  return SIPC.trilha.filaDeTopicos(S.materias).find(x => { const c = chave(x.materia, x.topico); return !S.E.feito[c] && !noPlano.has(c); }) || null;
+}
+function adiantarTopico(){ const x = proximoTopico(); if(x) abrirEstudo(x.topico, x.materia); }
 
 function abrirItem(k){
   const it = (S._itens||[])[k]; if(!it) return;
@@ -562,7 +647,9 @@ function abrirItem(k){
   }
   window.scrollTo(0,0); render();
 }
-function sair(){ guardarProgresso(); S.vista=null; window.scrollTo(0,0); render(); }
+// Sair solta o estudo e o quiz: uma geração da IA que termine depois vai
+// direto para "continuar de onde parou" em vez de cair numa tela fechada.
+function sair(){ guardarProgresso(); S.vista=null; S.estudo=null; S.quiz=null; window.scrollTo(0,0); render(); }
 
 /* ------------------------- estudo -------------------------
    Cada tópico segue a estrutura de estudo do Victor, em nove seções:
@@ -570,18 +657,22 @@ function sair(){ guardarProgresso(); S.vista=null; window.scrollTo(0,0); render(
    analogias, questões, gabarito comentado, checklist e flashcards. Na tela
    se agrupam em Teoria, Mapa, Questões e Revisão. A IA gera tudo; o
    conteúdo fica num cache compartilhado (mesmo tópico, mesma banca). */
-const CONTEUDO = {}; // chave → {C} | {carregando} | {erro}
+const CONTEUDO = {}; // banca|chave → {C} | {carregando} | {erro}
+// A banca entra na chave: o mesmo tópico em duas trilhas de bancas diferentes tem conteúdo diferente.
+const chaveConteudo = E => (S.bancas[0] || '') + '|' + E.chave;
+// O que vai para "continuar de onde parou" (sem os estados de carregamento).
+const fotoEstudo = E => ({estudo: JSON.parse(JSON.stringify({...E, carregandoQ:false, erroQ:null, retomado:false})), rot:'parou em ' + NOME_PARTE[E.parte], em: Date.now()});
 const PARTES = [['teoria','Teoria'],['mapa','Mapa visual'],['questoes','Questões'],['revisao','Revisão']];
 const NOME_PARTE = {teoria:'Teoria', mapa:'Mapa visual', questoes:'Questões', revisao:'Revisão'};
 
 function guardarProgresso(){
   if(S.vista==='estudo' && S.estudo && !S.estudo.concluido){
     const E = S.estudo;
-    S.E.parcial[E.chave] = {estudo: JSON.parse(JSON.stringify({...E, carregandoQ:false, erroQ:null, retomado:false})), rot:'parou em ' + NOME_PARTE[E.parte]};
+    S.E.parcial[E.chave] = fotoEstudo(E);
     salvarE();
   }
   if(S.vista==='quiz' && S.quiz && S.quiz.lista && S.quiz.i < S.quiz.lista.length && (S.quiz.res.length || S.quiz.sel!==null)){
-    S.E.parcial[S.itemAtual] = {quiz: JSON.parse(JSON.stringify(S.quiz)), rot:'parou na questão ' + (S.quiz.i+1) + ' de ' + S.quiz.lista.length};
+    S.E.parcial[S.itemAtual] = {quiz: JSON.parse(JSON.stringify(S.quiz)), rot:'parou na questão ' + (S.quiz.i+1) + ' de ' + S.quiz.lista.length, em: Date.now()};
     salvarE();
   }
 }
@@ -597,16 +688,17 @@ function abrirEstudo(topico, mat, rev){
   render();
 }
 async function carregarConteudo(E){
-  const c = E.chave;
+  const c = chaveConteudo(E);
   if(CONTEUDO[c] && !CONTEUDO[c].erro) return CONTEUDO[c].C ? CONTEUDO[c].C : CONTEUDO[c].prom;
-  const prom = SIPC.ia.obterConteudo({banca: S.bancas[0] || '', materia:E.mat, topico:E.topico, uid:uid(), prova:S.prova.nome});
+  const prom = (async () => { limiteVisitante(); return SIPC.ia.obterConteudo({banca: S.bancas[0] || '', materia:E.mat, topico:E.topico, uid:uid(), prova:S.prova.nome}); })();
   CONTEUDO[c] = {carregando:true, prom};
   try{ CONTEUDO[c] = {C: await prom}; }
   catch(e){ CONTEUDO[c] = {erro: mensagemIA(e)}; }
-  if(S.estudo && S.estudo.chave===c) render(true);
+  if(S.estudo && chaveConteudo(S.estudo)===c) render(true);
   return CONTEUDO[c].C || null;
 }
-function tentarConteudoDeNovo(){ delete CONTEUDO[S.estudo.chave]; carregarConteudo(S.estudo); render(true); }
+const conteudoDe = E => CONTEUDO[chaveConteudo(E)];
+function tentarConteudoDeNovo(){ delete CONTEUDO[chaveConteudo(S.estudo)]; carregarConteudo(S.estudo); render(true); }
 function irParte(p){
   S.estudo.feitas[S.estudo.parte] = true;
   S.estudo.parte = p;
@@ -614,21 +706,26 @@ function irParte(p){
   guardarProgresso();
   window.scrollTo(0,0); render();
 }
-async function gerarQuestoesTopico(){
-  const E = S.estudo; if(!E || E.carregandoQ) return;
+// genQ: trocar a quantidade no meio de uma geração invalida a anterior.
+async function gerarQuestoesTopico(forcar){
+  const E = S.estudo; if(!E || (E.carregandoQ && !forcar)) return;
+  const g = E.genQ = (E.genQ||0) + 1, estado = S.E;
   E.carregandoQ = true; E.erroQ = null; render(true);
   try{
     const C = await carregarConteudo(E);
-    if(!C) throw new Error(CONTEUDO[E.chave] && CONTEUDO[E.chave].erro || 'sem conteúdo para basear as questões');
+    if(!C) throw new Error((conteudoDe(E) && conteudoDe(E).erro) || 'sem conteúdo para basear as questões');
     const banca = bancaPara(hashTxt(E.chave));
+    limiteVisitante();
     const lista = await SIPC.ia.gerarQuestoes({banca, formato: formatoAtual(), materia:E.mat, topico:E.topico, conteudo:C, qtd: E.n || S.qtdQuestoes});
-    if(S.estudo !== E) return;
-    E.questoes = lista.map(q=>({...q, banca})); E.resp = {}; E.corrigido = false;
-    guardarProgresso();
-  }catch(e){ E.erroQ = mensagemIA(e); }
-  finally{ E.carregandoQ = false; if(S.estudo===E) render(true); }
+    if(E.genQ !== g || E.concluido) return;
+    // geradoEm identifica esta leva: o rascunho de uma leva antiga não aparece na nova.
+    E.questoes = lista.map(q=>({...q, banca})); E.resp = {}; E.corrigido = false; E.geradoEm = Date.now();
+    if(S.estudo === E && S.vista === 'estudo') guardarProgresso();
+    else if(S.E === estado){ S.E.parcial[E.chave] = fotoEstudo(E); salvarE(); } // saiu antes de terminar: guarda para depois
+  }catch(e){ if(E.genQ === g) E.erroQ = mensagemIA(e); }
+  finally{ if(E.genQ === g){ E.carregandoQ = false; if(S.estudo===E) render(true); } }
 }
-function definirQtdTopico(n){ S.estudo.n = n; S.estudo.questoes = null; S.estudo.resp = {}; S.estudo.corrigido = false; gerarQuestoesTopico(); }
+function definirQtdTopico(n){ S.estudo.n = n; S.estudo.questoes = null; S.estudo.resp = {}; S.estudo.corrigido = false; gerarQuestoesTopico(true); }
 function corrigirTopico(){
   const L = S.estudo.questoes || [];
   if(Object.keys(S.estudo.resp).length < L.length && !confirm('Ainda há questões sem resposta. Corrigir assim mesmo?')) return;
@@ -637,7 +734,8 @@ function corrigirTopico(){
   render(true);
   const g = document.getElementById('gabarito'); if(g) g.scrollIntoView({behavior:'smooth', block:'start'});
 }
-function responder(k, j){ S.estudo.resp[k] = j; render(true); }
+// Cada resposta já vai para o progresso: fechar a aba no meio não perde as respostas.
+function responder(k, j){ S.estudo.resp[k] = j; guardarProgresso(); render(true); }
 
 // No enunciado, parágrafos vêm separados por linha em branco; parágrafo que
 // começa com ">" é texto-base (citação).
@@ -723,7 +821,7 @@ function linkVideos(E){
 }
 
 function vistaEstudo(){
-  const E = S.estudo, est = CONTEUDO[E.chave] || {carregando:true}, C = est.C;
+  const E = S.estudo, est = conteudoDe(E) || {carregando:true}, C = est.C;
   const partes = `<ol class="partes" aria-label="Partes do estudo">${PARTES.map(([k,n],i)=>
     `<li><button class="${E.parte===k?'on':''} ${E.feitas[k]?'feita':''}" onclick="irParte('${k}')" ${E.parte===k?'aria-current="step"':''}><span class="pn">${E.feitas[k]&&E.parte!==k?ico('check'):i+1}</span>${n}</button></li>`).join('')}</ol>`;
   const cab = `<button class="voltar" onclick="sair()">${ico('back')} Plano de hoje</button>
@@ -802,7 +900,7 @@ function parteQuestoes(E){
         let cls = r===j ? 'sel' : '';
         if(E.corrigido){ if(j===q.c) cls = 'certa'; else if(r===j) cls = 'errada'; }
         return `<button class="alt ${cls}" ${E.corrigido?'disabled':''} onclick="responder(${k},${j})"><span class="letra">${letras[j]}</span><span>${escHtml(a)}</span></button>`;
-      }).join('')}</div>${rascunhoHTML(E.chave+'#'+k)}</article>`;
+      }).join('')}</div>${rascunhoHTML(E.chave+'#'+(E.geradoEm||0)+'#'+k)}</article>`;
   }).join('');
   const gab = E.corrigido ? secao(`Gabarito e comentários <span class="num dim" style="font-size:15px;font-weight:500">· ${ac}/${L.length}</span>`,
     `<ol class="gab">${L.map((q,k)=>`<li class="${E.resp[k]===q.c?'ok':'nao'}"><b>${q.ce ? q.alts[q.c] : 'abcde'[q.c]}</b> — ${escHtml(q.just)}</li>`).join('')}</ol>`, 'id="gabarito"') : '';
@@ -827,7 +925,10 @@ function concluirItem(resultado){
       avisar(resultado==='esqueci' ? 'Sem problema: o tópico volta amanhã.' : resultado==='dificil' ? 'Anotado: a revisão se repete na mesma etapa.' : 'Boa! O tópico avançou na escada de revisão.');
     } else {
       if(!S.E.feito[E.chave]) S.E.feito[E.chave] = hoje; // reestudo não muda a data original
-      if(!S.E.revisoes.some(r=>r.chave===E.chave)) S.E.revisoes.push(SIPC.revisao.agendar(E.mat, E.topico, hoje));
+      const ri = S.E.revisoes.findIndex(r=>r.chave===E.chave);
+      if(ri < 0) S.E.revisoes.push(SIPC.revisao.agendar(E.mat, E.topico, hoje));
+      else if(S.E.revisoes[ri].consolidado && E.corrigido && L.length && L.filter((q,k)=>E.resp[k]===q.c).length/L.length < .7)
+        S.E.revisoes[ri] = SIPC.revisao.reabrir(S.E.revisoes[ri], hoje);
       S.E.minutos[hoje] = (S.E.minutos[hoje]||0) + SIPC.trilha.MIN_TOPICO;
     }
     E.concluido = true;
@@ -841,21 +942,24 @@ function concluirItem(resultado){
    Para fixar: questões sobre os tópicos estudados nos últimos 7 dias.
    Errou um tópico? Ele volta para revisão amanhã. */
 async function gerarQuestoesDoDia(){
-  const Q = S.quiz; Q.carregando = true; Q.erro = null; render(true);
+  const Q = S.quiz, id = S.itemAtual, estado = S.E; Q.carregando = true; Q.erro = null; render(true);
   try{
     const chaves = topicosDaSemana().slice(0, 3);
     if(!chaves.length) throw new Error('nenhum tópico estudado nesta semana ainda');
     const porTopico = Math.ceil(S.qtdQuestoes / chaves.length);
     let lista = [];
     for(const [k, c] of chaves.entries()){
-      const [mat, topico] = c.split('::');
+      // Matéria e tópico vêm da revisão (guarda os dois separados), não do split da chave.
+      const r = S.E.revisoes.find(x=>x.chave===c), mat = r ? r.materia : c.split('::')[0], topico = r ? r.topico : c.slice(mat.length+2);
+      limiteVisitante();
       const C = await SIPC.ia.obterConteudo({banca:S.bancas[0]||'', materia:mat, topico, uid:uid(), prova:S.prova.nome});
       const banca = bancaPara(k);
+      limiteVisitante();
       const qs = await SIPC.ia.gerarQuestoes({banca, formato:formatoAtual(), materia:mat, topico, conteudo:C, qtd:porTopico});
       lista = lista.concat(qs.map(q=>({...q, banca, topico, mat, chave:c})));
     }
-    if(S.quiz !== Q) return;
     Q.lista = lista.slice(0, S.qtdQuestoes);
+    if(S.quiz !== Q && S.E === estado){ S.E.parcial[id] = {quiz: JSON.parse(JSON.stringify({...Q, carregando:false})), rot:'questões prontas', em: Date.now()}; salvarE(); }
   }catch(e){ Q.erro = mensagemIA(e); }
   finally{ Q.carregando = false; if(S.quiz===Q) render(true); }
 }
@@ -894,7 +998,7 @@ function vistaQuiz(){
     </article>
   </div>`;
 }
-function confirmar(){ S.quiz.conf=true; S.quiz.res.push(S.quiz.sel===S.quiz.lista[S.quiz.i].c); guardarProgresso(); render(true); }
+function confirmar(){ if(!S.quiz || S.quiz.conf || S.quiz.sel===null) return; S.quiz.conf=true; S.quiz.res.push(S.quiz.sel===S.quiz.lista[S.quiz.i].c); guardarProgresso(); render(true); }
 function proxima(){
   S.quiz.i++; S.quiz.sel=null; S.quiz.conf=false;
   if(S.quiz.i >= S.quiz.lista.length) registrarQuiz();
@@ -909,13 +1013,15 @@ function registrarQuiz(){
     S.E.questoes.push({data:hoje, chave:c, ...p});
     if(p.acertos < p.total){ // errou: a revisão do tópico vem amanhã
       const r = S.E.revisoes.find(x=>x.chave===c);
-      if(r && !r.consolidado && (!r.proxima || r.proxima > somar(hoje,1))) r.proxima = somar(hoje,1);
+      const i = S.E.revisoes.indexOf(r);
+      if(r && r.consolidado) S.E.revisoes[i] = SIPC.revisao.reabrir(r, hoje); // consolidado que errou volta à escada
+      else if(r && (!r.proxima || r.proxima > somar(hoje,1))) r.proxima = somar(hoje,1);
     }
   });
-  (S.E.diario[hoje] = (S.E.diario[hoje]||[])).push(S.itemAtual);
+  (S.E.diario[hoje] = (S.E.diario[hoje]||[])).push('q:'+hoje);
   Object.keys(S.E.diario).forEach(d => { if(d < somar(hoje,-7)) delete S.E.diario[d]; });
   S.E.minutos[hoje] = (S.E.minutos[hoje]||0) + 20;
-  delete S.E.parcial[S.itemAtual];
+  delete S.E.parcial[S.itemAtual]; delete S.E.parcial['q:'+hoje];
   Q.registrado = true;
   salvarE();
 }
@@ -940,7 +1046,7 @@ function abaTrilha(){
   S.E.revisoes.filter(r=>!r.consolidado && r.proxima).forEach(r=>{ const i = Math.max(0, diasEntre(hoje, r.proxima)); (vence[i] = vence[i] || []).push({t:r.topico, e:r.etapa}); });
   let pendentes = [];
   const dias = [];
-  const hojeNovos = topicosParaHoje().map(x=>({t:x.topico, m:x.materia}));
+  const hojeNovos = topicosParaHoje().filter(x=>!S.E.feito[chave(x.materia,x.topico)]).map(x=>({t:x.topico, m:x.materia}));
   for(let i=0; i<40; i++){
     const d = somar(hoje, i), estuda = S.dias[dowDe(d)];
     const venceHoje = (vence[i]||[]).concat(pendentes);
@@ -992,11 +1098,12 @@ function abaRevisoes(){
    contra o planejado, indicadores da semana, cobertura por matéria,
    constância em calendário e o que precisa de atenção. Tudo dos dados reais. */
 const RAMPA = ['#7fb4f2','#4f94ea','#2a7ae2','#0a60c4','#004a96'];
-const criadaISO = () => (S.trilhaCriadaEm || hojeISO()).slice(0,10);
+const criadaISO = () => String(S.trilhaCriadaEm || hojeISO()).slice(0,10);
 function diasDeEstudoEntre(a, b){ let n = 0; for(let d = a; d <= b; d = somar(d,1)) if(S.dias[dowDe(d)]) n++; return n; }
 function feitosAte(d){ return Object.values(S.E.feito).filter(x => x <= d).length; }
 function cobertura(){ return Math.round(Object.keys(S.E.feito).length / Math.max(1, totalTopicos()) * 100); }
-function acertoGeral(lista = S.E.questoes){ const t = lista.reduce((a,q)=>a+q.total,0), a = lista.reduce((s,q)=>s+q.acertos,0); return {total:t, acertos:a, pct: t ? Math.round(a/t*100) : 0}; }
+// Number(): um documento adulterado com texto no lugar do número viraria concatenação (e HTML) no admin.
+function acertoGeral(lista = S.E.questoes){ const t = (lista||[]).reduce((a,q)=>a+(Number(q.total)||0),0), a = (lista||[]).reduce((s,q)=>s+(Number(q.acertos)||0),0); return {total:t, acertos:a, pct: t ? Math.round(a/t*100) : 0}; }
 // Compara o que foi estudado com o que o ritmo previa desde a criação da
 // trilha (até ontem: o dia de hoje ainda está em andamento).
 // Tópicos que o ritmo previa até o começo do dia d.
@@ -1178,7 +1285,7 @@ function abaConta(){
     </section>`
     : `<section class="bloco"><h3>Você está sem conta</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Crie uma conta para salvar sua trilha e continuar no celular ou no computador.</p>
         <button class="btn" onclick="irEntrada()">Entrar ou criar conta</button></section>`;
-  return `<div class="conta-grid">
+  return `<div class="conta-grid" data-sem-print>
     ${perfil}
     ${c ? `<section class="bloco lembretes">
       <h3>Lembrete de estudo</h3>
@@ -1243,7 +1350,7 @@ function testarLembrete(){
 setInterval(()=>{
   const L = S && S.perfil && S.perfil.lembrete; if(!L || !L.navegador || !('Notification' in window) || Notification.permission!=='granted') return;
   const d = new Date(), agora = pad(d.getHours())+':'+pad(d.getMinutes()), chaveDia = 'sipc::lembrete::'+hojeISO();
-  if(agora !== L.hora) return;
+  if(agora < L.hora) return; // ">=" e não "===": em segundo plano o navegador atrasa o timer
   try{ if(localStorage.getItem(chaveDia)) return; localStorage.setItem(chaveDia, '1'); }catch(e){}
   try{ new Notification('SIPC · hora de estudar', {body: textoLembrete()}); }catch(e){}
 }, 30000);
@@ -1258,23 +1365,42 @@ function aplicarTrilha(t){
   const r = t.ritmo || {};
   S.horas = r.horas || 1.5; S.dias = r.dias || S.dias; S.dataProva = r.dataProva || S.dataProva; S.qtdQuestoes = r.qtdQuestoes || 10;
   S.formatoQuestoes = S.prova.formatoQuestoes || 'multipla5';
-  S.trilhaCriadaEm = t.criadaEm || null;
+  S.trilhaCriadaEm = t.criadaDia || t.criadaEm || null; // criadaDia é a data local; trilhas antigas só têm criadaEm (UTC)
   S.edStatus = 'pronto';
 }
+let abrindo = 0;
 async function abrirTrilha(id){
+  const gen = ++abrindo, sessao = S;
+  const vale = () => gen === abrindo && S === sessao; // outra abertura, ou saiu da conta, no meio
   await SIPC.store.salvarAgora();
-  const t = S.trilhas.find(x=>x.id===id); if(!t) return;
+  const t = S.trilhas.find(x=>x.id===id); if(!t || !vale()) return;
   S.tela = 'carregando'; render();
   aplicarTrilha(t);
-  S.trilhaAtual = id;
-  try{ const e = await SIPC.store.carregarEstado(uid(), id); S.E = {...estadoVazio(), ...(e||{})}; }
-  catch(e){ S.E = estadoVazio(); avisar('Não consegui carregar o progresso desta trilha: ' + SIPC.traduzir(e)); }
-  try{ localStorage.setItem('sipc::ultima-trilha::'+uid(), id); }catch(e){}
+  S.trilhaAtual = id; S.estadoOk = false;
+  let e;
+  try{ e = await SIPC.store.carregarEstado(uid(), id); }
+  catch(err){
+    if(!vale()) return;
+    S.erroGeral = 'Não consegui carregar o progresso desta trilha (' + SIPC.traduzir(err) + '). Nada foi alterado: confira a internet e tente de novo.';
+    S.tela = 'erro'; render(); return;
+  }
+  if(!vale()) return;
+  S.E = {...estadoVazio(), ...(e||{})}; S.estadoOk = true;
+  try{ localStorage.setItem('sipc::ultima-trilha::'+uid(), id); }catch(x){}
   S.tela = 'app'; S.aba = 'hoje'; S.vista = null; S.estudo = null; S.quiz = null;
   window.scrollTo(0,0); render();
 }
+// Volta para a aba: relê o estado se nada está pendente, para não sobrescrever
+// o que foi feito em outro aparelho com a cópia antiga desta aba.
+async function releEstado(){
+  if(!S.trilhaAtual || !S.estadoOk || S.tela !== 'app' || S.vista || S.modoTeste) return;
+  const id = S.trilhaAtual;
+  try{ const e = await SIPC.store.carregarEstado(uid(), id); if(e && S.trilhaAtual === id && !S.vista){ S.E = {...estadoVazio(), ...e}; render(true); } }catch(x){}
+}
+// releEstado e guardarProgresso já são globais (script comum): o main.js os chama direto.
 function novaTrilha(){
   SIPC.store.salvarAgora();
+  S.genEdital = (S.genEdital||0) + 1; // descarta uma leitura de edital em andamento
   Object.assign(S, trilhaVazia());
   S.trilhaAtual = null; S.trilhaCriadaEm = null; S.tela = 'assist'; S.passo = 1; S.vista = null; S.estudo = null;
   window.scrollTo(0,0); render();
@@ -1291,17 +1417,17 @@ async function irTrilhas(){
   guardarProgresso(); await SIPC.store.salvarAgora();
   S.tela = 'trilhas'; window.scrollTo(0,0); render();
   try{ S.trilhas = await SIPC.store.listarTrilhas(uid()); }catch(e){}
-  for(const t of S.trilhas){
-    if(t.id === S.trilhaAtual){ S.resumos[t.id] = S.E; continue; }
+  await Promise.all(S.trilhas.map(async t => {
+    if(t.id === S.trilhaAtual){ S.resumos[t.id] = S.E; return; }
     try{ S.resumos[t.id] = (await SIPC.store.carregarEstado(uid(), t.id)) || estadoVazio(); }catch(e){ S.resumos[t.id] = estadoVazio(); }
-  }
+  }));
   if(S.tela==='trilhas') render(true);
 }
 function resumoTrilha(t){
   const E = S.resumos[t.id] || estadoVazio();
   const top = (t.materias||[]).reduce((a,m)=>a+m.topicos.length,0);
   const feitos = Object.keys(E.feito||{}).length;
-  const parcial = Object.values(E.parcial||{})[0];
+  const parcial = Object.values(E.parcial||{}).sort((a,b)=>(b.em||0)-(a.em||0))[0];
   const dias = Math.max(0, diasEntre(hojeISO(), (t.ritmo||{}).dataProva || hojeISO()));
   return {top, feitos, parcial, dias, pct: Math.min(100, Math.round(feitos/Math.max(1,top)*100)), carregado: !!S.resumos[t.id]};
 }
@@ -1377,6 +1503,12 @@ function nomeTelaAtual(){
   return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
 }
 let REP = null; // rascunho do reporte aberto
+const scriptsCarregados = {};
+const carregarScript = src => scriptsCarregados[src] ??= new Promise((ok, falha) => {
+  const s = document.createElement('script'); s.src = src; s.onload = ok;
+  s.onerror = () => { delete scriptsCarregados[src]; falha(new Error('não carregou ' + src)); };
+  document.head.appendChild(s);
+});
 async function abrirReporte(){
   REP = {tipo:null, texto:'', incluirPrint:true, print:null, capturando:true, enviado:null, enviando:false, erro:null,
          tela:nomeTelaAtual(), disp: innerWidth<700 ? 'Celular' : 'Computador',
@@ -1390,7 +1522,7 @@ async function abrirReporte(){
   const meu = REP;
   let print = null;
   try{
-    if(typeof html2canvas === 'undefined') throw new Error('sem html2canvas');
+    if(typeof html2canvas === 'undefined') await carregarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     const canvas = await html2canvas(document.body, {
       scale: Math.min(1, 900/innerWidth), useCORS:true, logging:false,
       x: scrollX, y: scrollY, width: innerWidth, height: innerHeight,
@@ -1423,8 +1555,10 @@ async function enviarReporte(){
   const txt = document.getElementById('repTexto').value.trim();
   if(!REP.tipo || !txt || REP.enviando) return;
   const c = SIPC.prioridade.classificar(REP.tipo, txt, REP.tela);
-  const item = {uid:S.usuario.uid, email:S.usuario.email, nome:S.usuario.nome, tipo:REP.tipo, texto:txt, tela:REP.tela, disp:REP.disp,
-                trilha: S.prova && S.trilhaAtual ? S.prova.nome : '', print: REP.incluirPrint ? REP.print : null, ...c, status:'novo'};
+  // Os limites batem com as Regras do Firestore (que recusam o documento inteiro se passar).
+  const corta = (v, n) => String(v || '').slice(0, n);
+  const item = {uid:S.usuario.uid, email:S.usuario.email, nome:corta(S.usuario.nome,120), tipo:REP.tipo, texto:corta(txt,4000), tela:corta(REP.tela,120), disp:REP.disp,
+                trilha: S.prova && S.trilhaAtual ? corta(S.prova.nome,200) : '', print: REP.incluirPrint ? REP.print : null, ...c, area:corta(c.area,60), status:'novo'};
   REP.enviando = true; REP.texto = txt; renderReporte();
   try{ await SIPC.store.enviarFeedback(item); REP.enviado = item; }
   catch(e){ REP.erro = 'Não consegui enviar agora (' + SIPC.traduzir(e) + '). Tente de novo em instantes.'; }
@@ -1466,7 +1600,7 @@ function renderReporte(){
       <button class="opcao ${mel?'on':''}" role="radio" aria-checked="${mel}" onclick="REP.tipo='melhoria';renderReporte()">${ico('spark')}<b>Tenho uma ideia</b><span>Melhoria: vai para a lista de ideias</span></button>
     </div>
     <label class="f" for="repTexto">${rotulo}</label>
-    <textarea id="repTexto" rows="4" placeholder="${ph}" ${REP.tipo?'':'disabled'} oninput="REP.texto=this.value;document.getElementById('repEnviar').disabled=!this.value.trim()">${escHtml(textoAtual)}</textarea>
+    <textarea id="repTexto" rows="4" maxlength="4000" placeholder="${ph}" ${REP.tipo?'':'disabled'} oninput="REP.texto=this.value;document.getElementById('repEnviar').disabled=!this.value.trim()">${escHtml(textoAtual)}</textarea>
     <div class="rep-print">
       ${REP.capturando ? '<div class="sem">Capturando a tela…</div>' : REP.print ? `<img src="${REP.print}" alt="Print da tela ${escHtml(REP.tela)}">` : '<div class="sem">Não foi possível capturar a tela</div>'}
       <div>
@@ -1491,23 +1625,27 @@ async function carregarAdmin(forcar){
   if(!ehAdmin() || ADM.carregando || (ADM.feedback && !forcar)) return;
   ADM.carregando = true; ADM.erro = null; render(true);
   try{
-    ADM.feedback = await SIPC.store.listarFeedback();
-    const us = await SIPC.store.listarUsuarios();
-    for(const u of us){
+    const [fb, us] = await Promise.all([SIPC.store.listarFeedback(), SIPC.store.listarUsuarios()]);
+    ADM.feedback = fb;
+    await Promise.all(us.map(async u => {
       u.trilhas = [];
       try{
-        for(const t of await SIPC.store.listarTrilhasDe(u.uid)){
+        const ts = await SIPC.store.listarTrilhasDe(u.uid);
+        u.trilhas = await Promise.all(ts.map(async t => {
           const e = (await SIPC.store.estadoDe(u.uid, t.id)) || estadoVazio();
-          const top = (t.materias||[]).reduce((a,m)=>a+m.topicos.length,0), ac = acertoGeral(e.questoes||[]);
-          const dias = Object.keys(e.minutos||{}).sort();
-          u.trilhas.push({nome:t.prova && t.prova.nome, pct: Math.round(Object.keys(e.feito||{}).length/Math.max(1,top)*100), acerto: ac.total ? ac.pct+'%' : '—', questoes: ac.total, ultimoEstudo: dias[dias.length-1] || null});
-        }
-      }catch(e){}
-    }
+          const top = (t.materias||[]).reduce((a,m)=>a+((m.topicos||[]).length),0), ac = acertoGeral(e.questoes||[]);
+          const dias = Object.keys(e.minutos||{}).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+          return {nome:t.prova && t.prova.nome, pct: Math.round(Object.keys(e.feito||{}).length/Math.max(1,top)*100), acerto: ac.total ? ac.pct+'%' : '—', questoes: ac.total, ultimoEstudo: dias[dias.length-1] || null};
+        }));
+      }catch(e){ u.erroTrilhas = true; }
+    }));
     ADM.usuarios = us.sort((a,b)=>String(b.ultimoAcesso||'').localeCompare(String(a.ultimoAcesso||'')));
   }catch(e){ ADM.erro = SIPC.traduzir(e); }
   ADM.carregando = false; render(true);
 }
+// Só aceita a imagem que o próprio app gera; qualquer outra coisa vira "sem print".
+const printValido = p => typeof p === 'string' && p.length < 760000 && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(p) ? p : null;
+const numero = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const quandoTs = ts => { try{ const d = ts && ts.toDate ? ts.toDate() : ts ? new Date(ts) : null; return d ? d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','') : '—'; }catch(e){ return '—'; } };
 function abaAdmin(){
   if(!ehAdmin()) return '<p class="vazio">Área restrita.</p>';
@@ -1523,15 +1661,15 @@ function admBacklog(){
   const vis = todos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
   const cont = q => todos.filter(i=>P.quadrante(i)===q).length;
   const card = (i, pos) => { const q = P.quadrante(i); return `<article class="bl-item">
-      ${i.print ? `<a href="${i.print}" target="_blank" rel="noopener" title="Abrir print"><img src="${i.print}" alt="Print da tela ${escHtml(i.tela)}"></a>` : '<div class="sem">sem print</div>'}
+      ${printValido(i.print) ? `<img src="${printValido(i.print)}" alt="Print da tela ${escHtml(i.tela)}" title="Tocar para ampliar" tabindex="0" role="button" onclick="this.classList.toggle('ampliado')">` : '<div class="sem">sem print</div>'}
       <div>
         <div class="bl-meta"><span class="bl-pos num">${pos}</span><span class="tag q-${q}">${QUAD[q].n}</span>
-          ${i.tipo==='bug' ? `<span class="tag ${i.sev}">Bug · ${SEV_ROT[i.sev]||''}</span>` : '<span class="tag mel">Melhoria</span>'}
+          ${i.tipo==='bug' ? `<span class="tag ${SEV_ROT[i.sev] ? i.sev : 'baixa'}">Bug · ${SEV_ROT[i.sev]||''}</span>` : '<span class="tag mel">Melhoria</span>'}
           <span class="tag baixa">${escHtml(i.area)}</span>${i.modoTeste?'<span>· em modo teste</span>':''}</div>
         <p>${escHtml(i.texto)}</p>
-        <div class="bl-meta"><span>Valor <b class="num">${i.valor}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span><span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
+        <div class="bl-meta"><span>Valor <b class="num">${numero(i.valor)}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span><span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
       </div></article>`; };
-  return `<div class="backlog" style="padding:0">
+  return `<div class="backlog" style="padding:0" data-sem-print>
     <h2 style="margin:0 0 6px">Backlog priorizado</h2>
     <div class="sub">Tudo o que os testadores reportam, já classificado e na ordem sugerida: primeiro o que mais atrapalha a jornada e dá menos trabalho.</div>
     <div class="quads">${Object.keys(QUAD).map(q=>`<div class="quad q-${q}"><b>${QUAD[q].n}</b><span>${QUAD[q].d}</span><span class="num">${cont(q)}</span></div>`).join('')}</div>
@@ -1543,10 +1681,10 @@ function admUsuarios(){
   const us = ADM.usuarios || [];
   return `<h2 style="margin:0 0 6px">Usuários</h2>
     <p class="dim" style="font-size:14px;margin:0 0 14px">${us.length} ${us.length===1?'conta':'contas'} com cadastro na v1. Dados mostrados conforme o aviso de privacidade aceito no cadastro.</p>
-    <div class="adm-tabela"><table>
+    <div class="adm-tabela" data-sem-print><table>
       <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th>Trilhas</th></tr></thead>
       <tbody>${us.map(u=>`<tr><td>${escHtml(u.nome||'—')}</td><td>${escHtml(u.email||'—')}</td><td>${quandoTs(u.criadoEm)}</td><td>${quandoTs(u.ultimoAcesso)}</td>
-        <td>${u.trilhas.length ? u.trilhas.map(t=>`<div><b>${escHtml(t.nome||'—')}</b> · ${t.pct}% estudado · acerto ${t.acerto}${t.questoes?` (${t.questoes} questões)`:''}${t.ultimoEstudo?' · estudou em '+fmtData(dataDe(t.ultimoEstudo),{day:'2-digit',month:'2-digit'}):''}</div>`).join('') : '<span class="dim">nenhuma</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="dim">Ninguém ainda.</td></tr>'}</tbody>
+        <td>${u.trilhas.length ? u.trilhas.map(t=>`<div><b>${escHtml(t.nome||'—')}</b> · ${numero(t.pct)}% estudado · acerto ${escHtml(t.acerto)}${t.questoes?` (${numero(t.questoes)} questões)`:''}${t.ultimoEstudo?' · estudou em '+fmtData(dataDe(t.ultimoEstudo),{day:'2-digit',month:'2-digit'}):''}</div>`).join('') : '<span class="dim">nenhuma</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="dim">Ninguém ainda.</td></tr>'}</tbody>
     </table></div>`;
 }
 
@@ -1636,6 +1774,7 @@ const emailValido = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function erroForm(msg, campo){ S.erroForm = msg; S.linkEnviado = false; S.ocupado = false; render(true); const el = campo && document.getElementById(campo); if(el) el.focus(); }
 const CONSENTIMENTO = () => ({versao:'2026-10-19', em:new Date().toISOString()});
 async function cadastrar(){
+  if(carregando()) return;
   const f = S.form;
   if(!f.nome.trim()) return erroForm('Diga como quer ser chamado.', 'cNome');
   if(!emailValido(f.email)) return erroForm('Esse e-mail não parece completo. Confira se tem @ e o domínio, como nome@gmail.com.', 'cEmail');
@@ -1647,9 +1786,16 @@ async function cadastrar(){
     await SIPC.store.salvarPerfil(u.uid, {nome:f.nome.trim(), email:u.email, criadoEm:new Date().toISOString(), consentimento:CONSENTIMENTO()});
     S.cadastrando = false; S.form.senha = '';
     await aoMudarLogin(u);
-  }catch(e){ S.cadastrando = false; erroForm(SIPC.traduzir(e)); }
+  }catch(e){
+    S.cadastrando = false;
+    // A conta pode ter sido criada antes da falha (perfil não gravou): segue o login,
+    // que leva ao aceite se faltar o consentimento, em vez de "e-mail já em uso" na próxima tentativa.
+    if(SIPC.auth.currentUser){ S.ocupado = false; return aoMudarLogin(SIPC.auth.currentUser); }
+    erroForm(SIPC.traduzir(e));
+  }
 }
 async function entrar(){
+  if(carregando()) return;
   const f = S.form;
   if(!emailValido(f.email)) return erroForm('Digite o e-mail da sua conta.', 'lEmail');
   if(!f.senha) return erroForm('Digite sua senha.', 'lSenha');
@@ -1658,6 +1804,7 @@ async function entrar(){
   catch(e){ erroForm(SIPC.traduzir(e)); }
 }
 async function entrarGoogle(){
+  if(carregando()) return;
   S.ocupado = true; S.erroForm = null; render(true);
   try{ await SIPC.entrarGoogle(); }
   catch(e){ erroForm(SIPC.traduzir(e)); }
@@ -1674,7 +1821,10 @@ async function aceitarPrivacidade(){
     S.ocupado = false; await aoMudarLogin(SIPC.auth.currentUser);
   }catch(e){ erroForm('Não consegui salvar o aceite: ' + SIPC.traduzir(e)); }
 }
+// A tela de entrada aparece antes de o Firebase terminar de carregar.
+function carregando(){ if(window.SIPC) return false; avisar('Só um instante: ainda carregando o SIPC.'); return true; }
 function usarSemConta(){
+  if(carregando()) return;
   S.visitante = true; S.modoTeste = true; SIPC.store.setModoTeste(true);
   novaTrilha();
 }
@@ -1683,6 +1833,7 @@ async function sairConta(){
   guardarProgresso(); await SIPC.store.salvarAgora();
   SIPC.store.setModoTeste(false);
   if(S.usuario || SIPC.auth.currentUser) await SIPC.sair();
+  marcarLogado(false);
   S = estadoInicial(); S.tela = 'entrada'; render();
 }
 
@@ -1690,11 +1841,19 @@ async function sairConta(){
 window.aoMudarLogin = async function(u){
   if(S.cadastrando) return; // o cadastro grava o perfil e chama de volta
   if(!u){
+    marcarLogado(false);
     if(S.visitante) return;
     if(S.usuario){ S = estadoInicial(); }
     S.tela = 'entrada'; render(); return;
   }
-  if(S.visitante){ S.visitante = false; S.modoTeste = false; SIPC.store.setModoTeste(false); }
+  marcarLogado(true);
+  if(S.visitante){
+    // O que a pessoa montou sem conta vai junto para a conta nova.
+    if(S.trilhaAtual && S.estadoOk) S._migrar = {T: dadosDaTrilha(), E: JSON.parse(JSON.stringify(S.E))};
+    else if(S.tela === 'assist' && S.materias.length) S._migrar = {setup: JSON.parse(JSON.stringify({passo:S.passo, edStatus:S.edStatus, materias:S.materias, prova:S.prova, bancas:S.bancas, horas:S.horas, dias:S.dias, dataProva:S.dataProva, qtdQuestoes:S.qtdQuestoes, formatoQuestoes:S.formatoQuestoes}))};
+    S.visitante = false; S.modoTeste = false; SIPC.store.setModoTeste(false);
+    S.trilhaAtual = null; S.estadoOk = false;
+  }
   if(S.usuario && S.usuario.uid === u.uid && S.tela !== 'carregando' && S.tela !== 'aceite' && S.tela !== 'entrada') return;
   S.usuario = {uid:u.uid, nome: u.displayName || (u.email||'').split('@')[0], email:u.email || '',
                via: (u.providerData||[]).some(p=>p.providerId==='google.com') ? 'Google' : 'e-mail'};
@@ -1705,6 +1864,16 @@ window.aoMudarLogin = async function(u){
     if(S.perfil.nome) S.usuario.nome = S.perfil.nome;
     SIPC.store.salvarPerfil(u.uid, {email:S.usuario.email}).catch(()=>{}); // atualiza o último acesso
     S.trilhas = await SIPC.store.listarTrilhas(u.uid);
+    if(S._migrar){
+      const m = S._migrar; S._migrar = null;
+      if(m.T){
+        const id = await SIPC.store.criarTrilha(u.uid, m.T);
+        SIPC.store.salvarEstado(u.uid, id, m.E); await SIPC.store.salvarAgora();
+        S.trilhas = await SIPC.store.listarTrilhas(u.uid);
+        await abrirTrilha(id); avisar('A trilha que você montou sem conta agora está salva na sua conta.'); return;
+      }
+      novaTrilha(); Object.assign(S, m.setup); render(); avisar('Seguimos de onde você parou na configuração.'); return;
+    }
     if(!S.trilhas.length) return novaTrilha();
     let ultima = null; try{ ultima = localStorage.getItem('sipc::ultima-trilha::'+u.uid); }catch(e){}
     const t = S.trilhas.find(x=>x.id===ultima) || S.trilhas.slice().sort((a,b)=>String(b.atualizadaEm||'').localeCompare(String(a.atualizadaEm||'')))[0];
@@ -1715,6 +1884,27 @@ window.aoMudarLogin = async function(u){
   }
 };
 
+function marcarLogado(sim){ try{ if(sim) localStorage.setItem('sipc::logado','1'); else localStorage.removeItem('sipc::logado'); }catch(e){} }
+
+/* Botão Voltar do navegador (e do Android): cada tela entra no histórico, e
+   voltar navega dentro do app em vez de sair dele. */
+const chaveNav = () => S.tela + '/' + (S.tela==='app' ? (S.vista || S.aba) : S.tela==='assist' ? S.passo : S.tela==='entrada' ? S.entrada : '');
+function sincronizarHistorico(){
+  if(['carregando','erro'].includes(S.tela)) return;
+  const k = chaveNav(), atual = history.state && history.state.sipc;
+  if(!atual) history.replaceState({sipc:k}, '');
+  else if(atual !== k) history.pushState({sipc:k}, '');
+}
+addEventListener('popstate', () => {
+  if(REP){ fecharReporte(); return; }
+  if(S.tela==='app' && S.vista) return sair();
+  if(S.tela==='app' && S.aba!=='hoje'){ S.aba='hoje'; return render(); }
+  if(S.tela==='trilhas' && S.trilhaAtual) return voltarTrilhaAberta();
+  if(S.tela==='assist' && S.passo>1) return irPasso(S.passo-1);
+  if(S.tela==='entrada' && S.entrada!=='inicio'){ S.entrada='inicio'; S.erroForm=null; return render(); }
+  // Na tela inicial de cada fluxo, o próximo Voltar sai do app normalmente.
+});
+
 /* render(true) mantém a tela sem reanimar a entrada: só a troca de tela anima */
 function render(semAnimar){
   const app = document.getElementById('app');
@@ -1724,14 +1914,27 @@ function render(semAnimar){
   const faixa = S.modoTeste && !S.visitante && ['app','trilhas','assist'].includes(S.tela)
     ? `<div class="mt-faixa" role="status"><b>Modo teste ligado</b>: nada do que você fizer agora é salvo na sua conta. <button onclick="alternarModoTeste()">Desligar</button></div>` : '';
   const telas = {carregando:telaCarregando, erro:telaErro, entrada:telaEntrada, aceite:telaAceite, trilhas:telaTrilhas, assist:telaAssist, app:telaApp};
-  app.innerHTML = faixa + (telas[S.tela] || telaCarregando)();
+  let html;
+  try{ html = faixa + (telas[S.tela] || telaCarregando)(); }
+  catch(e){
+    // Um dado inesperado (resposta da IA, documento antigo) não pode congelar a tela.
+    console.error(e);
+    html = `<div class="tela-cheia"><span class="marca">SIPC</span><div class="erro" style="max-width:520px"><b>Algo deu errado ao mostrar esta tela.</b><br>${escHtml(e && e.message || e)}</div>
+      <div class="fim-estudo"><button class="btn" onclick="sairDoErro()">Voltar ao plano de hoje</button><button class="btn sec" onclick="abrirReporte()">Reportar</button></div></div>`;
+  }
+  app.innerHTML = html;
   document.body.dataset.tela = S.tela;
   document.querySelector('.reportar').hidden = ['carregando','erro'].includes(S.tela);
   if(semAnimar) app.querySelectorAll('.tela').forEach(el=>el.style.animation='none');
   if(foco){ const el = document.getElementById(foco); if(el){ el.focus(); if(pos!=null && el.setSelectionRange) try{ el.setSelectionRange(pos,pos); }catch(e){} } }
+  sincronizarHistorico();
 }
+function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
+addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });
 document.addEventListener('keydown', e=>{
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role=button]')){ e.preventDefault(); e.target.click(); }
 });
 S = estadoInicial();
+// Sem login neste aparelho, a entrada aparece na hora; com login, espera o Firebase confirmar.
+try{ if(!localStorage.getItem('sipc::logado')) S.tela = 'entrada'; }catch(e){}
 render();

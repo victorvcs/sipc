@@ -647,3 +647,6 @@ button.mt-chave{background:none;border:none;padding:0;font-family:inherit;cursor
 .adm-tabela th,.adm-tabela td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line);}
 .adm-tabela th{font-weight:600;color:var(--text-dim);background:var(--surface-2);white-space:nowrap;}
 .adm-tabela td div+div{margin-top:4px;}
+/* print ampliado no backlog (sem abrir dataURL em outra aba, que o navegador bloqueia) */
+.bl-item img{cursor:zoom-in;}
+.bl-item img.ampliado{position:fixed;inset:4vh 4vw;width:92vw;height:92vh;object-fit:contain;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);z-index:100;cursor:zoom-out;}

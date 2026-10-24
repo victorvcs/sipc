@@ -4,11 +4,11 @@
 // quem protege os dados são as Regras do Firestore; quem protege a cota de IA
 // é o App Check.
 const V = 'https://www.gstatic.com/firebasejs/12.17.1/';
-const { initializeApp } = await import(V + 'firebase-app.js');
-const A = await import(V + 'firebase-auth.js');
-const F = await import(V + 'firebase-firestore.js');
-const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import(V + 'firebase-app-check.js');
-const { getAI, getGenerativeModel, GoogleAIBackend } = await import(V + 'firebase-ai.js');
+// Em paralelo: em sequência eram 4 idas e voltas a mais antes da primeira tela.
+// A IA (firebase-ai) só é baixada quando alguém gera conteúdo (ver obterIA).
+const [{ initializeApp }, A, F, { initializeAppCheck, ReCaptchaEnterpriseProvider }] = await Promise.all([
+  import(V + 'firebase-app.js'), import(V + 'firebase-auth.js'), import(V + 'firebase-firestore.js'), import(V + 'firebase-app-check.js'),
+]);
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyBQzTX6AcgO16X5rlc8WJ0DACleECXSfrA',
@@ -37,7 +37,12 @@ initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SI
 
 export const auth = A.getAuth(app);
 export const db = F.getFirestore(app);
-export const ia = getAI(app, { backend: new GoogleAIBackend() });
+
+// Tokens do App Check de uso único para a IA: um token copiado de uma sessão
+// legítima não serve para repetir chamadas fora do navegador.
+let iaPronta = null;
+export const obterIA = () => iaPronta ??= import(V + 'firebase-ai.js').then(({ getAI, getGenerativeModel, GoogleAIBackend }) =>
+  ({ ia: getAI(app, { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true }), getGenerativeModel }));
 
 export const {
   onAuthStateChanged, signInWithPopup, signInWithRedirect, GoogleAuthProvider, createUserWithEmailAndPassword,
@@ -45,4 +50,3 @@ export const {
   EmailAuthProvider, updateProfile, signOut,
 } = A;
 export const { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, serverTimestamp } = F;
-export { getGenerativeModel };

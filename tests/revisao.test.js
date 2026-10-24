@@ -1,7 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { somarDias, agendar, avaliar, vencidas, datasDeVolta } from '../js/nucleo/revisao.js';
+import { somarDias, agendar, avaliar, reabrir, vencidas, datasDeVolta } from '../js/nucleo/revisao.js';
 
+test('reabrir: consolidado volta para 24h e guarda o histórico', () => {
+  const r = reabrir({ chave: 'P::C', materia: 'P', topico: 'C', estudadoEm: '2026-09-01', etapa: 2, proxima: null, consolidado: true, historico: [] }, '2026-10-23');
+  assert.deepEqual([r.etapa, r.proxima, r.consolidado, r.estudadoEm, r.historico.length], [0, '2026-10-24', false, '2026-10-23', 1]);
+});
 test('somarDias atravessa mês', () => assert.equal(somarDias('2026-10-30', 3), '2026-11-02'));
 test('agendar: volta em 24h', () => {
   const r = agendar('Português', 'Crase', '2026-10-19');

@@ -1,6 +1,6 @@
 // Tudo que pede algo ao Gemini (Firebase AI Logic). Quem protege a cota é o
 // App Check; não há chave de API do aluno em lugar nenhum.
-import { ia, getGenerativeModel, IA_MODELO } from './firebase.js';
+import { obterIA, IA_MODELO } from './firebase.js';
 import { validarEdital, validarConteudo, validarQuestoes } from './nucleo/validar.js';
 import { idConteudo, orcamento, erroTemporario, extrairJSON, embaralhar } from './nucleo/iautil.js';
 import { lerConteudo, gravarConteudo } from './store.js';
@@ -10,6 +10,7 @@ const TENTATIVAS = 4; // em teste real vieram dois 503 seguidos antes do acerto
 export async function gerarJSON({ system, user, maxTokens }) {
   const cfg = { model: IA_MODELO, generationConfig: { maxOutputTokens: orcamento(maxTokens), responseMimeType: 'application/json' } };
   if (system) cfg.systemInstruction = system;
+  const { ia, getGenerativeModel } = await obterIA();
   const modelo = getGenerativeModel(ia, cfg);
   let ultimo = null;
   for (let t = 1; t <= TENTATIVAS; t++) {
@@ -18,8 +19,10 @@ export async function gerarJSON({ system, user, maxTokens }) {
       if (!txt || !txt.trim()) throw new Error('a IA devolveu uma resposta vazia');
       return extrairJSON(txt);
     } catch (e) {
-      if (!erroTemporario(e)) throw e;
-      ultimo = new Error('o serviço de IA está ocupado; tente de novo em instantes');
+      // JSON cortado (a resposta bateu no limite de tokens) também vale tentar de novo.
+      const cortado = e instanceof SyntaxError;
+      if (!erroTemporario(e) && !cortado) throw e;
+      ultimo = new Error(cortado ? 'a IA devolveu uma resposta incompleta; tente de novo' : 'o serviço de IA está ocupado; tente de novo em instantes');
       if (t < TENTATIVAS) await new Promise(r => setTimeout(r, 1500 * t));
     }
   }
@@ -64,7 +67,10 @@ const SISTEMA_CONTEUDO =
 export async function obterConteudo({ banca, materia, topico, uid, prova = '' }) {
   const id = idConteudo(banca, materia, topico);
   const salvo = await lerConteudo(id).catch(() => null);
-  if (salvo?.json) return { id, ...JSON.parse(salvo.json), doCache: true };
+  // O cache é compartilhado: o que vem dele passa pela mesma validação do que a IA gera.
+  // Documento quebrado ou de formato antigo não trava o tópico: gera de novo para este aluno.
+  let cacheRuim = false;
+  if (salvo?.json) { try { return { id, ...validarConteudo(JSON.parse(salvo.json)), doCache: true }; } catch (e) { cacheRuim = true; } }
 
   const o = await gerarJSON({
     system: SISTEMA_CONTEUDO,
@@ -87,7 +93,7 @@ export async function obterConteudo({ banca, materia, topico, uid, prova = '' })
   const conteudo = validarConteudo(o);
   // O Firestore não guarda lista dentro de lista (mapa, resumo1, flashcards):
   // o conteúdo vai como texto JSON.
-  await gravarConteudo(id, { json: JSON.stringify(conteudo), banca: banca || '', materia, topico, uid, modelo: IA_MODELO, criadoEm: new Date().toISOString() })
+  if (!cacheRuim) await gravarConteudo(id, { json: JSON.stringify(conteudo), banca: banca || '', materia, topico, uid, modelo: IA_MODELO, criadoEm: new Date().toISOString() })
     .catch(() => {}); // outro aluno pode ter gravado no mesmo instante; o conteúdo já está em mãos
   return { id, ...conteudo, doCache: false };
 }
