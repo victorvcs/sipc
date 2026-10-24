@@ -1702,7 +1702,8 @@ function telaAceite(){
   return `<div class="entrada"><section class="entrada-texto"><span class="marca">SIPC</span><h1>Que bom ter você aqui${S.usuario && S.usuario.nome ? ', ' + escHtml(String(S.usuario.nome).split(' ')[0]) : ''}.</h1>
       <p class="lead">O SIPC transforma o edital da sua prova num plano de estudo para cada dia: o que estudar, quanto tempo, questões no estilo da sua banca e revisões na hora certa.</p>
       <div class="beta"><b>Estamos em versão beta.</b> Usando o SIPC agora, você ajuda a melhorar a ferramenta para todo mundo que estuda para exames e concursos. Viu algo errado ou teve uma ideia? Toque em Reportar, em qualquer tela.</div></section>
-    <section class="entrada-cartao"><h2>Antes de começar</h2>
+    <section class="entrada-cartao"><h2>${aceiteAntigo() ? 'Atualizamos o aviso de privacidade' : 'Antes de começar'}</h2>
+      ${aceiteAntigo() ? '<p class="aviso" style="font-size:14px;margin:4px 0 10px">A novidade: o SIPC passou a registrar como você usa o app (quando entra, quanto tempo fica, por quais telas passa e as ações principais) para entendermos o uso e melhorar a ferramenta. Com o modo teste ligado, nada disso é registrado.</p>' : ''}
       <p class="dim" style="font-size:14px;margin:4px 0 14px">Para montar seu plano e guardar seu progresso, o SIPC guarda seu nome, seu e-mail, suas trilhas, o que você estudou e o que você reportar. Como estamos em beta, a equipe pode ver esses dados para entender o uso e corrigir problemas. Nada é vendido, e você pode pedir a exclusão quando quiser.</p>
       <label class="aceite"><input type="checkbox" ${S.aceite?'checked':''} onchange="S.aceite=this.checked;render(true)"> <span>Li e aceito o ${AVISO_PRIV}.</span></label>
       ${S.erroForm ? `<p class="erro-f" role="alert">${escHtml(S.erroForm)}</p>` : ''}
@@ -1715,7 +1716,12 @@ function telaErro(){ return `<div class="tela-cheia"><span class="marca">SIPC</s
 
 const emailValido = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function erroForm(msg, campo){ S.erroForm = msg; S.linkEnviado = false; S.ocupado = false; render(true); const el = campo && document.getElementById(campo); if(el) el.focus(); }
-const CONSENTIMENTO = () => ({versao:'2026-10-19', em:new Date().toISOString()});
+// Versão do aviso de privacidade aceito. Mudou o que é coletado (registro de
+// uso, 23/10/2026): quem aceitou uma versão anterior aceita de novo.
+const VERSAO_AVISO = '2026-10-23';
+const CONSENTIMENTO = () => ({versao:VERSAO_AVISO, em:new Date().toISOString()});
+const aceiteEmDia = p => !!(p && p.consentimento && p.consentimento.versao === VERSAO_AVISO);
+const aceiteAntigo = () => !!(S.perfil && S.perfil.consentimento && !aceiteEmDia(S.perfil));
 async function cadastrar(){
   if(carregando()) return;
   const f = S.form;
@@ -1760,7 +1766,7 @@ async function esqueciSenha(){
 async function aceitarPrivacidade(){
   S.ocupado = true; render(true);
   try{
-    await SIPC.store.salvarPerfil(S.usuario.uid, {nome:S.usuario.nome, email:S.usuario.email, criadoEm:new Date().toISOString(), consentimento:CONSENTIMENTO()});
+    await SIPC.store.salvarPerfil(S.usuario.uid, {nome:S.usuario.nome, email:S.usuario.email, criadoEm:(S.perfil && S.perfil.criadoEm) || new Date().toISOString(), consentimento:CONSENTIMENTO()});
     S.ocupado = false; await aoMudarLogin(SIPC.auth.currentUser);
   }catch(e){ erroForm('Não consegui salvar o aceite: ' + SIPC.traduzir(e)); }
 }
@@ -1804,7 +1810,7 @@ window.aoMudarLogin = async function(u){
   S.tela = 'carregando'; S.ocupado = false; render();
   try{
     S.perfil = await SIPC.store.carregarPerfil(u.uid);
-    if(!S.perfil || !S.perfil.consentimento){ S.aceite = false; S.tela = 'aceite'; render(); return; }
+    if(!aceiteEmDia(S.perfil)){ S.aceite = false; S.tela = 'aceite'; render(); return; }
     if(S.perfil.nome) S.usuario.nome = S.perfil.nome;
     ev('login', S.usuario.via);
     SIPC.store.salvarPerfil(u.uid, {email:S.usuario.email}).catch(()=>{}); // atualiza o último acesso
