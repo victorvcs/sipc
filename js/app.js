@@ -1721,7 +1721,7 @@ function telaEntrada(){
           <div class="senha"><input type="${S.verSenha?'text':'password'}" id="cSenha" autocomplete="new-password" value="${escHtml(S.form.senha)}" oninput="S.form.senha=this.value;render(true)">
           <button type="button" class="mini" onclick="S.verSenha=!S.verSenha;render(true)">${S.verSenha?'ocultar':'mostrar'}</button></div>
           <p class="dica ${S.form.senha.length>=8?'ok':''}">${S.form.senha.length>=8?ico('check'):''} Pelo menos 8 caracteres</p></div>
-        <label class="aceite"><input type="checkbox" id="cAceite" ${S.aceite?'checked':''} onchange="S.aceite=this.checked"> Li e aceito o ${AVISO_PRIV}.</label>
+        <label class="aceite"><input type="checkbox" id="cAceite" ${S.aceite?'checked':''} onchange="S.aceite=this.checked"> <span>Li e aceito o ${AVISO_PRIV}.</span></label>
         ${S.erroForm ? `<p class="erro-f" role="alert">${escHtml(S.erroForm)}</p>` : ''}
         <button class="btn" style="width:100%" type="submit" ${S.ocupado?'disabled':''}>${S.ocupado?'Criando…':'Criar conta e começar'}</button>
       </form>`;
@@ -1761,7 +1761,7 @@ function telaAceite(){
       <p class="lead">O SIPC está em fase de testes. Antes de começar, confira como seus dados são usados.</p></section>
     <section class="entrada-cartao"><h2>Aviso de privacidade</h2>
       <p class="dim" style="font-size:14px;margin:4px 0 14px">Guardamos seu nome, e-mail, trilhas, progresso e o que você reportar, para o app funcionar e melhorar. O responsável pela versão de testes pode ver esses dados. Você pode pedir a exclusão a qualquer momento.</p>
-      <label class="aceite"><input type="checkbox" ${S.aceite?'checked':''} onchange="S.aceite=this.checked;render(true)"> Li e aceito o ${AVISO_PRIV}.</label>
+      <label class="aceite"><input type="checkbox" ${S.aceite?'checked':''} onchange="S.aceite=this.checked;render(true)"> <span>Li e aceito o ${AVISO_PRIV}.</span></label>
       ${S.erroForm ? `<p class="erro-f" role="alert">${escHtml(S.erroForm)}</p>` : ''}
       <button class="btn" style="width:100%" ${S.aceite && !S.ocupado?'':'disabled'} onclick="aceitarPrivacidade()">Aceitar e continuar</button>
       <button class="btn link" style="width:100%;margin-top:6px" onclick="sairConta()">Sair</button>
