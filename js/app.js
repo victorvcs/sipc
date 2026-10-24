@@ -1299,6 +1299,7 @@ function abaConta(){
     </section>` : ''}
     <section class="bloco"><h3>Modo teste</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Para experimentar sem mexer no seu progresso: com ele ligado, nada é gravado. Ao desligar, tudo volta como estava.</p>${chaveTeste()}</section>
     <section class="bloco"><h3>Minhas trilhas</h3><p class="dim" style="font-size:14px;margin:0 0 12px">${S.trilhas.length} ${S.trilhas.length===1?'trilha':'trilhas'} nesta conta.</p><button class="btn sec" onclick="irTrilhas()">Ver minhas trilhas</button></section>
+    <section class="bloco"><h3>Como usar o SIPC</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Reveja o tour rápido pelas partes do app: plano do dia, como estudar, revisões, modo teste e Reportar.</p><button class="btn sec" onclick="iniciarTour()">Ver o tour de novo</button></section>
     <section class="bloco"><h3>Privacidade</h3><p class="dim" style="font-size:14px;margin:0 0 12px">O que guardamos, para quê e como pedir a exclusão.</p><a class="btn sec" href="privacidade.html" target="_blank" rel="noopener">Ler o aviso de privacidade</a></section>
     ${c ? `<section class="bloco"><h3>Sessão</h3><button class="btn sec ruim-txt" onclick="sairConta()">Sair da conta</button></section>` : ''}
   </div>`;
@@ -1389,6 +1390,7 @@ async function abrirTrilha(id){
   try{ localStorage.setItem('sipc::ultima-trilha::'+uid(), id); }catch(x){}
   S.tela = 'app'; S.aba = 'hoje'; S.vista = null; S.estudo = null; S.quiz = null;
   window.scrollTo(0,0); render();
+  setTimeout(() => window.talvezTour && talvezTour(), 400); // tour de boas-vindas na primeira vez (js/tour.js)
 }
 // Volta para a aba: relê o estado se nada está pendente, para não sobrescrever
 // o que foi feito em outro aparelho com a cópia antiga desta aba.
@@ -1745,26 +1747,27 @@ function telaEntrada(){
     <section class="entrada-texto">
       <span class="marca">SIPC</span>
       <h1>Seu edital vira um plano de estudo para cada dia.</h1>
-      <p class="lead">Mande o edital e diga quanto tempo você tem. O SIPC decide o que estudar hoje, gera questões no estilo da sua banca e traz de volta o que você errou na hora certa de revisar.</p>
+      <p class="lead">Vai prestar concurso, vestibular ou certificação? Mande o edital e diga quanto tempo você tem por dia. O SIPC organiza o que estudar em cada dia, explica cada assunto, cria questões no estilo da sua banca e lembra você de revisar na hora certa. Você só abre e segue a lista.</p>
       <ol class="como">
-        <li><b>Edital lido por IA.</b> PDF, planilha ou texto colado: matérias, pesos e assuntos separados para você conferir.</li>
-        <li><b>Plano do dia pronto.</b> O que vale mais na prova recebe mais tempo. Faltou um dia? O plano se reorganiza, sem dívida.</li>
-        <li><b>Questões e revisão.</b> Gabarito na hora, e cada tópico volta para revisão em 24 horas, 7 e 30 dias.</li>
+        <li><b>Seu edital organizado.</b> Mande o PDF, uma planilha ou cole o texto. A IA separa as matérias, os pesos e os assuntos, e você confere.</li>
+        <li><b>Um plano para cada dia.</b> O que vale mais na prova ganha mais tempo. Faltou um dia? Tudo se reorganiza a partir de hoje, sem acumular.</li>
+        <li><b>Aprender, praticar e revisar.</b> Cada assunto vem com resumo, mapa mental e questões comentadas. Depois volta para revisão em 1, 7 e 30 dias, para não esquecer.</li>
       </ol>
-      <p class="dim" style="font-size:13px">Versão de testes. Achou algo estranho? Use o botão Reportar.</p>
+      <div class="beta"><b>Versão beta: você ajuda a construir o SIPC.</b> Ao usar agora, cada sugestão ou problema que você mandar pelo botão Reportar entra na lista do que vamos melhorar. Assim o SIPC evolui junto com quem estuda para exames e concursos.</div>
     </section>
     <section class="entrada-cartao" aria-live="polite">${cartao}</section>
   </div>`;
 }
 function telaAceite(){
-  return `<div class="entrada"><section class="entrada-texto"><span class="marca">SIPC</span><h1>Falta um passo.</h1>
-      <p class="lead">O SIPC está em fase de testes. Antes de começar, confira como seus dados são usados.</p></section>
-    <section class="entrada-cartao"><h2>Aviso de privacidade</h2>
-      <p class="dim" style="font-size:14px;margin:4px 0 14px">Guardamos seu nome, e-mail, trilhas, progresso e o que você reportar, para o app funcionar e melhorar. O responsável pela versão de testes pode ver esses dados. Você pode pedir a exclusão a qualquer momento.</p>
+  return `<div class="entrada"><section class="entrada-texto"><span class="marca">SIPC</span><h1>Que bom ter você aqui${S.usuario && S.usuario.nome ? ', ' + escHtml(String(S.usuario.nome).split(' ')[0]) : ''}.</h1>
+      <p class="lead">O SIPC transforma o edital da sua prova num plano de estudo para cada dia: o que estudar, quanto tempo, questões no estilo da sua banca e revisões na hora certa.</p>
+      <div class="beta"><b>Estamos em versão beta.</b> Usando o SIPC agora, você ajuda a melhorar a ferramenta para todo mundo que estuda para exames e concursos. Viu algo errado ou teve uma ideia? Toque em Reportar, em qualquer tela.</div></section>
+    <section class="entrada-cartao"><h2>Antes de começar</h2>
+      <p class="dim" style="font-size:14px;margin:4px 0 14px">Para montar seu plano e guardar seu progresso, o SIPC guarda seu nome, seu e-mail, suas trilhas, o que você estudou e o que você reportar. Como estamos em beta, a equipe pode ver esses dados para entender o uso e corrigir problemas. Nada é vendido, e você pode pedir a exclusão quando quiser.</p>
       <label class="aceite"><input type="checkbox" ${S.aceite?'checked':''} onchange="S.aceite=this.checked;render(true)"> <span>Li e aceito o ${AVISO_PRIV}.</span></label>
       ${S.erroForm ? `<p class="erro-f" role="alert">${escHtml(S.erroForm)}</p>` : ''}
-      <button class="btn" style="width:100%" ${S.aceite && !S.ocupado?'':'disabled'} onclick="aceitarPrivacidade()">Aceitar e continuar</button>
-      <button class="btn link" style="width:100%;margin-top:6px" onclick="sairConta()">Sair</button>
+      <button class="btn" style="width:100%" ${S.aceite && !S.ocupado?'':'disabled'} onclick="aceitarPrivacidade()">Aceitar e começar</button>
+      <button class="btn link" style="width:100%;margin-top:6px" onclick="sairConta()">Agora não, sair</button>
     </section></div>`;
 }
 function telaCarregando(){ return `<div class="tela-cheia"><span class="marca">SIPC</span><p class="dim">Carregando…</p></div>`; }
