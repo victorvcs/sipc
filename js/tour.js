@@ -43,6 +43,7 @@ function iniciarTour(){
   desenharTour();
 }
 function fecharTour(){
+  if(window.evento && TOUR) evento('tour', 'até o passo ' + (TOUR.i+1) + ' de ' + TOUR.passos.length);
   marcarTourVisto();
   const el = document.getElementById('tour'); if(el) el.remove();
   removeEventListener('resize', desenharTour); removeEventListener('scroll', posicionarTour, true);

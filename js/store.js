@@ -1,7 +1,7 @@
 // Tudo que toca o Firestore passa por aqui. Com o modo teste ligado, as
 // escritas vão para a memória e somem ao desligar: o aluno testa a jornada
 // sem mexer no próprio progresso.
-import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, serverTimestamp } from './firebase.js';
+import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp } from './firebase.js';
 
 let teste = false;
 const memoria = new Map();
@@ -89,6 +89,13 @@ export const gravarConteudo = (id, dados) => gravar(doc(db, 'conteudos', id), da
 export async function enviarFeedback(dados) {
   await addDoc(collection(db, 'feedback'), { ...dados, modoTeste: teste, criadoEm: serverTimestamp() });
 }
+
+/* uso do app: uma "sessão" por visita (telas, tempo ativo, ações), para o
+   acompanhamento do Victor. Fica em users/{uid}/sessoes: o aluno grava a
+   própria, só o admin lê a dos outros. Nunca chamado com o modo teste ligado. */
+export const salvarSessao = (uid, sid, dados) => setDoc(doc(db, 'users', uid, 'sessoes', sid), dados);
+export const listarSessoesDe = async (uid, n = 60) =>
+  (await getDocs(query(collection(db, 'users', uid, 'sessoes'), orderBy('inicio', 'desc'), limit(n)))).docs.map(d => ({ id: d.id, ...d.data() }));
 
 /* administração (as Regras só deixam o admin ler) */
 export const listarFeedback = async () =>

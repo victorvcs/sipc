@@ -404,9 +404,11 @@ async function lerEdital(){
     S.bancas = S.prova.bancaEdital ? [S.prova.bancaEdital] : [];
     if(S.prova.data && S.prova.data > hojeISO()) S.dataProva = S.prova.data;
     S.edPasso = total; S.edStatus='pronto';
+    ev('edital-lido', S.materias.length + ' matérias · ' + totalTopicos() + ' tópicos · ' + (S.edModo==='texto' ? 'texto colado' : S.arquivos.map(a=>TIPOS[a.tipo].rot).join(' + ')));
   }catch(e){
     if(!valendo()) return;
     S.edStatus='erro'; S.erroLeitura = mensagemIA(e); S.erroIA = ehErroDeIA(S.erroLeitura);
+    ev('edital-erro', S.erroLeitura);
   }finally{ clearInterval(t); if(valendo()) render(); }
 }
 // Volta ao passo de envio guardando os arquivos e o texto já colados.
@@ -443,6 +445,7 @@ function limiteVisitante(){
 // Erros da IA em português e, em localhost, o lembrete do token de depuração.
 function mensagemIA(e){
   const m = String(e && e.message || e);
+  ev('ia-erro', m.slice(0, 120));
   // Depois de um único 403, o App Check trava as tentativas por 24 horas
   // neste navegador. Apagar o registro local libera na próxima carga.
   if(/throttl/i.test(m)){ try{ indexedDB.deleteDatabase('firebase-app-check-database'); }catch(x){} return 'A verificação de segurança da IA falhou uma vez. Recarregue a página e tente de novo.'; }
@@ -474,6 +477,7 @@ async function comecar(){
   S.ocupado = true; render(true);
   try{
     const id = await SIPC.store.criarTrilha(uid(), dadosDaTrilha());
+    ev('trilha-criada', S.prova.nome + ' · ' + S.materias.length + ' matérias · banca ' + bancasTxt());
     S.trilhas = await SIPC.store.listarTrilhas(uid());
     await abrirTrilha(id);
   }catch(e){ avisar('Não consegui salvar a trilha: ' + mensagemIA(e)); }
@@ -683,6 +687,7 @@ function abrirEstudo(topico, mat, rev){
   if(salvo){ S.estudo = {...salvo, retomado:true}; if(rev) S.estudo.rev = rev; }
   else S.estudo = {chave:c, topico, mat, parte:'teoria', feitas:{}, resp:{}, corrigido:false, flip:{}, rev: rev || null, n:null, questoes:null};
   S.vista = 'estudo'; window.scrollTo(0,0);
+  ev('topico-aberto', topico + ' (' + mat + ')' + (rev ? ' · revisão' : ''));
   carregarConteudo(S.estudo);
   if(S.estudo.parte==='questoes' && !S.estudo.questoes) gerarQuestoesTopico();
   render();
@@ -931,6 +936,8 @@ function concluirItem(resultado){
         S.E.revisoes[ri] = SIPC.revisao.reabrir(S.E.revisoes[ri], hoje);
       S.E.minutos[hoje] = (S.E.minutos[hoje]||0) + SIPC.trilha.MIN_TOPICO;
     }
+    const acertou = L.filter((q,k)=>E.resp[k]===q.c).length;
+    ev(E.rev ? 'revisao' : 'topico-concluido', E.topico + (E.rev ? ' · ' + (resultado || 'lembrei') : '') + (E.corrigido && L.length ? ' · ' + acertou + '/' + L.length + ' nas questões' : ' · sem fazer as questões'));
     E.concluido = true;
     delete S.E.parcial[E.chave];
     salvarE();
@@ -1022,6 +1029,7 @@ function registrarQuiz(){
   Object.keys(S.E.diario).forEach(d => { if(d < somar(hoje,-7)) delete S.E.diario[d]; });
   S.E.minutos[hoje] = (S.E.minutos[hoje]||0) + 20;
   delete S.E.parcial[S.itemAtual]; delete S.E.parcial['q:'+hoje];
+  ev('questoes-dia', Q.res.filter(Boolean).length + '/' + Q.lista.length + ' certas');
   Q.registrado = true;
   salvarE();
 }
@@ -1390,6 +1398,7 @@ async function abrirTrilha(id){
   try{ localStorage.setItem('sipc::ultima-trilha::'+uid(), id); }catch(x){}
   S.tela = 'app'; S.aba = 'hoje'; S.vista = null; S.estudo = null; S.quiz = null;
   window.scrollTo(0,0); render();
+  ev('trilha-aberta', S.prova.nome);
   setTimeout(() => window.talvezTour && talvezTour(), 400); // tour de boas-vindas na primeira vez (js/tour.js)
 }
 // Volta para a aba: relê o estado se nada está pendente, para não sobrescrever
@@ -1461,6 +1470,7 @@ async function alternarModoTeste(){
   if(S.visitante) return irEntrada();
   if(!S.modoTeste){
     guardarProgresso(); await SIPC.store.salvarAgora();
+    ev('modo-teste', 'ligou'); if(window.gravarSessao) await gravarSessao(); // depois disso nada é registrado
     SIPC.store.setModoTeste(true); S.modoTeste = true;
     avisar('Modo teste ligado: nada do que você fizer agora é salvo.');
     render();
@@ -1562,7 +1572,7 @@ async function enviarReporte(){
   const item = {uid:S.usuario.uid, email:S.usuario.email, nome:corta(S.usuario.nome,120), tipo:REP.tipo, texto:corta(txt,4000), tela:corta(REP.tela,120), disp:REP.disp,
                 trilha: S.prova && S.trilhaAtual ? corta(S.prova.nome,200) : '', print: REP.incluirPrint ? REP.print : null, ...c, area:corta(c.area,60), status:'novo'};
   REP.enviando = true; REP.texto = txt; renderReporte();
-  try{ await SIPC.store.enviarFeedback(item); REP.enviado = item; }
+  try{ await SIPC.store.enviarFeedback(item); REP.enviado = item; ev('reporte', (item.tipo==='bug'?'bug':'ideia') + ': ' + item.texto.slice(0,80)); }
   catch(e){ REP.erro = 'Não consegui enviar agora (' + SIPC.traduzir(e) + '). Tente de novo em instantes.'; }
   REP.enviando = false; renderReporte();
 }
@@ -1586,7 +1596,7 @@ function renderReporte(){
         ? 'Entrou na lista já priorizada: o que mais atrapalha a jornada e dá menos trabalho vem primeiro.'
         : 'Entrou na lista de ideias, ordenada por valor para os alunos e esforço para fazer.'}</p>
       <div class="rep-acoes" style="justify-content:center">
-        ${ehAdmin() ? `<button class="btn sec" onclick="fecharReporte();S.tela='app';S.vista=null;irAba('admin')">Ver backlog</button>` : ''}
+        ${ehAdmin() ? `<button class="btn sec" onclick="fecharReporte();S.tela='app';S.vista=null;ADM.aba='backlog';ADM.ficha=null;irAba('admin')">Ver backlog</button>` : ''}
         <button class="btn" onclick="fecharReporte()">Voltar ao que eu fazia</button>
       </div></div>`;
     return;
@@ -1618,77 +1628,7 @@ function renderReporte(){
   const ta = document.getElementById('repTexto'); if(REP.tipo && ta && !REP.capturando && !REP.enviando) ta.focus();
 }
 
-/* ------------------------- área do administrador -------------------------
-   Só para o e-mail do Victor (as Regras do Firestore garantem do lado do
-   servidor; esconder a aba é só conveniência). Backlog priorizado e a
-   lista de testadores com o andamento de cada trilha. */
-let ADM = {aba:'backlog', filtro:'todos', carregando:false, feedback:null, usuarios:null, erro:null};
-async function carregarAdmin(forcar){
-  if(!ehAdmin() || ADM.carregando || (ADM.feedback && !forcar)) return;
-  ADM.carregando = true; ADM.erro = null; render(true);
-  try{
-    const [fb, us] = await Promise.all([SIPC.store.listarFeedback(), SIPC.store.listarUsuarios()]);
-    ADM.feedback = fb;
-    await Promise.all(us.map(async u => {
-      u.trilhas = [];
-      try{
-        const ts = await SIPC.store.listarTrilhasDe(u.uid);
-        u.trilhas = await Promise.all(ts.map(async t => {
-          const e = (await SIPC.store.estadoDe(u.uid, t.id)) || estadoVazio();
-          const top = (t.materias||[]).reduce((a,m)=>a+((m.topicos||[]).length),0), ac = acertoGeral(e.questoes||[]);
-          const dias = Object.keys(e.minutos||{}).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-          return {nome:t.prova && t.prova.nome, pct: Math.round(Object.keys(e.feito||{}).length/Math.max(1,top)*100), acerto: ac.total ? ac.pct+'%' : '—', questoes: ac.total, ultimoEstudo: dias[dias.length-1] || null};
-        }));
-      }catch(e){ u.erroTrilhas = true; }
-    }));
-    ADM.usuarios = us.sort((a,b)=>String(b.ultimoAcesso||'').localeCompare(String(a.ultimoAcesso||'')));
-  }catch(e){ ADM.erro = SIPC.traduzir(e); }
-  ADM.carregando = false; render(true);
-}
-// Só aceita a imagem que o próprio app gera; qualquer outra coisa vira "sem print".
-const printValido = p => typeof p === 'string' && p.length < 760000 && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(p) ? p : null;
-const numero = v => Number.isFinite(Number(v)) ? Number(v) : 0;
-const quandoTs = ts => { try{ const d = ts && ts.toDate ? ts.toDate() : ts ? new Date(ts) : null; return d ? d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','') : '—'; }catch(e){ return '—'; } };
-function abaAdmin(){
-  if(!ehAdmin()) return '<p class="vazio">Área restrita.</p>';
-  const topo = `<div class="bl-filtro" role="group" aria-label="Área do administrador" style="margin-bottom:16px">${[['backlog','Backlog'],['usuarios','Usuários']].map(([k,n])=>`<button class="chip ${ADM.aba===k?'on':''}" onclick="ADM.aba='${k}';render(true)">${n}</button>`).join('')}
-    <button class="chip" onclick="carregarAdmin(true)">${ADM.carregando?'Atualizando…':'Atualizar'}</button></div>`;
-  if(ADM.erro) return topo + `<div class="erro"><b>Não consegui ler os dados.</b><br>${escHtml(ADM.erro)}<br>Confira se as Regras novas do Firestore foram publicadas.</div>`;
-  if(!ADM.feedback) return topo + `<div class="carregando">${ico('spark')}<p><b>Carregando…</b></p></div>`;
-  return topo + (ADM.aba==='usuarios' ? admUsuarios() : admBacklog());
-}
-function admBacklog(){
-  const P = SIPC.prioridade;
-  const todos = P.ordenar(ADM.feedback);
-  const vis = todos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
-  const cont = q => todos.filter(i=>P.quadrante(i)===q).length;
-  const card = (i, pos) => { const q = P.quadrante(i); return `<article class="bl-item">
-      ${printValido(i.print) ? `<img src="${printValido(i.print)}" alt="Print da tela ${escHtml(i.tela)}" title="Tocar para ampliar" tabindex="0" role="button" onclick="this.classList.toggle('ampliado')">` : '<div class="sem">sem print</div>'}
-      <div>
-        <div class="bl-meta"><span class="bl-pos num">${pos}</span><span class="tag q-${q}">${QUAD[q].n}</span>
-          ${i.tipo==='bug' ? `<span class="tag ${SEV_ROT[i.sev] ? i.sev : 'baixa'}">Bug · ${SEV_ROT[i.sev]||''}</span>` : '<span class="tag mel">Melhoria</span>'}
-          <span class="tag baixa">${escHtml(i.area)}</span>${i.modoTeste?'<span>· em modo teste</span>':''}</div>
-        <p>${escHtml(i.texto)}</p>
-        <div class="bl-meta"><span>Valor <b class="num">${numero(i.valor)}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span><span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
-      </div></article>`; };
-  return `<div class="backlog" style="padding:0" data-sem-print>
-    <h2 style="margin:0 0 6px">Backlog priorizado</h2>
-    <div class="sub">Tudo o que os testadores reportam, já classificado e na ordem sugerida: primeiro o que mais atrapalha a jornada e dá menos trabalho.</div>
-    <div class="quads">${Object.keys(QUAD).map(q=>`<div class="quad q-${q}"><b>${QUAD[q].n}</b><span>${QUAD[q].d}</span><span class="num">${cont(q)}</span></div>`).join('')}</div>
-    <div class="bl-filtro" role="group" aria-label="Filtrar">${[['todos','Tudo'],['bug','Bugs'],['melhoria','Melhorias']].map(([k,n])=>`<button class="chip ${ADM.filtro===k?'on':''}" onclick="ADM.filtro='${k}';render(true)">${n}</button>`).join('')}</div>
-    <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || '<p class="vazio">Nada reportado ainda.</p>'}</section>
-  </div>`;
-}
-function admUsuarios(){
-  const us = ADM.usuarios || [];
-  return `<h2 style="margin:0 0 6px">Usuários</h2>
-    <p class="dim" style="font-size:14px;margin:0 0 14px">${us.length} ${us.length===1?'conta':'contas'} com cadastro na v1. Dados mostrados conforme o aviso de privacidade aceito no cadastro.</p>
-    <div class="adm-tabela" data-sem-print><table>
-      <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th>Trilhas</th></tr></thead>
-      <tbody>${us.map(u=>`<tr><td>${escHtml(u.nome||'—')}</td><td>${escHtml(u.email||'—')}</td><td>${quandoTs(u.criadoEm)}</td><td>${quandoTs(u.ultimoAcesso)}</td>
-        <td>${u.trilhas.length ? u.trilhas.map(t=>`<div><b>${escHtml(t.nome||'—')}</b> · ${numero(t.pct)}% estudado · acerto ${escHtml(t.acerto)}${t.questoes?` (${numero(t.questoes)} questões)`:''}${t.ultimoEstudo?' · estudou em '+fmtData(dataDe(t.ultimoEstudo),{day:'2-digit',month:'2-digit'}):''}</div>`).join('') : '<span class="dim">nenhuma</span>'}</td></tr>`).join('') || '<tr><td colspan="5" class="dim">Ninguém ainda.</td></tr>'}</tbody>
-    </table></div>`;
-}
+// Área do administrador: js/admin.js. Registro de uso: js/atividade.js.
 
 /* ------------------------- entrada: conta antes de tudo -------------------------
    Aluno novo cria a conta (aceitando o aviso de privacidade) e cai na
@@ -1835,6 +1775,7 @@ function irEntrada(){ S.tela = 'entrada'; S.entrada = 'inicio'; S.erroForm = nul
 async function sairConta(){
   guardarProgresso(); await SIPC.store.salvarAgora();
   SIPC.store.setModoTeste(false);
+  ev('sair'); if(window.gravarSessao) await gravarSessao();
   if(S.usuario || SIPC.auth.currentUser) await SIPC.sair();
   marcarLogado(false);
   S = estadoInicial(); S.tela = 'entrada'; render();
@@ -1865,6 +1806,7 @@ window.aoMudarLogin = async function(u){
     S.perfil = await SIPC.store.carregarPerfil(u.uid);
     if(!S.perfil || !S.perfil.consentimento){ S.aceite = false; S.tela = 'aceite'; render(); return; }
     if(S.perfil.nome) S.usuario.nome = S.perfil.nome;
+    ev('login', S.usuario.via);
     SIPC.store.salvarPerfil(u.uid, {email:S.usuario.email}).catch(()=>{}); // atualiza o último acesso
     S.trilhas = await SIPC.store.listarTrilhas(u.uid);
     if(S._migrar){
@@ -1909,6 +1851,7 @@ addEventListener('popstate', () => {
 });
 
 /* render(true) mantém a tela sem reanimar a entrada: só a troca de tela anima */
+const ev = (tipo, detalhe) => { if(window.evento) evento(tipo, detalhe); };
 function render(semAnimar){
   const app = document.getElementById('app');
   const foco = document.activeElement && document.activeElement.id;
@@ -1931,6 +1874,7 @@ function render(semAnimar){
   if(semAnimar) app.querySelectorAll('.tela').forEach(el=>el.style.animation='none');
   if(foco){ const el = document.getElementById(foco); if(el){ el.focus(); if(pos!=null && el.setSelectionRange) try{ el.setSelectionRange(pos,pos); }catch(e){} } }
   sincronizarHistorico();
+  if(window.aoRenderizar) aoRenderizar();
 }
 function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
 addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });
