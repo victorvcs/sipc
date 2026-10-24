@@ -24,6 +24,8 @@ const ERROS_AUTH = {
   'auth/too-many-requests': 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.',
   'auth/network-request-failed': 'Falha de conexão: verifique sua internet.',
   'auth/popup-closed-by-user': 'A janela do Google foi fechada antes de terminar.',
+  'auth/popup-blocked': 'O navegador bloqueou a janela do Google. Libere pop-ups para este site e toque de novo, ou entre com e-mail e senha.',
+  'auth/cancelled-popup-request': 'Já havia uma janela do Google aberta. Termine o login nela ou feche e tente de novo.',
   'auth/account-exists-with-different-credential': 'Já existe uma conta com esse e-mail criada com senha: entre com e-mail e senha.',
   'auth/unauthorized-domain': 'Este endereço não está liberado no Firebase (Authentication › Configurações › Domínios autorizados).',
   'auth/operation-not-allowed': 'Esse jeito de entrar não está ativado no Firebase.',
@@ -31,14 +33,12 @@ const ERROS_AUTH = {
 };
 const traduzir = e => ERROS_AUTH[e?.code] || (e?.message || String(e)).replace(/^Firebase: /, '');
 
+// Só pela janela (popup). O redirecionamento não serve aqui: o login roda em
+// sipc-estudos.firebaseapp.com e o site em github.io, e os navegadores atuais
+// bloqueiam o armazenamento entre esses domínios, então a pessoa voltava sem
+// login e sem aviso. Com a janela bloqueada, o app explica o que fazer.
 async function entrarGoogle() {
-  const prov = new fb.GoogleAuthProvider();
-  try { await fb.signInWithPopup(auth, prov); }
-  catch (e) {
-    // Navegador que bloqueia pop-up (comum no celular): segue pelo redirecionamento.
-    if (e.code === 'auth/popup-blocked') return fb.signInWithRedirect(auth, prov);
-    throw e;
-  }
+  await fb.signInWithPopup(auth, new fb.GoogleAuthProvider());
 }
 
 async function cadastrar({ nome, email, senha }) {
