@@ -48,6 +48,18 @@ service cloud.firestore {
       allow update, delete: if admin();
     }
 
+    // Vídeos por tópico (busca no YouTube), compartilhados como o conteúdo.
+    match /videos/{id} {
+      allow read: if logado();
+      allow create: if logado()
+        && request.resource.data.keys().hasOnly(['itens', 'materia', 'topico', 'uid', 'criadoEm'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.itens is list && request.resource.data.itens.size() <= 8
+        && texto(request.resource.data.materia, 300)
+        && texto(request.resource.data.topico, 300);
+      allow update, delete: if admin();
+    }
+
     // Reportes de bug e melhoria: o aluno cria em seu nome; só o admin lê.
     // Cada campo é conferido porque o admin vê tudo isto na tela: o e-mail tem
     // de ser o do login (ninguém reporta em nome de outro) e o print só pode

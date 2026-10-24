@@ -653,6 +653,17 @@ function abrirItem(k){
 }
 // Sair solta o estudo e o quiz: uma geração da IA que termine depois vai
 // direto para "continuar de onde parou" em vez de cair numa tela fechada.
+// Gera (ou puxa do cache) o conteúdo dos próximos itens de hoje enquanto o aluno
+// olha o plano: ao tocar no tópico, a teoria já está pronta. Sem conta, não
+// gasta a cota do modo visitante.
+async function preaquecer(){
+  if(S.visitante || S.tela !== 'app') return;
+  const itens = planoDoDia().filter(i => (i.tipo==='est' || i.tipo==='rev') && !i.feito).slice(0, 2);
+  for(const it of itens){
+    const E = {chave: chave(it.mat, it.titulo), topico: it.titulo, mat: it.mat};
+    if(!conteudoDe(E)) await carregarConteudo(E).catch(()=>{});
+  }
+}
 function sair(){ guardarProgresso(); S.vista=null; S.estudo=null; S.quiz=null; window.scrollTo(0,0); render(); }
 
 /* ------------------------- estudo -------------------------
@@ -689,6 +700,7 @@ function abrirEstudo(topico, mat, rev){
   S.vista = 'estudo'; window.scrollTo(0,0);
   ev('topico-aberto', topico + ' (' + mat + ')' + (rev ? ' · revisão' : ''));
   carregarConteudo(S.estudo);
+  carregarVideos(S.estudo); VIDEO_TOCANDO = null;
   if(S.estudo.parte==='questoes' && !S.estudo.questoes) gerarQuestoesTopico();
   render();
 }
@@ -696,10 +708,14 @@ async function carregarConteudo(E){
   const c = chaveConteudo(E);
   if(CONTEUDO[c] && !CONTEUDO[c].erro) return CONTEUDO[c].C ? CONTEUDO[c].C : CONTEUDO[c].prom;
   const prom = (async () => { limiteVisitante(); return SIPC.ia.obterConteudo({banca: S.bancas[0] || '', materia:E.mat, topico:E.topico, uid:uid(), prova:S.prova.nome}); })();
-  CONTEUDO[c] = {carregando:true, prom};
+  CONTEUDO[c] = {carregando:true, prom, desde: Date.now()};
   try{ CONTEUDO[c] = {C: await prom}; }
   catch(e){ CONTEUDO[c] = {erro: mensagemIA(e)}; }
-  if(S.estudo && chaveConteudo(S.estudo)===c) render(true);
+  if(S.estudo && chaveConteudo(S.estudo)===c){
+    render(true);
+    const E2 = S.estudo;
+    if(CONTEUDO[c].C && !E2.questoes && !E2.carregandoQ && !E2.erroQ && !E2.concluido) gerarQuestoesTopico();
+  }
   return CONTEUDO[c].C || null;
 }
 const conteudoDe = E => CONTEUDO[chaveConteudo(E)];
@@ -715,7 +731,7 @@ function irParte(p){
 async function gerarQuestoesTopico(forcar){
   const E = S.estudo; if(!E || (E.carregandoQ && !forcar)) return;
   const g = E.genQ = (E.genQ||0) + 1, estado = S.E;
-  E.carregandoQ = true; E.erroQ = null; render(true);
+  E.carregandoQ = true; E.erroQ = null; E.desdeQ = Date.now(); render(true);
   try{
     const C = await carregarConteudo(E);
     if(!C) throw new Error((conteudoDe(E) && conteudoDe(E).erro) || 'sem conteúdo para basear as questões');
@@ -819,10 +835,61 @@ function mapaArvoreAnimada(no, nivel=0, cont={i:0}){
   const atraso = (cont.i++)*0.06;
   return `<li style="animation-delay:${atraso}s" class="n${nivel}"><span>${escHtml(rot)}</span>${Array.isArray(filhos) && filhos.length ? `<ul>${filhos.map(f=>mapaArvoreAnimada(f, nivel+1, cont)).join('')}</ul>` : ''}</li>`;
 }
+// Carregamento da IA: etapas que avançam, barra estimada e segundos. Um relógio
+// atualiza só esse bloco (sem render da tela inteira, que tiraria o foco).
+const ETAPAS_CONTEUDO = ['Procurando se este tópico já está pronto', 'Escrevendo a história e os resumos', 'Montando o mapa mental e as analogias', 'Criando o checklist e os flashcards', 'Conferindo tudo'];
+const ETAPAS_QUESTOES = ['Lendo a teoria do tópico', 'Criando situações no estilo da banca', 'Escrevendo as alternativas', 'Preparando o gabarito comentado'];
+function carregandoIA(titulo, desde, estimativaSeg, etapas, dica){
+  return `<div class="carregando carregando-ia" data-desde="${desde}" data-est="${estimativaSeg}" data-etapas="${escHtml(JSON.stringify(etapas))}" role="status" aria-live="polite">
+    ${ico('spark')}<div><b>${escHtml(titulo)}…</b><span class="c-etapa">${escHtml(etapas[0])}</span>
+    <span class="c-barra"><i></i></span><span class="dim c-tempo">${escHtml(dica)}</span></div></div>`;
+}
+setInterval(() => {
+  document.querySelectorAll('.carregando-ia').forEach(el => {
+    const seg = (Date.now() - Number(el.dataset.desde)) / 1000, est = Number(el.dataset.est) || 30;
+    let etapas = []; try{ etapas = JSON.parse(el.dataset.etapas); }catch(e){}
+    const i = Math.min(etapas.length - 1, Math.floor(seg / est * etapas.length));
+    const e = el.querySelector('.c-etapa'); if(e && etapas[i]) e.textContent = etapas[i];
+    // Até a estimativa a barra anda normal; depois só se aproxima do fim (nunca "100%" antes de chegar).
+    const p = seg < est ? seg / est * 85 : 85 + 14 * (1 - Math.exp(-(seg - est) / est));
+    const b = el.querySelector('.c-barra i'); if(b) b.style.width = p.toFixed(1) + '%';
+    if(seg > est * 1.6){ const t = el.querySelector('.c-tempo'); if(t) t.textContent = 'O serviço de IA está mais lento agora. Já são ' + Math.round(seg) + ' s; pode continuar esperando.'; }
+  });
+}, 1000);
 function secao(titulo, corpo, extra=''){ return `<div class="secao" ${extra}><h2>${titulo}</h2>${corpo}</div>`; }
-function linkVideos(E){
+// Vídeos do tópico tocando aqui mesmo (js/videos.js). Sem chave do YouTube
+// configurada, ou se a busca falhar, fica o link de busca como antes.
+const VIDEOS = {}; // matéria::tópico → {carregando} | {lista} | {erro}
+let VIDEO_TOCANDO = null;
+async function carregarVideos(E){
+  const k = E.chave; if(VIDEOS[k]) return;
+  VIDEOS[k] = {carregando:true};
+  try{ VIDEOS[k] = {lista: await SIPC.videos.obterVideos({materia:E.mat, topico:E.topico, uid: S.visitante ? null : uid()})}; }
+  catch(e){ VIDEOS[k] = {erro: String(e && e.message || e)}; }
+  if(S.estudo && S.estudo.chave === k && S.estudo.parte === 'teoria') render(true);
+}
+const minVideo = s => Math.max(1, Math.round(s/60)) + ' min';
+const milVideo = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.',',') + ' mi' : n >= 1e3 ? Math.round(n/1e3) + ' mil' : String(n);
+function linkBuscaVideos(E){
   const q = encodeURIComponent(E.topico + ' ' + E.mat + ' concurso');
   return `<p class="dim" style="font-size:13px;margin:0 0 18px">${ico('play')} Quer ver em vídeo? <a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">Buscar "${escHtml(E.topico)}" no YouTube</a></p>`;
+}
+function tocarVideo(id){ VIDEO_TOCANDO = id; render(true); const v = document.querySelector('.video'); if(v) v.scrollIntoView({block:'center', behavior:'smooth'}); ev('video', id); }
+function secaoVideos(E){
+  const st = VIDEOS[E.chave];
+  if(!st || st.carregando) return secao('Vídeos', '<p class="dim" style="font-size:14px;margin:0">Buscando vídeos curtos e bem avaliados sobre este tópico…</p>');
+  if(st.erro || !st.lista || !st.lista.length) return linkBuscaVideos(E) + (st.erro ? `<p class="dim" style="font-size:12px;margin:-12px 0 18px">${escHtml(st.erro)}</p>` : '');
+  const L = st.lista, atual = L.find(v => v.id === VIDEO_TOCANDO) || L[0], tocando = VIDEO_TOCANDO === atual.id;
+  const dados = v => `<span class="v-dados"><b>${minVideo(v.seg)}</b> · ${milVideo(v.views)} visualizações</span>`;
+  return secao(`Vídeos <span class="num dim" style="font-size:15px;font-weight:500">· ${L.length} selecionados</span>`,
+    `<p class="dim" style="font-size:13px;margin:0 0 12px">Aulas de 3 a 30 minutos, das mais vistas para as menos vistas. Tocam aqui mesmo.</p>
+     <div class="video">${tocando
+        ? `<iframe src="https://www.youtube-nocookie.com/embed/${atual.id}?autoplay=1&rel=0" title="${escHtml(atual.t)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+        : `<button class="video-capa" onclick="tocarVideo('${atual.id}')" aria-label="Assistir: ${escHtml(atual.t)}"><img src="https://i.ytimg.com/vi/${atual.id}/hqdefault.jpg" alt="" loading="lazy"><span class="play">${ico('play')}</span></button>`}</div>
+     <div class="video-info"><div><b>${escHtml(atual.t)}</b><span class="dim">${escHtml(atual.c)}</span>${dados(atual)}</div></div>
+     ${L.length > 1 ? `<ul class="videos">${L.filter(v => v.id !== atual.id).map(v => `<li>
+        <button class="v-thumb" onclick="tocarVideo('${v.id}')" aria-label="Assistir: ${escHtml(v.t)}"><img src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg" alt="" loading="lazy"><span class="v-dur">${minVideo(v.seg)}</span></button>
+        <div><button class="v-titulo" onclick="tocarVideo('${v.id}')"><b>${escHtml(v.t)}</b></button><span class="dim">${escHtml(v.c)}</span>${dados(v)}</div></li>`).join('')}</ul>` : ''}`);
 }
 
 function vistaEstudo(){
@@ -841,7 +908,7 @@ function vistaEstudo(){
     return `<div class="leitor">${cab}
       ${est.erro ? `<div class="erro"><b>Não consegui gerar o conteúdo agora.</b><br>${escHtml(est.erro)}</div>
           <div class="fim-estudo"><button class="btn" onclick="tentarConteudoDeNovo()">Tentar de novo</button></div>`
-        : `<div class="carregando">${ico('spark')}<p><b>Gerando o conteúdo de ${escHtml(E.topico)}…</b><br><span class="dim">Storytelling, resumos, mapa, analogias, checklist e flashcards. Leva uns 20 a 40 segundos na primeira vez; depois fica guardado.</span></p></div>`}
+        : carregandoIA('Preparando ' + E.topico, (est && est.desde) || Date.now(), 35, ETAPAS_CONTEUDO, 'Na primeira vez a IA escreve tudo; depois o tópico abre na hora.')}
       ${E.rev ? avaliacaoRevisao(E) : ''}</div>`;
   }
 
@@ -850,7 +917,7 @@ function vistaEstudo(){
     corpo = (C.pergunta ? `<p class="lead" style="margin-top:0"><i>${escHtml(C.pergunta)}</i></p>` : '')
       + secao('Storytelling', htmlSeguro(C.historia))
       + secao('Resumo em 1 minuto', `<dl class="r1">${(C.resumo1||[]).map(([t,itens])=>`<dt>${escHtml(t)}</dt><dd>${(Array.isArray(itens)?itens:[itens]).map(escHtml).join(' · ')}</dd>`).join('')}</dl>`)
-      + linkVideos(E)
+      + secaoVideos(E)
       + secao('Resumo em 5 minutos', htmlSeguro(C.resumo5))
       + secao('Analogias', `<ul class="lista">${(C.analogias||[]).map(x=>`<li>${htmlSeguro(x)}</li>`).join('')}</ul>`)
       + `<div class="fim-estudo"><button class="btn" onclick="irParte('mapa')">Ver o mapa visual</button>
@@ -889,7 +956,7 @@ function parteQuestoes(E){
   const pedidas = E.n || S.qtdQuestoes;
   const escolha = `<div class="secao" style="padding:14px 18px"><span class="f" style="margin-bottom:8px">Quantas questões agora?</span>${escolhaQtd(pedidas, 'definirQtdTopico')}</div>`;
   if(E.carregandoQ || (!E.questoes && !E.erroQ))
-    return escolha + `<div class="carregando">${ico('spark')}<p><b>Gerando ${pedidas} ${formatoAtual()==='certoErrado'?'itens Certo/Errado':'questões'} a partir da teoria…</b><br><span class="dim">No estilo ${escHtml(bancasTxt())}. Leva uns 20 a 60 segundos.</span></p></div>`;
+    return escolha + carregandoIA('Criando ' + pedidas + ' ' + (formatoAtual()==='certoErrado'?'itens Certo/Errado':'questões') + ' no estilo ' + bancasTxt(), E.desdeQ || Date.now(), 25 + pedidas*2, ETAPAS_QUESTOES, 'Elas começam a ser criadas enquanto você lê a teoria.');
   if(E.erroQ) return escolha + `<div class="erro"><b>Não consegui gerar as questões agora.</b><br>${escHtml(E.erroQ)}</div><div class="fim-estudo"><button class="btn" onclick="gerarQuestoesTopico()">Tentar de novo</button><button class="btn sec" onclick="irParte('revisao')">Pular para a revisão</button></div>`;
   const L = E.questoes;
   const ac = L.filter((q,k)=>E.resp[k]===q.c).length;
@@ -949,7 +1016,7 @@ function concluirItem(resultado){
    Para fixar: questões sobre os tópicos estudados nos últimos 7 dias.
    Errou um tópico? Ele volta para revisão amanhã. */
 async function gerarQuestoesDoDia(){
-  const Q = S.quiz, id = S.itemAtual, estado = S.E; Q.carregando = true; Q.erro = null; render(true);
+  const Q = S.quiz, id = S.itemAtual, estado = S.E; Q.carregando = true; Q.erro = null; Q.desde = Date.now(); render(true);
   try{
     const chaves = topicosDaSemana().slice(0, 3);
     if(!chaves.length) throw new Error('nenhum tópico estudado nesta semana ainda');
@@ -973,7 +1040,7 @@ async function gerarQuestoesDoDia(){
 function vistaQuiz(){
   const Q = S.quiz;
   const voltar = `<button class="voltar" onclick="sair()">${ico('back')} Plano de hoje</button>`;
-  if(Q.carregando || (!Q.lista && !Q.erro)) return `<div class="quiz">${voltar}<div class="carregando">${ico('spark')}<p><b>Gerando ${S.qtdQuestoes} questões dos tópicos desta semana…</b><br><span class="dim">Leva até um minuto.</span></p></div></div>`;
+  if(Q.carregando || (!Q.lista && !Q.erro)) return `<div class="quiz">${voltar}${carregandoIA('Criando ' + S.qtdQuestoes + ' questões dos tópicos desta semana', Q.desde || Date.now(), 45, ETAPAS_QUESTOES, 'Uma leva por tópico estudado nos últimos 7 dias.')}</div>`;
   if(Q.erro) return `<div class="quiz">${voltar}<div class="erro"><b>Não consegui gerar as questões agora.</b><br>${escHtml(Q.erro)}</div><div class="fim-estudo"><button class="btn" onclick="gerarQuestoesDoDia()">Tentar de novo</button></div></div>`;
   const L = Q.lista;
   if(Q.i >= L.length) return placar();
@@ -1383,7 +1450,7 @@ async function abrirTrilha(id){
   const vale = () => gen === abrindo && S === sessao; // outra abertura, ou saiu da conta, no meio
   await SIPC.store.salvarAgora();
   const t = S.trilhas.find(x=>x.id===id); if(!t || !vale()) return;
-  S.tela = 'carregando'; render();
+  S.tela = 'carregando'; S.etapa = 'Abrindo a trilha ' + (t.prova && t.prova.nome || ''); render();
   aplicarTrilha(t);
   S.trilhaAtual = id; S.estadoOk = false;
   let e;
@@ -1399,6 +1466,7 @@ async function abrirTrilha(id){
   S.tela = 'app'; S.aba = 'hoje'; S.vista = null; S.estudo = null; S.quiz = null;
   window.scrollTo(0,0); render();
   ev('trilha-aberta', S.prova.nome);
+  setTimeout(preaquecer, 2500);
   setTimeout(() => window.talvezTour && talvezTour(), 400); // tour de boas-vindas na primeira vez (js/tour.js)
 }
 // Volta para a aba: relê o estado se nada está pendente, para não sobrescrever
@@ -1507,6 +1575,9 @@ const QUAD = {
 };
 const ESF_ROT = {1:'pouco esforço', 2:'esforço médio', 3:'muito esforço'};
 function nomeTelaAtual(){
+  if(S.tela==='carregando') return 'Carregando · ' + (S.etapa || 'início');
+  if(S.tela==='erro') return 'Erro ao abrir';
+  if(S.tela==='aceite') return 'Aceite do aviso';
   if(S.tela==='assist') return 'Configuração · ' + NOMES_PASSO[S.passo-1];
   if(S.tela==='trilhas') return 'Minhas trilhas';
   if(S.tela==='entrada') return 'Entrada';
@@ -1711,8 +1782,26 @@ function telaAceite(){
       <button class="btn link" style="width:100%;margin-top:6px" onclick="sairConta()">Agora não, sair</button>
     </section></div>`;
 }
-function telaCarregando(){ return `<div class="tela-cheia"><span class="marca">SIPC</span><p class="dim">Carregando…</p></div>`; }
-function telaErro(){ return `<div class="tela-cheia"><span class="marca">SIPC</span><div class="erro" style="max-width:520px"><b>Não consegui abrir seus dados.</b><br>${escHtml(S.erroGeral||'')}</div><div class="fim-estudo"><button class="btn" onclick="location.reload()">Tentar de novo</button><button class="btn sec" onclick="sairConta()">Sair</button></div></div>`; }
+function telaCarregando(){
+  const seg = S._carregandoDesde ? Math.round((Date.now() - S._carregandoDesde)/1000) : 0;
+  return `<div class="tela-cheia"><span class="marca">SIPC</span><div class="carregando-etapa" role="status" aria-live="polite"><span class="giro" aria-hidden="true"></span>${escHtml(S.etapa || 'Carregando')}…</div>
+    ${seg >= 8 ? `<p class="dim" style="max-width:420px">Está demorando mais que o normal. Se a internet estiver lenta, espere mais um pouco.</p><button class="btn sec" onclick="location.reload()">Tentar de novo</button>` : ''}</div>`;
+}
+// Vigia da tela "Carregando": avisa aos 8 s e, se passar de 25 s, troca por uma
+// tela de erro com "Tentar de novo" e a etapa onde parou (antes ficava girando para sempre).
+const LIMITE_CARREGANDO = 25000;
+setInterval(() => {
+  if(!S || S.tela !== 'carregando'){ if(S) S._carregandoDesde = null; return; }
+  if(!S._carregandoDesde){ S._carregandoDesde = Date.now(); return; }
+  const passou = Date.now() - S._carregandoDesde;
+  if(passou >= LIMITE_CARREGANDO){
+    ev('carregamento-travado', S.etapa || 'início');
+    S.erroGeral = 'A abertura parou na etapa "' + (S.etapa || 'início') + '" e não respondeu. Confira a internet e tente de novo. Se continuar, toque em Reportar.';
+    S._carregandoDesde = null; S.tela = 'erro'; render();
+  } else if(passou >= 8000 && !S._avisouLento){ S._avisouLento = true; render(true); }
+}, 2000);
+const etapa = nome => { S.etapa = nome; if(S.tela === 'carregando') render(true); };
+function telaErro(){ return `<div class="tela-cheia"><span class="marca">SIPC</span><div class="erro" style="max-width:520px"><b>Não consegui abrir agora.</b><br>${escHtml(S.erroGeral||'')}</div><div class="fim-estudo"><button class="btn" onclick="location.reload()">Tentar de novo</button><button class="btn sec" onclick="sairConta()">Sair</button></div></div>`; }
 
 const emailValido = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 function erroForm(msg, campo){ S.erroForm = msg; S.linkEnviado = false; S.ocupado = false; render(true); const el = campo && document.getElementById(campo); if(el) el.focus(); }
@@ -1807,13 +1896,14 @@ window.aoMudarLogin = async function(u){
   if(S.usuario && S.usuario.uid === u.uid && S.tela !== 'carregando' && S.tela !== 'aceite' && S.tela !== 'entrada') return;
   S.usuario = {uid:u.uid, nome: u.displayName || (u.email||'').split('@')[0], email:u.email || '',
                via: (u.providerData||[]).some(p=>p.providerId==='google.com') ? 'Google' : 'e-mail'};
-  S.tela = 'carregando'; S.ocupado = false; render();
+  S.tela = 'carregando'; S.ocupado = false; S._avisouLento = false; S.etapa = 'Lendo seu perfil'; render();
   try{
     S.perfil = await SIPC.store.carregarPerfil(u.uid);
     if(!aceiteEmDia(S.perfil)){ S.aceite = false; S.tela = 'aceite'; render(); return; }
     if(S.perfil.nome) S.usuario.nome = S.perfil.nome;
     ev('login', S.usuario.via);
     SIPC.store.salvarPerfil(u.uid, {email:S.usuario.email}).catch(()=>{}); // atualiza o último acesso
+    etapa('Buscando suas trilhas');
     S.trilhas = await SIPC.store.listarTrilhas(u.uid);
     if(S._migrar){
       const m = S._migrar; S._migrar = null;
@@ -1876,7 +1966,8 @@ function render(semAnimar){
   }
   app.innerHTML = html;
   document.body.dataset.tela = S.tela;
-  document.querySelector('.reportar').hidden = ['carregando','erro'].includes(S.tela);
+  if(S.tela === 'carregando' && !S._carregandoDesde) S._carregandoDesde = Date.now(); // o vigia conta desde a entrada na tela
+  document.querySelector('.reportar').hidden = S.tela === 'carregando' && !S._avisouLento;
   if(semAnimar) app.querySelectorAll('.tela').forEach(el=>el.style.animation='none');
   if(foco){ const el = document.getElementById(foco); if(el){ el.focus(); if(pos!=null && el.setSelectionRange) try{ el.setSelectionRange(pos,pos); }catch(e){} } }
   sincronizarHistorico();
@@ -1889,5 +1980,6 @@ document.addEventListener('keydown', e=>{
 });
 S = estadoInicial();
 // Sem login neste aparelho, a entrada aparece na hora; com login, espera o Firebase confirmar.
+S.etapa = 'Conectando ao SIPC';
 try{ if(!localStorage.getItem('sipc::logado')) S.tela = 'entrada'; }catch(e){}
 render();

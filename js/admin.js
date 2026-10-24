@@ -203,25 +203,43 @@ function admFicha(u){
 }
 
 /* ---------- backlog do Reportar ---------- */
+// Resolvidos saem da fila (e dos quadrantes) mas ficam no filtro "Resolvidos";
+// excluir apaga de vez, com confirmação.
+const resolvido = i => i.status === 'resolvido';
+async function marcarReporte(id, status){
+  try{ await SIPC.store.marcarFeedback(id, status); const i = ADM.feedback.find(x=>x.id===id); if(i) i.status = status; avisar(status==='resolvido' ? 'Marcado como resolvido.' : 'Reporte reaberto.'); }
+  catch(e){ avisar('Não consegui atualizar: ' + SIPC.traduzir(e)); }
+  render(true);
+}
+async function excluirReporte(id){
+  const i = ADM.feedback.find(x=>x.id===id); if(!i) return;
+  if(!confirm('Excluir de vez o reporte "' + String(i.texto).slice(0,60) + '"? Não dá para desfazer.')) return;
+  try{ await SIPC.store.excluirFeedback(id); ADM.feedback = ADM.feedback.filter(x=>x.id!==id); avisar('Reporte excluído.'); }
+  catch(e){ avisar('Não consegui excluir: ' + SIPC.traduzir(e)); }
+  render(true);
+}
 function admBacklog(){
   const P = SIPC.prioridade;
-  const todos = P.ordenar(ADM.feedback);
-  const vis = todos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
-  const cont = q => todos.filter(i=>P.quadrante(i)===q).length;
+  const todos = P.ordenar(ADM.feedback), abertos = todos.filter(i=>!resolvido(i));
+  const vis = ADM.filtro==='resolvido' ? todos.filter(resolvido) : abertos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
+  const cont = q => abertos.filter(i=>P.quadrante(i)===q).length;
   const card = (i, pos) => { const q = P.quadrante(i); return `<article class="bl-item">
       ${printValido(i.print) ? `<img src="${printValido(i.print)}" alt="Print da tela ${escHtml(i.tela)}" title="Tocar para ampliar" tabindex="0" role="button" onclick="this.classList.toggle('ampliado')">` : '<div class="sem">sem print</div>'}
       <div>
         <div class="bl-meta"><span class="bl-pos num">${pos}</span><span class="tag q-${q}">${QUAD[q].n}</span>
           ${i.tipo==='bug' ? `<span class="tag ${SEV_ROT[i.sev] ? i.sev : 'baixa'}">Bug · ${SEV_ROT[i.sev]||''}</span>` : '<span class="tag mel">Melhoria</span>'}
-          <span class="tag baixa">${escHtml(i.area)}</span>${i.modoTeste?'<span>· em modo teste</span>':''}</div>
+          <span class="tag baixa">${escHtml(i.area)}</span>${resolvido(i)?'<span class="tag est">Resolvido</span>':''}${i.modoTeste?'<span>· em modo teste</span>':''}</div>
         <p>${escHtml(i.texto)}</p>
+        <div class="bl-acoes">
+          ${resolvido(i) ? `<button class="btn sec" onclick="marcarReporte('${escHtml(i.id)}','novo')">Reabrir</button>` : `<button class="btn sec" onclick="marcarReporte('${escHtml(i.id)}','resolvido')">${ico('check')} Marcar como resolvido</button>`}
+          <button class="btn link ruim-txt" onclick="excluirReporte('${escHtml(i.id)}')">Excluir</button></div>
         <div class="bl-meta"><span>Valor <b class="num">${numero(i.valor)}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span><span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
       </div></article>`; };
   return `<div class="backlog" style="padding:0">
     <h2 style="margin:0 0 6px">Reportes priorizados</h2>
     <div class="sub">Tudo o que os alunos reportam, já classificado e na ordem sugerida: primeiro o que mais atrapalha a jornada e dá menos trabalho.</div>
     <div class="quads">${Object.keys(QUAD).map(q=>`<div class="quad q-${q}"><b>${QUAD[q].n}</b><span>${QUAD[q].d}</span><span class="num">${cont(q)}</span></div>`).join('')}</div>
-    <div class="bl-filtro" role="group" aria-label="Filtrar">${[['todos','Tudo'],['bug','Bugs'],['melhoria','Melhorias']].map(([k,n])=>`<button class="chip ${ADM.filtro===k?'on':''}" onclick="ADM.filtro='${k}';render(true)">${n}</button>`).join('')}</div>
-    <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || '<p class="vazio">Nada reportado ainda.</p>'}</section>
+    <div class="bl-filtro" role="group" aria-label="Filtrar">${[['todos','Abertos'],['bug','Bugs'],['melhoria','Melhorias'],['resolvido','Resolvidos (' + todos.filter(resolvido).length + ')']].map(([k,n])=>`<button class="chip ${ADM.filtro===k?'on':''}" onclick="ADM.filtro='${k}';render(true)">${n}</button>`).join('')}</div>
+    <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || `<p class="vazio">${ADM.filtro==='resolvido' ? 'Nenhum reporte resolvido ainda.' : 'Nenhum reporte aberto. 🎉'}</p>`}</section>
   </div>`;
 }

@@ -21,6 +21,10 @@ export const firebaseConfig = {
 export const RECAPTCHA_SITE_KEY = '6LdLwPUtAAAAAFuNqGyZsEV2KaRmNOoaZZj1b_wH';
 export const IA_MODELO = 'gemini-3.6-flash';
 export const ADMIN_EMAIL = 'victorvcs@gmail.com';
+// Chave da API do YouTube (busca de vídeos por tópico). Pública por design,
+// como a firebaseConfig: fica restrita no Google Cloud ao domínio do SIPC e só
+// à YouTube Data API. Vazia = o app mostra o link de busca no lugar do player.
+export const YOUTUBE_KEY = '';
 
 export const app = initializeApp(firebaseConfig);
 

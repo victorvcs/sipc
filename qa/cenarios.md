@@ -47,4 +47,4 @@ Prioridade = impacto × probabilidade. Última rodada: 23/10/2026 (v1, commit cd
 | CT-15 | média | Erro da IA (simulado) na leitura, no conteúdo e nas questões | mensagem humana + "Tentar de novo" | passou (reteste 23/10) |
 | CT-16 | média | Produção: headers, `.git`, source maps, dados no localStorage | nada sensível exposto | parcial: `.git` ok; `legado/` sai do ar ao publicar; sem CSP (risco aceito) |
 | CT-17 | baixa | favicon, título, idioma da página | sem 404 no console | passou (reteste 23/10) |
-| CT-18 | alta | Login real, gravação no Firestore, Reportar real, Admin real | dados persistem; Admin só para o Victor | não executável pelo agente (sem conta) |
+| CT-18 | alta | Login real, gravação no Firestore, Reportar real, Admin real | dados persistem; Admin só para o Victor | passou com a conta do Victor (24/10): perfil, aceite, trilha, sessões e Reportar no Firestore; reporte visível no Admin |

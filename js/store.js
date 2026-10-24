@@ -81,6 +81,10 @@ export async function salvarAgora() {
   await Promise.all(fila.map(p => p.gravar().catch(avisarErro)));
 }
 
+/* vídeos por tópico (resultado da busca no YouTube), compartilhados entre alunos */
+export const lerVideos = id => ler(doc(db, 'videos', id));
+export const gravarVideos = (id, dados) => gravar(doc(db, 'videos', id), dados);
+
 /* conteúdo gerado pela IA, compartilhado entre alunos */
 export const lerConteudo = id => ler(doc(db, 'conteudos', id));
 export const gravarConteudo = (id, dados) => gravar(doc(db, 'conteudos', id), dados);
@@ -100,6 +104,9 @@ export const listarSessoesDe = async (uid, n = 60) =>
 /* administração (as Regras só deixam o admin ler) */
 export const listarFeedback = async () =>
   (await getDocs(query(collection(db, 'feedback'), orderBy('criadoEm', 'desc')))).docs.map(d => ({ id: d.id, ...d.data() }));
+// Só o admin consegue (Regras): marcar como resolvido ou excluir um reporte.
+export const marcarFeedback = (id, status) => setDoc(doc(db, 'feedback', id), { status, atualizadoEm: serverTimestamp() }, { merge: true });
+export const excluirFeedback = id => deleteDoc(doc(db, 'feedback', id));
 export const listarUsuarios = async () => (await getDocs(collection(db, 'users'))).docs.map(d => ({ uid: d.id, ...d.data() }));
 export const listarTrilhasDe = async uid =>
   (await getDocs(collection(db, 'users', uid, 'trilhas'))).docs.map(d => ({ id: d.id, ...d.data() }));

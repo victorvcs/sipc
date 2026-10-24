@@ -710,3 +710,20 @@ body[data-tela=assist] .rodape{padding-bottom:110px;}
 .adm-clicavel{cursor:pointer;} .adm-clicavel:hover td{background:var(--accent-soft);}
 @media (max-width:600px){ .adm-grade{grid-template-columns:1fr;} .adm-feed li,.adm-tempo li{grid-template-columns:1fr;gap:2px;} .adm-linha{grid-template-columns:minmax(0,1fr) 70px 70px;} }
 .adm-linha b{text-align:right;}
+/* [hidden] precisa vencer o display:flex do botão */
+.reportar[hidden]{display:none;}
+/* etapa da abertura */
+.carregando-etapa{display:flex;align-items:center;gap:10px;color:var(--text-dim);font-size:15px;}
+.giro{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--line-strong);border-top-color:var(--accent);animation:girar .9s linear infinite;}
+.bl-acoes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 6px;} .bl-acoes .btn{padding:7px 14px;font-size:13px;}
+/* carregamento da IA com etapas */
+.carregando-ia > div{display:grid;gap:6px;flex:1;min-width:0;}
+.c-etapa{font-size:14px;color:var(--text);}
+.c-barra{display:block;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;}
+.c-barra i{display:block;height:100%;width:2%;background:var(--accent);border-radius:3px;transition:width 1s linear;}
+.c-tempo{font-size:12px;}
+/* vídeos: miniatura e título são botões (tocam no player do app, não em outra aba) */
+button.v-thumb{position:relative;display:block;border:0;padding:0;background:none;cursor:pointer;border-radius:8px;overflow:hidden;}
+button.v-thumb img{display:block;width:120px;aspect-ratio:16/9;object-fit:cover;}
+.v-titulo{border:0;background:none;padding:0;text-align:left;cursor:pointer;color:var(--text);font:inherit;}
+.v-titulo:hover b{color:var(--accent-deep);text-decoration:underline;}
