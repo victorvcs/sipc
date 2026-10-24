@@ -650,3 +650,8 @@ button.mt-chave{background:none;border:none;padding:0;font-family:inherit;cursor
 /* print ampliado no backlog (sem abrir dataURL em outra aba, que o navegador bloqueia) */
 .bl-item img{cursor:zoom-in;}
 .bl-item img.ampliado{position:fixed;inset:4vh 4vw;width:92vw;height:92vh;object-fit:contain;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);z-index:100;cursor:zoom-out;}
+/* crédito no fim de todas as telas; espaço embaixo para o botão Reportar não cobrir */
+.rodape{text-align:center;font-size:12px;color:var(--text-dim);padding:8px 16px 84px;margin-top:-8px;}
+.rodape a{color:inherit;text-underline-offset:2px;}
+.rodape a:hover{color:var(--accent);}
+body[data-tela=assist] .rodape{padding-bottom:110px;}
