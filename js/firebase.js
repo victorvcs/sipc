@@ -39,7 +39,14 @@ if (local) {
 }
 initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
 
-export const auth = A.getAuth(app);
+// Sessão no localStorage, com o IndexedDB só de reserva. O Firebase Auth 12.x
+// tranca o IndexedDB quando a página fica "escondida", e no navegador em tela
+// cheia (Mac) a janela do Google esconde o SIPC: o login voltava com
+// "Database is closing/hidden". Quem já tinha sessão no IndexedDB é migrado.
+export const auth = A.initializeAuth(app, {
+  persistence: [A.browserLocalPersistence, A.indexedDBLocalPersistence],
+  popupRedirectResolver: A.browserPopupRedirectResolver,
+});
 export const db = F.getFirestore(app);
 
 // Tokens do App Check de uso único para a IA: um token copiado de uma sessão

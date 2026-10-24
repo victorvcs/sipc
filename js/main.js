@@ -32,14 +32,20 @@ const ERROS_AUTH = {
   'auth/operation-not-allowed': 'Esse jeito de entrar não está ativado no Firebase.',
   'auth/requires-recent-login': 'Por segurança, saia e entre de novo antes de trocar a senha.',
 };
-const traduzir = e => ERROS_AUTH[e?.code] || (e?.message || String(e)).replace(/^Firebase: /, '');
+const traduzir = e => ERROS_AUTH[e?.code]
+  || (/closing.hidden|database connection is closing/i.test(e?.message || '') ? 'O navegador interrompeu o login no meio. Toque de novo em "Continuar com Google".' : null)
+  || (e?.message || String(e)).replace(/^Firebase: /, '');
 
 // Só pela janela (popup). O redirecionamento não serve aqui: o login roda em
 // sipc-estudos.firebaseapp.com e o site em github.io, e os navegadores atuais
 // bloqueiam o armazenamento entre esses domínios, então a pessoa voltava sem
 // login e sem aviso. Com a janela bloqueada, o app explica o que fazer.
+// "select_account": o Google sempre mostra a lista de contas (com "Usar outra
+// conta"), em vez de entrar direto na conta que está logada no navegador.
 async function entrarGoogle() {
-  await fb.signInWithPopup(auth, new fb.GoogleAuthProvider());
+  const prov = new fb.GoogleAuthProvider();
+  prov.setCustomParameters({ prompt: 'select_account' });
+  await fb.signInWithPopup(auth, prov);
 }
 
 async function cadastrar({ nome, email, senha }) {
