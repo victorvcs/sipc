@@ -21,6 +21,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.5.1 | publicada | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
 | 1.6 | publicada | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
 | 1.7 | publicada, em uso | tag `v1.7` | Menu em grupos, seletor de trilha e painel de domínio |
+| 1.7.1 | aguardando ok para publicar | branch `feature/novo-visual` | Vídeos sempre dentro da plataforma |
 
 ---
 
@@ -217,3 +218,13 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - O item Revisões mostra quantas vencem hoje.
 - Tour e guias usam o primeiro alvo visível, porque o menu muda entre computador e celular.
 - Os prints `dominio.jpg` e `menu.jpg` usam dados de exemplo. Os prints antigos seguem válidos: mostram só o conteúdo, sem o menu.
+
+## v1.7.1 — Vídeos sempre dentro da plataforma
+
+Reporte do Victor: no tópico "Conceitos de produtividade, eficiência, eficácia e competitividade", o vídeo não carregou e o app mandou buscar no YouTube.
+
+**Causa.** A busca juntava tópico, matéria e "aula concurso". Com o nome longo de uma matéria, o YouTube voltava vazio. Reproduzido com a chave real em localhost:5500: com "Administração Geral" vieram 5 vídeos; com uma matéria longa de exemplo, nenhum. O nome exato da matéria da trilha do Victor não foi conferido.
+
+**Correção.** Até 3 tentativas, só quando a anterior não acha nada: tópico com matéria, tópico sem matéria e tópico encurtado (`js/nucleo/videobusca.js`, com testes). Se nenhuma tiver aula de 3 a 30 minutos, a duração abre para 1 minuto a 2 horas sobre o que já veio, sem gastar outra busca. O link externo saiu: sem vídeo, o aviso fica no app, e em caso de erro há o botão Tentar de novo.
+
+**Cota.** Um tópico sem resultado gasta até 3 buscas das cerca de 100 diárias, porque o vazio não fica no cache. O resultado encontrado continua no cache compartilhado.

@@ -927,8 +927,8 @@ setInterval(() => {
   });
 }, 1000);
 function secao(titulo, corpo, extra=''){ return `<div class="secao" ${extra}><h2>${titulo}</h2>${corpo}</div>`; }
-// Vídeos do tópico tocando aqui mesmo (js/videos.js). Sem chave do YouTube
-// configurada, ou se a busca falhar, fica o link de busca como antes.
+// Vídeos do tópico tocando aqui mesmo (js/videos.js). Sem vídeo, o aviso fica
+// no app: o aluno nunca é mandado para fora da plataforma.
 const VIDEOS = {}; // matéria::tópico → {carregando} | {lista} | {erro}
 let VIDEO_TOCANDO = null;
 async function carregarVideos(E){
@@ -940,19 +940,20 @@ async function carregarVideos(E){
 }
 const minVideo = s => Math.max(1, Math.round(s/60)) + ' min';
 const milVideo = n => n >= 1e6 ? (n/1e6).toFixed(1).replace('.',',') + ' mi' : n >= 1e3 ? Math.round(n/1e3) + ' mil' : String(n);
-function linkBuscaVideos(E){
-  const q = encodeURIComponent(E.topico + ' ' + E.mat + ' concurso');
-  return `<p class="dim" style="font-size:13px;margin:0 0 18px">${ico('play')} Quer ver em vídeo? <a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">Buscar "${escHtml(E.topico)}" no YouTube</a></p>`;
+function tentarVideos(){ const E = S.estudo; if(!E) return; delete VIDEOS[E.chave]; carregarVideos(E); render(true); }
+function avisoVideos(st){
+  const texto = st.erro ? `Os vídeos não carregaram agora: ${escHtml(st.erro)}.` : 'Não encontrei uma aula em vídeo para este tópico. Siga pela teoria e pelas questões.';
+  return secao('Vídeos', `<p class="dim" style="font-size:14px;margin:0">${texto}</p>${st.erro ? `<button class="btn" style="margin-top:12px" onclick="tentarVideos()">Tentar de novo</button>` : ''}`);
 }
 function tocarVideo(id){ VIDEO_TOCANDO = id; render(true); const v = document.querySelector('.video'); if(v) v.scrollIntoView({block:'center', behavior:'smooth'}); ev('video', id); }
 function secaoVideos(E){
   const st = VIDEOS[E.chave];
   if(!st || st.carregando) return secao('Vídeos', '<p class="dim" style="font-size:14px;margin:0">Buscando vídeos curtos e bem avaliados sobre este tópico…</p>');
-  if(st.erro || !st.lista || !st.lista.length) return linkBuscaVideos(E) + (st.erro ? `<p class="dim" style="font-size:12px;margin:-12px 0 18px">${escHtml(st.erro)}</p>` : '');
+  if(st.erro || !st.lista || !st.lista.length) return avisoVideos(st);
   const L = st.lista, atual = L.find(v => v.id === VIDEO_TOCANDO) || L[0], tocando = VIDEO_TOCANDO === atual.id;
   const dados = v => `<span class="v-dados"><b>${minVideo(v.seg)}</b> · ${milVideo(v.views)} visualizações</span>`;
   return secao(`Vídeos <span class="num dim" style="font-size:15px;font-weight:500">· ${L.length} selecionados</span>`,
-    `<p class="dim" style="font-size:13px;margin:0 0 12px">Aulas de 3 a 30 minutos, das mais vistas para as menos vistas. Tocam aqui mesmo.</p>
+    `<p class="dim" style="font-size:13px;margin:0 0 12px">Aulas selecionadas, das mais vistas para as menos vistas. Tocam aqui mesmo.</p>
      <div class="video">${tocando
         ? `<iframe src="https://www.youtube-nocookie.com/embed/${atual.id}?autoplay=1&rel=0" title="${escHtml(atual.t)}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
         : `<button class="video-capa" onclick="tocarVideo('${atual.id}')" aria-label="Assistir: ${escHtml(atual.t)}"><img src="https://i.ytimg.com/vi/${atual.id}/hqdefault.jpg" alt="" loading="lazy"><span class="play">${ico('play')}</span></button>`}</div>

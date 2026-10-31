@@ -3,6 +3,9 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.7.1', data:'31/10/2026', itens:[
+    ['Vídeos dentro do SIPC', 'A busca agora tenta de outras formas antes de desistir, e os vídeos aparecem também em tópicos que ficavam sem nenhum. Se não houver vídeo, o aviso fica aqui mesmo, sem mandar você para o YouTube.'],
+  ]},
   {versao:'1.7', data:'31/10/2026', itens:[
     ['Menu novo', 'As seções agora ficam em grupos: Estudar, Acompanhar e Geral. No computador, o menu fica na lateral. No celular, fica em uma barra embaixo, e o resto está em Mais.'],
     ['Trocar de trilha ficou mais fácil', 'Toque no nome da prova para trocar de trilha ou criar uma nova.'],
