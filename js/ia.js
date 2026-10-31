@@ -1,40 +1,40 @@
 // Tudo que pede algo ao Gemini (Firebase AI Logic). Quem protege a cota é o
 // App Check; não há chave de API do aluno em lugar nenhum.
-import { obterIA, IA_MODELO } from './firebase.js';
+import { obterIA, IA_MODELOS } from './firebase.js';
 import { validarEdital, validarConteudo, validarQuestoes } from './nucleo/validar.js';
-import { idConteudo, orcamento, erroTemporario, extrairJSON, embaralhar } from './nucleo/iautil.js';
+import { idConteudo, orcamento, comTentativas, criarFila, extrairJSON, embaralhar } from './nucleo/iautil.js';
 import { lerConteudo, gravarConteudo } from './store.js';
 
-const TENTATIVAS = 4; // em teste real vieram dois 503 seguidos antes do acerto
+export { resumoErro } from './nucleo/iautil.js';
 
-export async function gerarJSON({ system, user, maxTokens }) {
-  const cfg = { model: IA_MODELO, generationConfig: { maxOutputTokens: orcamento(maxTokens), responseMimeType: 'application/json' } };
-  if (system) cfg.systemInstruction = system;
+const naFila = criarFila();
+
+export const gerarJSON = pedido => naFila(() => chamarIA(pedido));
+
+// validar: o que vier fora do formato conta como falha da IA e é pedido de novo.
+async function chamarIA({ system, user, maxTokens, validar = o => o }) {
   const { ia, getGenerativeModel } = await obterIA();
-  const modelo = getGenerativeModel(ia, cfg);
-  let ultimo = null;
-  for (let t = 1; t <= TENTATIVAS; t++) {
-    try {
-      const txt = (await modelo.generateContent(user)).response.text();
-      if (!txt || !txt.trim()) throw new Error('a IA devolveu uma resposta vazia');
-      return extrairJSON(txt);
-    } catch (e) {
-      // JSON cortado (a resposta bateu no limite de tokens) também vale tentar de novo.
-      const cortado = e instanceof SyntaxError;
-      if (!erroTemporario(e) && !cortado) throw e;
-      ultimo = new Error(cortado ? 'a IA devolveu uma resposta incompleta; tente de novo' : 'o serviço de IA está ocupado; tente de novo em instantes');
-      if (t < TENTATIVAS) await new Promise(r => setTimeout(r, 1500 * t));
-    }
-  }
-  throw ultimo;
+  return comTentativas({
+    modelos: IA_MODELOS,
+    chamar: async model => {
+      const cfg = { model, generationConfig: { maxOutputTokens: orcamento(maxTokens), responseMimeType: 'application/json' } };
+      if (system) cfg.systemInstruction = system;
+      const txt = (await getGenerativeModel(ia, cfg).generateContent(user)).response.text();
+      try {
+        if (!txt || !txt.trim()) throw new Error('a IA devolveu uma resposta vazia');
+        return validar(extrairJSON(txt));
+      } catch (e) { e.respostaInvalida = true; throw e; }
+    },
+  });
 }
 
 /* ---------- edital ---------- */
 
 export async function extrairEdital(texto, filtroCargo = '') {
   const filtro = filtroCargo.trim();
-  const o = await gerarJSON({
+  const edital = await gerarJSON({
     maxTokens: 8000,
+    validar: o => ({ ...validarEdital(o), formatoQuestoes: ['certoErrado', 'multipla4', 'multipla5'].includes(o.formatoQuestoes) ? o.formatoQuestoes : 'multipla5' }),
     user:
       'Você recebe o texto de um edital ou programa de prova (concurso, vestibular, certificação ou disciplina). Extraia:\n' +
       '- "nome": nome curto da prova, como aparece no texto; se o texto não disser, "";\n' +
@@ -52,8 +52,6 @@ export async function extrairEdital(texto, filtroCargo = '') {
         : 'Se houver vários cargos/áreas com conteúdos diferentes, use as matérias comuns e as do primeiro cargo listado.\n') +
       'Responda SOMENTE com JSON: {"nome":"","banca":"","dataProva":"","formatoQuestoes":"multipla5","materias":[{"nome":"","peso":1,"topicos":[""]}]}\n\nTEXTO:\n' + texto,
   });
-  const edital = validarEdital(o);
-  edital.formatoQuestoes = ['certoErrado', 'multipla4', 'multipla5'].includes(o.formatoQuestoes) ? o.formatoQuestoes : 'multipla5';
   return edital;
 }
 
@@ -72,9 +70,10 @@ export async function obterConteudo({ banca, materia, topico, uid, prova = '' })
   let cacheRuim = false;
   if (salvo?.json) { try { return { id, ...validarConteudo(JSON.parse(salvo.json)), doCache: true }; } catch (e) { cacheRuim = true; } }
 
-  const o = await gerarJSON({
+  const conteudo = await gerarJSON({
     system: SISTEMA_CONTEUDO,
     maxTokens: 5000,
+    validar: validarConteudo,
     user:
       `Escreva o material de estudo do tópico "${topico}" da matéria "${materia}"` +
       (banca ? `, para quem vai fazer prova da banca ${banca}` : '') + (prova ? ` (${prova})` : '') + '.\n' +
@@ -82,7 +81,7 @@ export async function obterConteudo({ banca, materia, topico, uid, prova = '' })
       '- "pergunta": uma pergunta curta que desperte a curiosidade sobre o tópico;\n' +
       '- "historia": storytelling real sobre a origem ou o porquê do tema, 2 ou 3 parágrafos em HTML (<p>, <b>, <i>);\n' +
       '- "resumo1": resumo de 1 minuto, lista de 4 a 6 pares [rótulo, [itens curtos]];\n' +
-      '- "resumo5": resumo de 5 minutos em HTML, com seções <h3> numeradas ("1. ..."), <p>, <b>, e uma <table> quando houver comparação; ' +
+      '- "resumo5": resumo de 5 minutos em HTML, com pelo menos 700 palavras, explicando cada conceito com exemplo, em seções <h3> numeradas ("1. ..."), <p>, <b>, e uma <table> quando houver comparação; ' +
       'termine com uma seção "Como a banca cobra";\n' +
       '- "mapa": mapa mental [centro, [[ramo, [folhas]]]], até 5 ramos com até 5 folhas, frases de 2 a 5 palavras;\n' +
       '- "analogias": 4 ou 5 analogias em HTML, cada uma começando pelo termo em <b>, ex.: "<b>X = Y:</b> explicação";\n' +
@@ -90,10 +89,9 @@ export async function obterConteudo({ banca, materia, topico, uid, prova = '' })
       '- "flashcards": 5 pares [pergunta, resposta curta];\n' +
       '- "tempo": minutos estimados para estudar (número entre 10 e 30).',
   });
-  const conteudo = validarConteudo(o);
   // O Firestore não guarda lista dentro de lista (mapa, resumo1, flashcards):
   // o conteúdo vai como texto JSON.
-  if (!cacheRuim) await gravarConteudo(id, { json: JSON.stringify(conteudo), banca: banca || '', materia, topico, uid, modelo: IA_MODELO, criadoEm: new Date().toISOString() })
+  if (!cacheRuim) await gravarConteudo(id, { json: JSON.stringify(conteudo), banca: banca || '', materia, topico, uid, modelo: IA_MODELOS[0], criadoEm: new Date().toISOString() })
     .catch(() => {}); // outro aluno pode ter gravado no mesmo instante; o conteúdo já está em mãos
   return { id, ...conteudo, doCache: false };
 }
@@ -137,7 +135,8 @@ export async function gerarQuestoes({ banca, formato = 'multipla5', materia, top
     : `{"questoes":[{"enunciado":"","alternativas":[${n} textos sem a letra],"correta":0,"justificativa":""}]} com ${qtd} questões; ` +
       '"correta" é o índice (0 = primeira) e a justificativa explica por que a certa está certa e por que cada errada está errada, ' +
       'citando cada alternativa pelo conteúdo e NUNCA por letra (A, B, C...): as alternativas são reordenadas depois';
-  const o = await gerarJSON({
+  const lista = await gerarJSON({
+    validar: o => validarQuestoes(o, { formato, qtd }),
     system: 'Você elabora questões inéditas de concurso em português do Brasil. Nunca copie questões existentes. ' +
       'Nunca invente lei, artigo, súmula ou número. ' + ESTILO_BANCA[estiloDe(banca)] + ' Responda SOMENTE com JSON válido.',
     maxTokens: 1200 * qtd,
@@ -147,5 +146,5 @@ export async function gerarQuestoes({ banca, formato = 'multipla5', materia, top
       'As questões cobram a teoria abaixo, que o aluno acabou de estudar, aplicada a situações concretas.\n\n' +
       'TEORIA:\n' + teoriaEmTexto(conteudo) + '\n\nFormato da resposta: ' + formatoJSON,
   });
-  return validarQuestoes(o, { formato, qtd }).map(q => embaralhar(q));
+  return lista.map(q => embaralhar(q));
 }

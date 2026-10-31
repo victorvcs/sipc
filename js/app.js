@@ -359,7 +359,7 @@ function bancaDaLista(txt){
 
 // Erro de IA (ocupada, sem rede, verificação) não é culpa do arquivo: a dica de
 // "PDF escaneado" só aparece quando a leitura em si falhou.
-const ehErroDeIA = m => /ocupad|503|429|overload|recusou|verifica|conex|network|fetch|limite do modo|incomplet/i.test(String(m));
+const ehErroDeIA = m => /ocupad|503|429|overload|recusou|verifica|conex|network|fetch|limite do modo|incomplet|não respondeu/i.test(String(m));
 async function lerEdital(){
   let texto = '';
   if(S.edModo==='texto'){
@@ -445,14 +445,15 @@ function limiteVisitante(){
 // Erros da IA em português e, em localhost, o lembrete do token de depuração.
 function mensagemIA(e){
   const m = String(e && e.message || e);
-  ev('ia-erro', m.slice(0, 120));
+  if(!e || !e.jaRegistrado) ev('ia-erro', SIPC.ia.resumoErro(e));
   // Depois de um único 403, o App Check trava as tentativas por 24 horas
   // neste navegador. Apagar o registro local libera na próxima carga.
   if(/throttl/i.test(m)){ try{ indexedDB.deleteDatabase('firebase-app-check-database'); }catch(x){} return 'A verificação de segurança da IA falhou uma vez. Recarregue a página e tente de novo.'; }
   if(/app.?check|401|403/i.test(m) && SIPC.debugToken) return 'A IA recusou o acesso em localhost: cadastre o token de depuração do App Check no console do Firebase (' + SIPC.debugToken + ').';
   if(/app.?check|401|403/i.test(m)) return 'A IA recusou o acesso deste navegador. Recarregue a página e tente de novo.';
   if(/\b(503|429)\b|overload/i.test(m)) return 'O serviço de IA está ocupado. Tente de novo em instantes.';
-  if(/failed to fetch|network/i.test(m)) return 'Sem conexão com a internet. Confira e tente de novo.';
+  if(/failed to fetch|load failed|network/i.test(m)) return 'Sem conexão com a internet. Confira e tente de novo.';
+  if(/error fetching/i.test(m)) return 'A IA não respondeu agora. Tente de novo em instantes.';
   return m.charAt(0).toUpperCase() + m.slice(1);
 }
 function abrirMateria(i){ S.abertas[i]=!S.abertas[i]; render(true); }
@@ -734,7 +735,8 @@ async function gerarQuestoesTopico(forcar){
   E.carregandoQ = true; E.erroQ = null; E.desdeQ = Date.now(); render(true);
   try{
     const C = await carregarConteudo(E);
-    if(!C) throw new Error((conteudoDe(E) && conteudoDe(E).erro) || 'sem conteúdo para basear as questões');
+    // O erro do conteúdo já entrou no registro em carregarConteudo: não conta duas vezes.
+    if(!C) throw Object.assign(new Error((conteudoDe(E) && conteudoDe(E).erro) || 'sem conteúdo para basear as questões'), {jaRegistrado:true});
     const banca = bancaPara(hashTxt(E.chave));
     limiteVisitante();
     const lista = await SIPC.ia.gerarQuestoes({banca, formato: formatoAtual(), materia:E.mat, topico:E.topico, conteudo:C, qtd: E.n || S.qtdQuestoes});

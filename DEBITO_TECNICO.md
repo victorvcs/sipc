@@ -2,7 +2,7 @@
 
 Este arquivo registra o que se sabe que está incompleto, **por que foi deixado assim** e o que dispara a hora de resolver. Nada aqui é descuido: são escolhas conscientes de quem está validando um protótipo, não operando um produto.
 
-Atualizado em 18/10/2026.
+Atualizado em 31/10/2026 (item 1); os demais itens são de 18/10/2026.
 
 ---
 
@@ -17,6 +17,16 @@ Atualizado em 18/10/2026.
 - Todo o uso de todos os usuários agora sai **da mesma cota do projeto**. No plano gratuito isso não vira dinheiro, vira indisponibilidade: quando a cota do minuto ou do dia estoura, todos recebem `429` ao mesmo tempo. O app repete a chamada até 4 vezes, mas não faz milagre.
 - O AI Logic tem limite **por usuário por minuto** (padrão 100), mas **não tem limite diário por pessoa**. Uma pessoa entusiasmada ainda pode consumir a cota do dia de todos. Se isso acontecer, as saídas são: ativar o *Modo de usuários autenticados* (AI Logic › Configurações — exige que a IA use o login do app, ver item 7) ou contar uso por usuário no Firestore.
 - **Não** voltar a pôr chave no código, nem distribuir a própria chave a testadores: continua sendo a pior opção, pelos motivos registrados no histórico deste arquivo.
+
+**Medição de 31/10/2026.** Com alunos reais o gatilho já disparou: o registro mostrava 31 erros de IA, e o Ronaldo (21 deles) não concluiu nenhum tópico. Em teste no site publicado, de 4 chamadas em paralelo feitas logo após 2 em sequência, 2 voltaram `429`, métrica `generate_content_free_tier_requests`, **limite 5**, para o projeto inteiro. A janela de 1 minuto é dedução: a API cortou a descrição no teste, e uma chamada feita logo depois funcionou. Cada chamada de questões levou de 30 a 60 s.
+
+**Decisão de 31/10/2026 (Victor): o projeto continua gratuito.** O plano Blaze fica fora por enquanto.
+
+**O que mudou no app.** O modelo passou de `gemini-3.6-flash` para `gemini-3.5-flash-lite`, com `gemini-3.1-flash-lite` de reserva (cota própria). No teste, o Flash-Lite aguentou 10 chamadas seguidas sem `429` e gerou 5 questões em 9 s, contra 34 a 41 s do Flash. As chamadas de cada navegador passam por uma fila (uma por vez). No `429`, o app troca para o modelo reserva e só depois espera o prazo pedido pela API (até 90 s). Erros 5xx, de rede e respostas fora do formato também são repetidos. O registro guarda o status do erro.
+
+**Custo da troca.** O Flash-Lite escreve menos: o resumo de 5 minutos veio com cerca de 365 palavras mesmo pedindo 700. O conteúdo já gerado pelo Flash continua no cache. Os limites exatos do Flash-Lite não foram medidos: um relato de usuário de setembro/2026 fala em 500 chamadas por dia, sem confirmação oficial.
+
+**Ainda sem causa.** Os 18 erros `Error fetching` antigos não eram 429 nem 503 (esses caem na mensagem de "ocupado"), mas o status foi cortado do registro. Os próximos ficam visíveis no admin como `[status] código: mensagem`.
 
 **O que dispara rever.** Erros `429` frequentes, ou uso com muitos participantes simultâneos (pesquisa). Nesse ponto, avaliar o plano pago (Blaze) com orçamento e alerta de gasto.
 

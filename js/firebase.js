@@ -19,7 +19,10 @@ export const firebaseConfig = {
   appId: '1:838344160832:web:a78e3010975726391651a5',
 };
 export const RECAPTCHA_SITE_KEY = '6LdLwPUtAAAAAFuNqGyZsEV2KaRmNOoaZZj1b_wH';
-export const IA_MODELO = 'gemini-3.6-flash';
+// Flash-Lite: no plano gratuito o Flash barrava em 5 chamadas e levava 40 s; o
+// Flash-Lite aguentou 10 seguidas e responde em 9 s (medido em 31/10/2026). O
+// segundo é a reserva: tem cota própria.
+export const IA_MODELOS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 export const ADMIN_EMAIL = 'victorvcs@gmail.com';
 // Chave da API do YouTube (busca de vídeos por tópico). Pública por design,
 // como a firebaseConfig: fica restrita no Google Cloud ao domínio do SIPC e só

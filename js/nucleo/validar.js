@@ -34,7 +34,9 @@ export function validarConteudo(o) {
   const flashcards = lista(o.flashcards).map(x => par(x, 'pergunta', 'resposta')).filter(p => p && texto(String(p[0] ?? '')) && texto(String(p[1] ?? '')))
     .map(([q, a]) => [String(q), String(a)]);
   const analogias = listaDeTextos(o.analogias), checklist = listaDeTextos(o.checklist);
-  const m = Array.isArray(o.mapa) ? o.mapa : (o.mapa && typeof o.mapa === 'object') ? [o.mapa.centro, o.mapa.ramos] : null;
+  // O Flash-Lite às vezes embrulha o mapa num colchete a mais: [[centro, ramos]].
+  const mapa = Array.isArray(o.mapa) && o.mapa.length === 1 && Array.isArray(o.mapa[0]) ? o.mapa[0] : o.mapa;
+  const m = Array.isArray(mapa) ? mapa : (mapa && typeof mapa === 'object') ? [mapa.centro, mapa.ramos] : null;
   exigir(m && texto(m[0]) && Array.isArray(m[1]), 'conteúdo sem mapa');
   const ramos = m[1].map(r => par(r, 'ramo', 'folhas')).filter(r => r && texto(String(r[0] ?? ''))).map(([r, f]) => [String(r), listaDeTextos(f)]).slice(0, 6);
   for (const [k, v] of Object.entries({ resumo1, analogias, checklist, flashcards, mapa: ramos })) exigir(v.length, 'conteúdo sem ' + k);
