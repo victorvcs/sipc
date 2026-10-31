@@ -7,6 +7,7 @@ import * as ia from './ia.js';
 import { lerArquivo } from './leitura.js';
 import * as videos from './videos.js';
 import { planilhaParaEdital } from './nucleo/planilha.js';
+import { cargoValido } from './nucleo/validar.js';
 import { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS } from './nucleo/revisao.js';
 import { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO } from './nucleo/trilha.js';
 import { classificar, quadrante, ordenar } from './nucleo/prioridade.js';
@@ -67,7 +68,7 @@ window.SIPC = {
   esqueciSenha: email => fb.sendPasswordResetEmail(auth, email),
   atualizarNome: nome => fb.updateProfile(auth.currentUser, { displayName: nome }),
   sair: () => fb.signOut(auth),
-  store, ia, videos, lerArquivo, planilhaParaEdital,
+  store, ia, videos, lerArquivo, planilhaParaEdital, cargoValido,
   revisao: { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS },
   trilha: { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO },
   prioridade: { classificar, quadrante, ordenar },

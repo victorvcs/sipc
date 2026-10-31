@@ -23,14 +23,14 @@ async function chamarIA({ system, user, maxTokens, validar = o => o }) {
       try {
         if (!txt || !txt.trim()) throw new Error('a IA devolveu uma resposta vazia');
         return validar(extrairJSON(txt));
-      } catch (e) { e.respostaInvalida = true; throw e; }
+      } catch (e) { if (!e.definitivo) e.respostaInvalida = true; throw e; }
     },
   });
 }
 
 /* ---------- edital ---------- */
 
-export async function extrairEdital(texto, filtroCargo = '') {
+export async function extrairEdital(texto, filtroCargo) {
   const filtro = filtroCargo.trim();
   const edital = await gerarJSON({
     maxTokens: 8000,
@@ -47,9 +47,9 @@ export async function extrairEdital(texto, filtroCargo = '') {
       'sem separar por matéria, divida os pontos do bloco igualmente entre as matérias dele. Só use 1 quando não houver informação nenhuma.\n' +
       'Tópicos: os assuntos do conteúdo programático daquela matéria, na ordem do edital, cada um curto (até ~90 caracteres), sem numeração. ' +
       'Não invente nada que não está no texto. Se uma matéria tiver mais de 40 itens, agrupe os vizinhos até ficar com no máximo 40.\n' +
-      (filtro
-        ? 'O edital pode ter vários cargos/áreas. Considere SOMENTE: "' + filtro + '" (e as matérias comuns a todos).\n'
-        : 'Se houver vários cargos/áreas com conteúdos diferentes, use as matérias comuns e as do primeiro cargo listado.\n') +
+      'O edital pode ter vários cargos/áreas. Considere SOMENTE: "' + filtro + '" (e as matérias comuns a todos); ignore as matérias exclusivas de outros cargos. ' +
+      'Aceite nomes equivalentes, abreviações e variações de escrita do cargo. Se o texto for de um único cargo, curso ou prova compatível, considere encontrado. ' +
+      'Se esse cargo realmente não existir no texto, responda só {"cargoEncontrado":false,"materias":[]}.\n' +
       'Responda SOMENTE com JSON: {"nome":"","banca":"","dataProva":"","formatoQuestoes":"multipla5","materias":[{"nome":"","peso":1,"topicos":[""]}]}\n\nTEXTO:\n' + texto,
   });
   return edital;

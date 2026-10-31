@@ -3,7 +3,11 @@
 const exigir = (cond, msg) => { if (!cond) throw new Error(msg); };
 const texto = v => typeof v === 'string' && v.trim().length > 0;
 
+// Sem o cargo a IA leria o edital inteiro, com as matérias de todos os cargos.
+export const cargoValido = c => String(c || '').trim().length >= 3;
+
 export function validarEdital(o) {
+  if (o?.cargoEncontrado === false) throw Object.assign(new Error('Não encontrei esse cargo no edital. Confira como ele está escrito.'), { definitivo: true });
   exigir(o && Array.isArray(o.materias) && o.materias.length, 'a IA não devolveu nenhuma matéria');
   const materias = o.materias.filter(m => texto(m.nome)).map(m => ({
     nome: m.nome.trim(), peso: Number(m.peso) > 0 ? Number(m.peso) : 1, faixa: '',

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarConteudo, validarQuestoes, validarEdital } from '../js/nucleo/validar.js';
+import { validarConteudo, validarQuestoes, validarEdital, cargoValido } from '../js/nucleo/validar.js';
 
 const conteudoOk = { historia: 'h', resumo1: [['O que é', ['a']]], resumo5: '<p>t</p>', mapa: ['Crase', [['Quando', ['a']]]],
   analogias: ['x'], checklist: ['c'], flashcards: [['p', 'r']], pergunta: 'q' };
@@ -40,4 +40,12 @@ test('edital precisa de matérias e normaliza', () => {
   assert.throws(() => validarEdital({ materias: [] }), /matéria/);
   const e = validarEdital({ nome: 'X', banca: 'FGV', dataProva: '2027-03-14', materias: [{ nome: 'Português', peso: '15', topicos: [] }] });
   assert.deepEqual([e.materias[0].peso, e.materias[0].topicos, e.dataProva], [15, ['Conteúdo geral de Português'], '2027-03-14']);
+});
+test('cargo é obrigatório', () => {
+  assert.ok(!cargoValido(''));
+  assert.ok(!cargoValido('  a '));
+  assert.ok(cargoValido('Analista'));
+});
+test('cargo que não está no edital vira erro definitivo, sem repetir a chamada', () => {
+  assert.throws(() => validarEdital({ cargoEncontrado: false, materias: [] }), e => e.definitivo === true && /Não encontrei esse cargo/.test(e.message));
 });

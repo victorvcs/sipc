@@ -156,11 +156,13 @@ function passoEdital(){
     estado = `<div class="leitura" aria-live="polite"><ol>${passos.map((t,i)=>`<li class="${i<S.edPasso?'on':''}">${ico('check')}<span>${escHtml(t)}</span></li>`).join('')}</ol>
       ${S.edStatus==='lendo' && S.edPasso>=passos.length-1 ? '<p class="dim" style="font-size:13px;margin:8px 0 0">A IA ainda está lendo. Edital grande pode levar até um minuto.</p>' : ''}
       ${S.edStatus==='pronto' ? `<div class="achado"><b>Achei ${S.materias.length} matérias e ${totalTopicos()} tópicos ${fontes}.</b><br>${escHtml(S.prova.nome)}${S.prova.cargo?' · '+escHtml(S.prova.cargo):''}${S.prova.bancaEdital?' · banca '+escHtml(S.prova.bancaEdital):' · banca a definir'}${S.prova.semEdital?' · edital ainda não publicado':S.prova.data?' · prova em '+fmtData(dataDe(S.prova.data),{day:'2-digit',month:'2-digit',year:'numeric'}):''}.<br><span style="font-size:13px">A leitura pode errar: confira no próximo passo.</span></div>` : ''}
-      ${S.edStatus==='erro' ? `<div class="erro"><b>${S.erroLeitura ? escHtml(S.erroLeitura) : 'Não encontrei a lista de matérias.'}</b>${S.erroIA ? '' : '<br>Pode ser um PDF escaneado (imagem), uma planilha sem a coluna das matérias ou só o aviso de abertura do concurso. Tente o edital completo, outro arquivo, ou cole o trecho do conteúdo programático.'}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${S.erroIA ? '<button class="btn" onclick="tentarLeituraDeNovo()">Tentar de novo</button>' : ''}<button class="btn sec" onclick="escolherEdital('arquivo')">Anexar outro arquivo</button><button class="btn sec" onclick="escolherEdital('texto')">Colar o texto</button></div>` : ''}
+      ${S.edStatus==='erro' ? `<div class="erro"><b>${S.erroLeitura ? escHtml(S.erroLeitura) : 'Não encontrei a lista de matérias.'}</b>${S.erroIA || S.erroCargo ? '' : '<br>Pode ser um PDF escaneado (imagem), uma planilha sem a coluna das matérias ou só o aviso de abertura do concurso. Tente o edital completo, outro arquivo, ou cole o trecho do conteúdo programático.'}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${S.erroIA || S.erroCargo ? `<button class="btn" onclick="tentarLeituraDeNovo()">${S.erroCargo?'Corrigir o cargo':'Tentar de novo'}</button>` : ''}<button class="btn sec" onclick="escolherEdital('arquivo')">Anexar outro arquivo</button><button class="btn sec" onclick="escolherEdital('texto')">Colar o texto</button></div>` : ''}
     </div>`;
   }
-  const cargo = `<div class="campo-f" style="margin-top:14px"><label class="f" for="edCargo">Seu cargo ou área (só se o edital tiver vários)</label><input type="text" id="edCargo" value="${escHtml(S.filtroCargo)}" oninput="S.filtroCargo=this.value" placeholder="Ex.: Técnico Judiciário — Área Administrativa"></div>`;
+  const cargo = `<div class="campo-f" style="margin-top:14px"><label class="f" for="edCargo">Seu cargo (obrigatório)</label><input type="text" id="edCargo" required ${S.edErroCargo?'aria-invalid="true" aria-describedby="edCargoErro"':''} value="${escHtml(S.filtroCargo)}" oninput="S.filtroCargo=this.value" placeholder="Ex.: Técnico Judiciário — Área Administrativa">
+    <p class="dim" style="font-size:13px;margin:6px 0 0">Escreva como está no edital. A IA lê só as matérias desse cargo. Em vestibular ou certificação, escreva o curso ou o nome da prova.</p>
+    ${S.edErroCargo ? `<p class="erro-f" id="edCargoErro" role="alert">${escHtml(S.edErroCargo)}</p>` : ''}</div>`;
   let entrada = '';
   if(S.edStatus==='ocioso' && S.edModo==='arquivo'){
     const lista = S.arquivos.map((a,i)=>`<li class="arq">${ico(TIPOS[a.tipo].ico)}<span class="arq-nome">${escHtml(a.nome)}</span><span class="arq-tipo">${TIPOS[a.tipo].rot}</span>
@@ -180,7 +182,7 @@ function passoEdital(){
         <button class="btn" onclick="lerEdital()">Ler ${S.arquivos.length>1?`os ${S.arquivos.length} arquivos`:'o arquivo'}</button>` : ''}`;
   }
   if(S.edStatus==='ocioso' && S.edModo==='texto'){
-    entrada = `<label class="f" for="edTexto">Cole o conteúdo programático</label><textarea id="edTexto" rows="7" placeholder="Cole do jeito que estiver no edital: nomes das matérias, número de questões e assuntos."></textarea>
+    entrada = `<label class="f" for="edTexto">Cole o conteúdo programático</label><textarea id="edTexto" rows="7" placeholder="Cole do jeito que estiver no edital: nomes das matérias, número de questões e assuntos.">${escHtml(S.textoColado||'')}</textarea>
        ${S.edErroTexto ? `<p class="erro-f" role="alert">${escHtml(S.edErroTexto)}</p>` : ''}
        ${cargo}
        <div style="margin-top:12px"><button class="btn" onclick="lerEdital()">Organizar com IA</button></div>`;
@@ -368,6 +370,8 @@ async function lerEdital(){
     if(!texto.trim()){ S.edErroTexto = 'Cole o texto do edital primeiro.'; render(true); return; }
   }
   S.edErroTexto = null;
+  if(!SIPC.cargoValido(S.filtroCargo)){ S.edErroCargo = 'Informe o seu cargo para continuar.'; render(true); const c = document.getElementById('edCargo'); if(c) c.focus(); return; }
+  S.edErroCargo = null;
   // Token da leitura: se a pessoa trocar de tela ou começar outra trilha no
   // meio (leva até um minuto), o resultado atrasado é descartado.
   const gen = S.genEdital = (S.genEdital||0) + 1;
@@ -407,7 +411,7 @@ async function lerEdital(){
     ev('edital-lido', S.materias.length + ' matérias · ' + totalTopicos() + ' tópicos · ' + (S.edModo==='texto' ? 'texto colado' : S.arquivos.map(a=>TIPOS[a.tipo].rot).join(' + ')));
   }catch(e){
     if(!valendo()) return;
-    S.edStatus='erro'; S.erroLeitura = mensagemIA(e); S.erroIA = ehErroDeIA(S.erroLeitura);
+    S.edStatus='erro'; S.erroLeitura = mensagemIA(e); S.erroCargo = !!e.definitivo; S.erroIA = !S.erroCargo && ehErroDeIA(S.erroLeitura);
     ev('edital-erro', S.erroLeitura);
   }finally{ clearInterval(t); if(valendo()) render(); }
 }
