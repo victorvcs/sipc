@@ -3,6 +3,7 @@
 import { obterIA, IA_MODELOS } from './firebase.js';
 import { validarEdital, validarConteudo, validarQuestoes } from './nucleo/validar.js';
 import { idConteudo, orcamento, comTentativas, criarFila, extrairJSON, embaralhar } from './nucleo/iautil.js';
+import { validarCronograma } from './nucleo/cronograma.js';
 import { lerConteudo, gravarConteudo } from './store.js';
 
 export { resumoErro } from './nucleo/iautil.js';
@@ -30,11 +31,15 @@ async function chamarIA({ system, user, maxTokens, validar = o => o }) {
 
 /* ---------- edital ---------- */
 
+const PEDIDO_CRONOGRAMA = 'as datas do concurso que constam no texto (inscrição, isenção da taxa, pagamento, provas, resultados, recursos), ' +
+  'cada uma com "evento" curto, "inicio" e, se for um período, "fim", no formato AAAA-MM-DD. ' +
+  'Copie só as datas escritas no texto, nunca calcule nem estime; data "a definir" fica de fora. Sem datas no texto, [];';
+
 export async function extrairEdital(texto, filtroCargo) {
   const filtro = filtroCargo.trim();
   const edital = await gerarJSON({
     maxTokens: 8000,
-    validar: o => ({ ...validarEdital(o), formatoQuestoes: ['certoErrado', 'multipla4', 'multipla5'].includes(o.formatoQuestoes) ? o.formatoQuestoes : 'multipla5' }),
+    validar: o => ({ ...validarEdital(o), cronograma: validarCronograma(o.cronograma), formatoQuestoes: ['certoErrado', 'multipla4', 'multipla5'].includes(o.formatoQuestoes) ? o.formatoQuestoes : 'multipla5' }),
     user:
       'Você recebe o texto de um edital ou programa de prova (concurso, vestibular, certificação ou disciplina). Extraia:\n' +
       '- "nome": nome curto da prova, como aparece no texto; se o texto não disser, "";\n' +
@@ -42,6 +47,7 @@ export async function extrairEdital(texto, filtroCargo) {
       '- "dataProva": data da prova objetiva no formato AAAA-MM-DD, se constar, senão "";\n' +
       '- "formatoQuestoes": "certoErrado" se os itens forem julgados como CERTO ou ERRADO (típico do Cebraspe), ' +
       '"multipla4" se forem 4 alternativas (A a D), "multipla5" se forem 5 (A a E). Na dúvida, "multipla5";\n' +
+      '- "cronograma": ' + PEDIDO_CRONOGRAMA + '\n' +
       '- "materias": as disciplinas cobradas, cada uma com "nome", "peso" e "topicos".\n' +
       'Peso: pontos da matéria na prova (nº de questões × valor de cada questão). Quando o edital só der o total de um bloco ' +
       'sem separar por matéria, divida os pontos do bloco igualmente entre as matérias dele. Só use 1 quando não houver informação nenhuma.\n' +
@@ -50,9 +56,18 @@ export async function extrairEdital(texto, filtroCargo) {
       'O edital pode ter vários cargos/áreas. Considere SOMENTE: "' + filtro + '" (e as matérias comuns a todos); ignore as matérias exclusivas de outros cargos. ' +
       'Aceite nomes equivalentes, abreviações e variações de escrita do cargo. Se o texto for de um único cargo, curso ou prova compatível, considere encontrado. ' +
       'Se esse cargo realmente não existir no texto, responda só {"cargoEncontrado":false,"materias":[]}.\n' +
-      'Responda SOMENTE com JSON: {"nome":"","banca":"","dataProva":"","formatoQuestoes":"multipla5","materias":[{"nome":"","peso":1,"topicos":[""]}]}\n\nTEXTO:\n' + texto,
+      'Responda SOMENTE com JSON: {"nome":"","banca":"","dataProva":"","formatoQuestoes":"multipla5","cronograma":[{"evento":"","inicio":"","fim":""}],"materias":[{"nome":"","peso":1,"topicos":[""]}]}\n\nTEXTO:\n' + texto,
   });
   return edital;
+}
+
+export async function extrairCronograma(texto) {
+  return gerarJSON({
+    maxTokens: 2000,
+    validar: o => validarCronograma(o.cronograma),
+    user: 'Você recebe um edital, uma retificação ou um cronograma de concurso. Devolva "cronograma": ' + PEDIDO_CRONOGRAMA +
+      '\nResponda SOMENTE com JSON: {"cronograma":[{"evento":"","inicio":"","fim":""}]}\n\nTEXTO:\n' + texto.slice(-150000),
+  });
 }
 
 /* ---------- conteúdo nas 9 seções ---------- */

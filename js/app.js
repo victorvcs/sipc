@@ -61,11 +61,12 @@ function trilhaVazia(){
     materias:[], abertas:{}, prova:{nome:'Minha trilha', cargo:'', bancaEdital:null, bancaADefinir:false, semEdital:false, pesoTipo:'pontos', fonte:'', data:''},
     novaMat:null, bancas:[], buscaBanca:'', bancaOutra:'', formatoQuestoes:'multipla5',
     horas:1.5, dias:[true,true,true,true,true,false,false], dataProva: somarDiasHoje(120), qtdQuestoes:10,
+    cronograma:[],
     E: estadoVazio()
   };
 }
 function somarDiasHoje(n){ const d = new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-function estadoVazio(){ return {feito:{}, revisoes:[], parcial:{}, questoes:[], minutos:{}, rascunhos:{}, diario:{}}; }
+function estadoVazio(){ return {feito:{}, revisoes:[], parcial:{}, questoes:[], minutos:{}, rascunhos:{}, diario:{}, foco:{}}; }
 const uid = () => S.usuario ? S.usuario.uid : 'visitante';
 const ehAdmin = () => !!(S.usuario && S.usuario.email === SIPC.ADMIN_EMAIL);
 // estadoOk só fica verdadeiro depois que o estado da trilha foi lido: gravar
@@ -155,7 +156,7 @@ function passoEdital(){
     const fontes = S.edModo==='texto' ? 'do texto colado' : S.arquivos.length>1 ? `de ${S.arquivos.length} arquivos` : 'do arquivo';
     estado = `<div class="leitura" aria-live="polite"><ol>${passos.map((t,i)=>`<li class="${i<S.edPasso?'on':''}">${ico('check')}<span>${escHtml(t)}</span></li>`).join('')}</ol>
       ${S.edStatus==='lendo' && S.edPasso>=passos.length-1 ? '<p class="dim" style="font-size:13px;margin:8px 0 0">A IA ainda está lendo. Edital grande pode levar até um minuto.</p>' : ''}
-      ${S.edStatus==='pronto' ? `<div class="achado"><b>Achei ${S.materias.length} matérias e ${totalTopicos()} tópicos ${fontes}.</b><br>${escHtml(S.prova.nome)}${S.prova.cargo?' · '+escHtml(S.prova.cargo):''}${S.prova.bancaEdital?' · banca '+escHtml(S.prova.bancaEdital):' · banca a definir'}${S.prova.semEdital?' · edital ainda não publicado':S.prova.data?' · prova em '+fmtData(dataDe(S.prova.data),{day:'2-digit',month:'2-digit',year:'numeric'}):''}.<br><span style="font-size:13px">A leitura pode errar: confira no próximo passo.</span></div>` : ''}
+      ${S.edStatus==='pronto' ? `<div class="achado"><b>Achei ${S.materias.length} matérias e ${totalTopicos()} tópicos ${fontes}.</b><br>${escHtml(S.prova.nome)}${S.prova.cargo?' · '+escHtml(S.prova.cargo):''}${S.prova.bancaEdital?' · banca '+escHtml(S.prova.bancaEdital):' · banca a definir'}${S.prova.semEdital?' · edital ainda não publicado':S.prova.data?' · prova em '+fmtData(dataDe(S.prova.data),{day:'2-digit',month:'2-digit',year:'numeric'}):''}${S.cronograma.length?' · '+S.cronograma.length+' datas no cronograma':''}.<br><span style="font-size:13px">A leitura pode errar: confira no próximo passo.</span></div>` : ''}
       ${S.edStatus==='erro' ? `<div class="erro"><b>${S.erroLeitura ? escHtml(S.erroLeitura) : 'Não encontrei a lista de matérias.'}</b>${S.erroIA || S.erroCargo ? '' : '<br>Pode ser um PDF escaneado (imagem), uma planilha sem a coluna das matérias ou só o aviso de abertura do concurso. Tente o edital completo, outro arquivo, ou cole o trecho do conteúdo programático.'}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${S.erroIA || S.erroCargo ? `<button class="btn" onclick="tentarLeituraDeNovo()">${S.erroCargo?'Corrigir o cargo':'Tentar de novo'}</button>` : ''}<button class="btn sec" onclick="escolherEdital('arquivo')">Anexar outro arquivo</button><button class="btn sec" onclick="escolherEdital('texto')">Colar o texto</button></div>` : ''}
     </div>`;
@@ -419,6 +420,7 @@ async function lerEdital(){
 function tentarLeituraDeNovo(){ S.edStatus='ocioso'; S.edPasso=0; S.erroLeitura=null; render(); const ta = document.getElementById('edTexto'); if(ta && S.textoColado) ta.value = S.textoColado; }
 function deEdital(ed, fonte){
   S.formatoQuestoes = ed.formatoQuestoes || 'multipla5';
+  S.cronograma = ed.cronograma || [];
   return {materias: ed.materias.map(m=>({...m, faixa:''})), prova: {
     nome: ed.nome || 'Minha trilha', cargo: S.filtroCargo.trim(), bancaEdital: bancaDaLista(ed.banca), bancaADefinir: !ed.banca,
     semEdital:false, pesoTipo:'pontos', fonte, data: ed.dataProva || '', formatoQuestoes: S.formatoQuestoes }};
@@ -473,7 +475,7 @@ function dadosDaTrilha(){
   return JSON.parse(JSON.stringify({
     prova: {...S.prova, formatoQuestoes: S.formatoQuestoes},
     materias: S.materias.map(m=>({nome:m.nome, peso:m.peso, faixa:m.faixa||'', topicos:m.topicos})),
-    bancas: S.bancas, ritmo: {horas:S.horas, dias:S.dias, dataProva:S.dataProva, qtdQuestoes:S.qtdQuestoes},
+    bancas: S.bancas, cronograma: S.cronograma, ritmo: {horas:S.horas, dias:S.dias, dataProva:S.dataProva, qtdQuestoes:S.qtdQuestoes},
     criadaDia: hojeISO() // criadaEm é UTC; à noite no Brasil já seria "amanhã"
   }));
 }
@@ -526,7 +528,7 @@ const ROTULO = {rev:['Revisão','rev'], est:['Estudar','est'], q:['Questões','q
 
 function telaApp(){
   const r = ritmo();
-  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['conta','Conta']];
+  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['datas','Datas'],['conta','Conta']];
   if(ehAdmin()) abas.push(['admin','Admin']);
   let corpo = '';
   if(S.vista==='estudo') corpo = vistaEstudo();
@@ -534,13 +536,15 @@ function telaApp(){
   else if(S.aba==='hoje') corpo = abaHoje();
   else if(S.aba==='trilha') corpo = abaTrilha();
   else if(S.aba==='revisoes') corpo = abaRevisoes();
+  else if(S.aba==='datas') corpo = abaDatas();
+  else if(S.aba==='ajuda') corpo = abaAjuda();
   else if(S.aba==='conta') corpo = abaConta();
   else if(S.aba==='admin') corpo = abaAdmin();
   else corpo = abaPainel();
   return `<div class="app">
     <div class="topo">
       <div><button class="trocar-trilha" onclick="irTrilhas()" title="Minhas trilhas">${ico('list')} Minhas trilhas (${S.trilhas.length})</button><h1>${escHtml(S.prova.nome)}</h1><div class="sub">${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}</div></div>
-      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova<br><button class="mini" onclick="S.vista=null;S.aba='painel';render()">ver painel</button></div>
+      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova<br><button class="mini" onclick="S.vista=null;S.aba='painel';render()">ver painel</button><br><button class="mini" onclick="S.vista=null;irAba('ajuda')">Novidades e ajuda${novidadeNaoVista()?'<i class="nov-ponto" aria-label="há novidade"></i>':''}</button></div>
     </div>
     ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" onclick="irAba('${k}')">${n}</button>`).join('')}</nav>`}
     <div class="tela" key="${S.vista||S.aba}">${corpo}</div>
@@ -597,12 +601,15 @@ function abaHoje(){
       ${faltouOntem() ? `<div class="nota">${ico('info')}<div><b>Ontem não teve estudo, e tudo bem.</b> O plano foi reorganizado a partir de hoje: nada acumulou.</div></div>` : ''}
       ${folga ? `<div class="nota">${ico('info')}<div><b>Hoje está fora do seu ritmo.</b> Se quiser, adiante a lista abaixo; senão, até o próximo dia de estudo.</div></div>` : ''}
       ${cont ? `<div class="continuar"><div><b>Continuar de onde parou</b><span>${escHtml(cont.titulo)} · ${escHtml(cont.rot)}</span></div><button class="btn" onclick="continuar()">Continuar</button></div>` : ''}
+      ${avisoNovidade()}
+      ${avisoDatas()}
       ${alertaDoDia(itens)}
       ${tudo ? `<div class="nota" style="background:var(--seal-soft);color:#155f37">${ico('check')}<div><b>Plano de hoje concluído.</b> Amanhã já tem o próximo.${proximoTopico() ? ' <button class="btn link" onclick="adiantarTopico()">Adiantar o próximo tópico</button>' : ''}</div></div>` : ''}
       ${!itens.length ? `<div class="nota">${ico('check')}<div><b>Edital todo estudado.</b> Agora é revisão: os tópicos voltam no dia certo.</div></div>` : ''}
       <ul class="plano">${lista}</ul>
     </div>
     <aside class="lado">
+      ${blocoEvolucao()}
       <div class="bloco"><h3>Esta semana</h3>
         <div class="semana">${['S','T','Q','Q','S','S','D'].map((d,i)=>`<div class="${sem[i].cls}">${d}<i></i></div>`).join('')}</div>
         <p class="dim" style="font-size:13px;margin:12px 0 0">${seguidos ? `${seguidos} ${seguidos===1?'dia':'dias seguidos'} estudando.` : 'Comece hoje a sequência.'}</p></div>
@@ -1296,6 +1303,7 @@ function abaPainel(){
     </section>
 
     <div class="p-lado">
+      ${blocoFoco()}
       <section class="bloco"><h3>Revisões 1-7-30</h3>
         <p class="dim" style="font-size:13px;margin:0 0 10px">O que vence hoje. Revisar no dia certo é o que fixa.</p>
         <ul class="atencao">${itensHoje.map((it,k)=>({it,k})).filter(x=>x.it.tipo==='rev' && !x.it.feito).map(({it,k})=>`<li><div><b>${escHtml(it.titulo)}</b><span class="dim">${escHtml(it.extra)}</span></div>
@@ -1421,7 +1429,8 @@ async function ativarNotificacao(){
 function textoLembrete(){
   const it = S.trilhaAtual ? planoDoDia() : [];
   const rev = it.filter(i=>i.tipo==='rev'&&!i.feito).map(i=>i.titulo), novos = it.filter(i=>i.tipo==='est'&&!i.feito).map(i=>i.titulo);
-  return 'Revisar: ' + (rev.join(', ') || 'nada') + '. Estudar: ' + (novos.join(', ') || 'nada novo') + '.';
+  const datas = S.trilhaAtual ? datasPerto().slice(0,2).map(i=>i.evento+' ('+faltaTxt(i)+')') : [];
+  return 'Revisar: ' + (rev.join(', ') || 'nada') + '. Estudar: ' + (novos.join(', ') || 'nada novo') + '.' + (datas.length ? ' Datas: ' + datas.join(', ') + '.' : '');
 }
 function testarLembrete(){
   const corpo = textoLembrete();
@@ -1443,7 +1452,7 @@ setInterval(()=>{
 function aplicarTrilha(t){
   Object.assign(S, trilhaVazia());
   S.prova = {...S.prova, ...(t.prova||{})};
-  S.materias = t.materias || []; S.bancas = t.bancas || [];
+  S.materias = t.materias || []; S.bancas = t.bancas || []; S.cronograma = t.cronograma || [];
   const r = t.ritmo || {};
   S.horas = r.horas || 1.5; S.dias = r.dias || S.dias; S.dataProva = r.dataProva || S.dataProva; S.qtdQuestoes = r.qtdQuestoes || 10;
   S.formatoQuestoes = S.prova.formatoQuestoes || 'multipla5';
@@ -1589,7 +1598,7 @@ function nomeTelaAtual(){
   if(S.tela==='entrada') return 'Entrada';
   if(S.vista==='estudo') return 'Estudar tópico · ' + ((S.estudo && NOME_PARTE[S.estudo.parte]) || '');
   if(S.vista==='quiz') return 'Questões do dia';
-  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
+  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', datas:'Datas', ajuda:'Ajuda', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
 }
 let REP = null; // rascunho do reporte aberto
 const scriptsCarregados = {};
@@ -1978,6 +1987,7 @@ function render(semAnimar){
   if(foco){ const el = document.getElementById(foco); if(el){ el.focus(); if(pos!=null && el.setSelectionRange) try{ el.setSelectionRange(pos,pos); }catch(e){} } }
   sincronizarHistorico();
   if(window.aoRenderizar) aoRenderizar();
+  if(window.focoAoRenderizar) focoAoRenderizar();
 }
 function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
 addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });

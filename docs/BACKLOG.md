@@ -4,6 +4,14 @@ Pedidos do Victor ainda não implementados. Dívidas técnicas ficam em `DEBITO_
 
 Registrado em 31/10/2026.
 
+## Próximo: discursiva e raciocínio lógico
+
+**Pedido (31/10/2026).** Treino de discursiva: a pessoa informa a banca e a temática, escreve no editor do app ou manda a foto do que escreveu no papel, e a IA corrige e dá feedback. O sistema mostra a estrutura de redação daquela banca, como um gabarito modelo, com o que ela pede, a partir de provas discursivas corrigidas. O estudo é em passos: primeiro exercícios só de estrutura e ideias, depois os passos seguintes. Faltam também questões de raciocínio lógico.
+
+**Aguardando.** O Victor vai mandar uma "colinha" com o material que já fez. Não começar antes de receber.
+
+**Em aberto.** Pela regra de IA do produto, a estrutura da banca precisa vir de fontes reais e citadas. Falta definir como obter e guardar essas provas, porque a busca na internet feita pelo app ainda não existe.
+
 ## 1. Escolher o cargo antes de ler o edital
 
 **Pedido.** Em edital grande, com vários cargos, a pessoa escolhe o cargo e só então o sistema puxa as matérias.
