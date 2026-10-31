@@ -659,6 +659,7 @@ button.mt-chave{background:none;border:none;padding:0;font-family:inherit;cursor
 .rodape{text-align:center;font-size:12px;color:var(--text-dim);padding:8px 16px 84px;margin-top:-8px;}
 .rodape a{color:inherit;text-underline-offset:2px;}
 .rodape a:hover{color:var(--accent);}
+.rodape .versao{display:block;margin-top:4px;}
 body[data-tela=assist] .rodape{padding-bottom:110px;}
 /* convite do beta na entrada e no aceite */
 .beta{margin-top:18px;background:var(--accent-soft);color:var(--accent-deep);border-radius:var(--radius-sm);padding:14px 16px;font-size:14px;line-height:1.5;max-width:56ch;}
