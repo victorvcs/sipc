@@ -57,3 +57,11 @@ Pedido do Victor em 31/10/2026, na aba Datas: aceitar mais de um anexo, porque h
 Pedido do Victor em 31/10/2026, na Central de ajuda: hoje cada assunto é só uma lista de passos. Cada seção e funcionalidade deve ter prints do sistema e a opção "Me guiar", que mostra na tela como funciona.
 
 **Prints sempre atuais.** Quando o sistema mudar, os prints precisam ser atualizados automaticamente. O caminho a avaliar é um script com dados de exemplo que refaz as imagens antes de cada publicação.
+
+## 12. Vídeos sempre dentro da plataforma (prioridade)
+
+Reporte do Victor em 31/10/2026: no tópico "Conceitos de produtividade, eficiência, eficácia e competitividade", o vídeo não carregou e o app mandou buscar no YouTube. Isso não pode acontecer: tudo deve ficar na plataforma.
+
+**Causa provável, ainda não confirmada.** A chave existe e nenhum erro apareceu, então a busca deve ter voltado vazia. Ela junta o título inteiro do tópico, a matéria e "aula concurso", e depois só aceita vídeos de 3 a 30 minutos.
+
+**Correção proposta.** Quando a busca vier vazia, tentar de novo com termos mais curtos e, por fim, com a duração mais aberta. Trocar o link externo por uma mensagem dentro do app. A cota é de cerca de 100 buscas por dia, então as novas tentativas precisam ser poucas.
