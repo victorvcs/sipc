@@ -17,3 +17,7 @@ E-mail ou push automático exigem envio agendado fora do navegador, e o Firebase
 ## 3. Editar a trilha depois de criada
 
 Mudar a carga horária e o edital sem recriar a trilha (reporte do Rodolfo). A retificação ainda não altera a data da prova usada no plano.
+
+## 4. Detalhar a evolução na primeira redação
+
+Pedido do Victor em 31/10/2026, ao ver a aba Discursiva na v1.7: com uma redação só, Sua evolução e Correções guardadas mostram apenas a nota. O aluno precisa ver ali o detalhamento do feedback da última redação, como notas por critério e o que corrigir, sem depender da segunda redação.
