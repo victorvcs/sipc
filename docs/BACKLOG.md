@@ -42,4 +42,4 @@ Pedido do Victor em 31/10/2026, ao anexar um edital: depois da leitura, mostrar 
 
 ## 8. Tirar o excluir do cronograma
 
-Pedido do Victor em 31/10/2026, na aba Datas: o aluno não deve poder excluir as datas do cronograma, nem as que já passaram. O botão X sai dessas linhas. Falta confirmar se as datas que o próprio aluno adicionou continuam com a opção de excluir.
+Pedido do Victor em 31/10/2026, na aba Datas: o aluno não deve poder excluir as datas do cronograma, nem as que já passaram. O botão X sai dessas linhas. Decisão do Victor: o aluno continua podendo excluir apenas as datas que ele mesmo adicionou.
