@@ -65,3 +65,7 @@ Reporte do Victor em 31/10/2026: no tópico "Conceitos de produtividade, eficiê
 **Causa provável, ainda não confirmada.** A chave existe e nenhum erro apareceu, então a busca deve ter voltado vazia. Ela junta o título inteiro do tópico, a matéria e "aula concurso", e depois só aceita vídeos de 3 a 30 minutos.
 
 **Correção proposta.** Quando a busca vier vazia, tentar de novo com termos mais curtos e, por fim, com a duração mais aberta. Trocar o link externo por uma mensagem dentro do app. A cota é de cerca de 100 buscas por dia, então as novas tentativas precisam ser poucas.
+
+## 13. Seção de simulado
+
+Pedido do Victor em 31/10/2026: o SIPC também precisa ter uma seção de simulado. O pedido chegou incompleto, então formato, duração e resultado ainda serão definidos com ele.
