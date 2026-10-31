@@ -14,6 +14,8 @@ Atualizado em 31/10/2026.
 
 E-mail ou push automático exigem envio agendado fora do navegador, e o Firebase só oferece isso no plano pago. Hoje quem avisa é a agenda do Google do aluno.
 
+Pedido do Victor em 31/10/2026, na aba Datas: dar mais opções de aviso para cada data, como notificação no navegador, Google Agenda, Outlook e e-mail. WhatsApp ele mesmo considerou improvável, e e-mail já bastaria. Um botão de Outlook ou um arquivo de calendário para qualquer agenda são os caminhos a avaliar primeiro, por não exigirem envio agendado.
+
 ## 3. Editar a trilha depois de criada
 
 Mudar a carga horária e o edital sem recriar a trilha (reporte do Rodolfo). A retificação ainda não altera a data da prova usada no plano.
