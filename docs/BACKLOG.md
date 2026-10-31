@@ -1,37 +1,25 @@
 # SIPC — Backlog de funcionalidades
 
-Pedidos do Victor ainda não implementados. Dívidas técnicas ficam em `DEBITO_TECNICO.md`.
+Pedidos do Victor ainda não implementados. O que já foi feito está em `docs/EVOLUCOES.md`, e as dívidas técnicas em `DEBITO_TECNICO.md`.
 
-Registrado em 31/10/2026.
+Atualizado em 31/10/2026.
 
-## Próximo: discursiva e raciocínio lógico
+## 1. Rascunho à mão e iPad
 
-**Pedido (31/10/2026).** Treino de discursiva: a pessoa informa a banca e a temática, escreve no editor do app ou manda a foto do que escreveu no papel, e a IA corrige e dá feedback. O sistema mostra a estrutura de redação daquela banca, como um gabarito modelo, com o que ela pede, a partir de provas discursivas corrigidas. O estudo é em passos: primeiro exercícios só de estrutura e ideias, depois os passos seguintes. Faltam também questões de raciocínio lógico.
+**Pedido.** Em raciocínio lógico, matemática e redação, o aluno rascunha, desenha e escreve na tela, inclusive no iPad.
 
-**Aguardando.** O Victor vai mandar uma "colinha" com o material que já fez. Não começar antes de receber.
+**Caminho sugerido.** Área de desenho no navegador, com caneta, borracha e desfazer, que entende a pressão da Apple Pencil. O desenho vira imagem e segue pelo mesmo caminho da foto do papel.
 
-**Em aberto.** Pela regra de IA do produto, a estrutura da banca precisa vir de fontes reais e citadas. Falta definir como obter e guardar essas provas, porque a busca na internet feita pelo app ainda não existe.
+## 2. Estrutura de outras bancas
 
-## 1. Escolher o cargo antes de ler o edital
+**Pedido.** Identificar o que cada banca pede a partir de provas discursivas corrigidas.
 
-**Pedido.** Em edital grande, com vários cargos, a pessoa escolhe o cargo e só então o sistema puxa as matérias.
+**Limite.** A busca na internet da IA não existe no plano gratuito. O caminho é reunir o material de cada banca e guardar no app, como foi feito na FGV.
 
-**Motivo.** Um edital grande falhou na leitura, com `[500] This model is currently experiencing high demand`, e misturar cargos gera matérias erradas.
+## 3. Avisos com o site fechado
 
-**Decisão de 31/10/2026 (Victor).** O cargo é obrigatório: sem ele, a pessoa não segue e o edital não é lido. Assim a IA lê só as matérias daquele cargo.
+E-mail ou push automático exigem envio agendado fora do navegador, e o Firebase só oferece isso no plano pago. Hoje quem avisa é a agenda do Google do aluno.
 
-**Ponto de partida.** O app já tem `S.filtroCargo`, que `extrairEdital` usa para considerar um só cargo.
+## 4. Editar a trilha depois de criada
 
-## 2. Cronograma do concurso
-
-**Pedido.** Ao enviar o edital, o sistema monta o cronograma daquele concurso, com as datas importantes, para o candidato não esquecer, e depois notifica.
-
-**Regra.** Havendo retificação do edital, o candidato atualiza o PDF, ou envia só o novo cronograma.
-
-**Em aberto.** Canal de notificação (no próprio app, e-mail ou push). O app não tem backend próprio, e o plano continua gratuito (decisão em `DEBITO_TECNICO.md`, item 1).
-
-## 3. Novidades e central de ajuda
-
-**Pedido.** Toda funcionalidade nova entra como novidade para o usuário, explicando o que ela faz, e entra também na central de ajuda, que funciona como manual de uso do sistema.
-
-**Regra de trabalho.** A partir daqui, cada funcionalidade publicada atualiza as novidades e a central de ajuda.
+Mudar a carga horária e o edital sem recriar a trilha (reporte do Rodolfo). A retificação ainda não altera a data da prova usada no plano.

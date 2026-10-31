@@ -131,7 +131,7 @@ function admGeral(){
 
 const ROT_EVENTO = {login:'entrou', 'trilha-criada':'criou a trilha', 'trilha-aberta':'abriu a trilha', 'topico-aberto':'abriu o tópico', 'topico-concluido':'concluiu o tópico',
   revisao:'revisou', 'questoes-dia':'fez as questões do dia', 'edital-lido':'leu o edital', 'edital-erro':'teve erro ao ler o edital', reporte:'mandou um reporte',
-  'modo-teste':'ligou o modo teste', tour:'viu o tour', sair:'saiu da conta', 'foco-sessao':'registrou foco', tela:'abriu', 'ia-erro':'teve erro da IA'};
+  'modo-teste':'ligou o modo teste', tour:'viu o tour', sair:'saiu da conta', 'foco-sessao':'registrou foco', 'discursiva-corrigida':'corrigiu discursiva', 'logico-corrigido':'corrigiu raciocínio lógico', tela:'abriu', 'ia-erro':'teve erro da IA'};
 const rotuloEvento = e => (ROT_EVENTO[e.tipo] || e.tipo) + (e.d ? ': ' + e.d : '');
 
 /* ---------- alunos ---------- */

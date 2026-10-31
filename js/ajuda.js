@@ -3,6 +3,10 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.4', data:'31/10/2026', itens:[
+    ['Treino de discursiva', 'Cola do tema, 11 exercícios de estrutura e redação com correção por critérios, nota e versão modelo. Escreva no app ou mande a foto do papel.'],
+    ['Raciocínio lógico', 'Gere um exercício, resolva no app ou no papel e a IA mostra onde foi o erro.'],
+  ]},
   {versao:'1.3', data:'31/10/2026', itens:[
     ['Cronômetro de foco', 'Ligue ao começar a estudar e pause quando for fazer outra coisa. O Painel mostra as horas de hoje, da semana e o total.'],
     ['Cronograma do concurso', 'A aba Datas guarda inscrição, prova e outras datas do edital, avisa quando estão perto e manda para a sua agenda do Google.'],
@@ -23,6 +27,8 @@ const AJUDA = [
   ['Estudar um tópico', ['Cada tópico traz história, resumos, mapa mental, analogias, vídeos e flashcards.', 'Depois vêm as questões no estilo da sua banca, com a justificativa de cada alternativa.', 'Ao concluir, o tópico volta para revisão em 1, 7 e 30 dias.']],
   ['Cronômetro de foco', ['Toque em "Iniciar foco", no canto inferior esquerdo, ao começar a estudar.', 'Vai fazer outra coisa? Toque em "Pausar". Se você sair da página, ele pausa sozinho.', 'Use "Continuar" para retomar e "Encerrar" ao terminar a sessão.', 'As horas aparecem no Painel, em Tempo de foco.']],
   ['Sua evolução', ['Em Hoje, o quadro Sua evolução compara o seu foco cronometrado com a meta do dia.', 'Estudar além da meta adianta o plano e soma em "Dias adiantados".', 'O extra conta até 1,5 vez a meta, com teto de 6 horas por dia. Depois disso o melhor é descansar.', 'A cada 50 minutos de foco, o SIPC sugere uma pausa.']],
+  ['Treino de discursiva', ['Na aba Discursiva, informe a banca e o tema. Na FGV, há 6 temas de TI no Judiciário com a cola pronta.', 'Passo 1: leia a cola do tema.', 'Passo 2: treine só a estrutura, começando pelo C-D-A-R-F (Conceito, Desdobramento, Aplicação, Riscos e Fechamento).', 'Passo 3: escreva a redação no app ou mande a foto do papel.', 'A correção mostra a nota por critério, o que corrigir, os erros de português e uma versão modelo. A nota é uma estimativa, não a da banca.', 'Tem o espelho da banca? Cole no campo próprio: a correção segue o que ele pede.']],
+  ['Raciocínio lógico', ['Na aba Discursiva, escolha Raciocínio lógico e informe o assunto.', 'Resolva passo a passo no app ou no papel, e mande a foto.', 'A IA mostra se acertou, em qual passo errou e o que treinar. Confira a resolução: a IA também pode errar.']],
   ['Cronograma do concurso', ['Na aba Datas ficam as datas lidas do edital. Confira sempre no edital original.', 'Toque em Agenda para levar a data à sua agenda do Google e ser avisado mesmo com o SIPC fechado.', 'Saiu retificação? Em "Saiu retificação?", mande o arquivo novo ou cole só o cronograma.', 'Para incluir um compromisso seu, use "Adicionar uma data". Ele não é apagado nas retificações.']],
   ['Lembretes', ['Em Conta, escolha o horário e ative a notificação do navegador.', 'O aviso chega enquanto o SIPC estiver aberto em alguma aba.']],
   ['Reportar um problema ou ideia', ['Toque em Reportar, no canto inferior direito.', 'Conte o que aconteceu. O print da tela ajuda a resolver mais rápido.']],

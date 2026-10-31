@@ -66,7 +66,7 @@ function trilhaVazia(){
   };
 }
 function somarDiasHoje(n){ const d = new Date(); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
-function estadoVazio(){ return {feito:{}, revisoes:[], parcial:{}, questoes:[], minutos:{}, rascunhos:{}, diario:{}, foco:{}}; }
+function estadoVazio(){ return {feito:{}, revisoes:[], parcial:{}, questoes:[], minutos:{}, rascunhos:{}, diario:{}, foco:{}, discursivas:[]}; }
 const uid = () => S.usuario ? S.usuario.uid : 'visitante';
 const ehAdmin = () => !!(S.usuario && S.usuario.email === SIPC.ADMIN_EMAIL);
 // estadoOk só fica verdadeiro depois que o estado da trilha foi lido: gravar
@@ -528,7 +528,7 @@ const ROTULO = {rev:['Revisão','rev'], est:['Estudar','est'], q:['Questões','q
 
 function telaApp(){
   const r = ritmo();
-  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['datas','Datas'],['conta','Conta']];
+  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['conta','Conta']];
   if(ehAdmin()) abas.push(['admin','Admin']);
   let corpo = '';
   if(S.vista==='estudo') corpo = vistaEstudo();
@@ -536,6 +536,7 @@ function telaApp(){
   else if(S.aba==='hoje') corpo = abaHoje();
   else if(S.aba==='trilha') corpo = abaTrilha();
   else if(S.aba==='revisoes') corpo = abaRevisoes();
+  else if(S.aba==='discursiva') corpo = abaDiscursiva();
   else if(S.aba==='datas') corpo = abaDatas();
   else if(S.aba==='ajuda') corpo = abaAjuda();
   else if(S.aba==='conta') corpo = abaConta();
@@ -1598,7 +1599,7 @@ function nomeTelaAtual(){
   if(S.tela==='entrada') return 'Entrada';
   if(S.vista==='estudo') return 'Estudar tópico · ' + ((S.estudo && NOME_PARTE[S.estudo.parte]) || '');
   if(S.vista==='quiz') return 'Questões do dia';
-  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', datas:'Datas', ajuda:'Ajuda', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
+  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', discursiva:'Discursiva', datas:'Datas', ajuda:'Ajuda', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
 }
 let REP = null; // rascunho do reporte aberto
 const scriptsCarregados = {};
