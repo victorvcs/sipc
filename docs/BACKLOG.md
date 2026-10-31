@@ -39,3 +39,7 @@ Pedido do Victor em 31/10/2026, ao ver o Mapa visual de um tópico: o mapa só c
 Pedido do Victor em 31/10/2026, ao anexar um edital: depois da leitura, mostrar um resumo do concurso e do cargo. Salário e benefícios saem do próprio edital. Candidatos por vaga, com referência no concurso anterior, editais passados e progressão na carreira, com o salário em cada nível, entram só quando forem públicos.
 
 **Limite.** O que vem do edital já está ao alcance da leitura atual. O resto depende de fonte externa, e a busca na internet da IA não existe no plano gratuito. A IA não pode inventar: dado sem fonte citada fica de fora, e simulação aparece como estimativa.
+
+## 8. Tirar o excluir do cronograma
+
+Pedido do Victor em 31/10/2026, na aba Datas: o aluno não deve poder excluir as datas do cronograma, nem as que já passaram. O botão X sai dessas linhas. Falta confirmar se as datas que o próprio aluno adicionou continuam com a opção de excluir.
