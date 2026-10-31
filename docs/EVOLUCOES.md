@@ -15,9 +15,9 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.0 | publicada | `38ce071` | Primeira versão com alunos |
 | 1.1 | publicada | `a350eab` | IA gratuita e estável; versão no rodapé |
 | 1.2 | publicada | `6c09c43` | Cargo obrigatório no edital |
-| 1.3 | publicada, em uso | `bfaae37` | Foco, evolução, cronograma, novidades e ajuda |
-| 1.4 | **em teste local** | branch `feature/discursiva` | Discursiva e raciocínio lógico |
-| 1.5 | **em teste local** | branch `feature/rascunho-a-mao` | Escrita e rascunho à mão, inclusive no iPad |
+| 1.3 | publicada | `bfaae37` | Foco, evolução, cronograma, novidades e ajuda |
+| 1.4 | publicada | `7d65903` | Discursiva e raciocínio lógico |
+| 1.5 | publicada, em uso | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
 
 ---
 
@@ -95,7 +95,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 
 **Regra de trabalho.** Toda funcionalidade publicada entra em `NOVIDADES` e em `AJUDA`, em `js/ajuda.js`, e neste arquivo.
 
-## v1.4 — Treino de discursiva (em teste local)
+## v1.4 — Treino de discursiva
 
 **O que faz.** O aluno informa banca e tema, lê a cola, treina a estrutura e escreve a redação no app ou manda a foto do papel. A IA dá nota por critério, o que corrigir, os erros de português e uma versão modelo.
 
@@ -111,7 +111,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - A foto é recriada no navegador (até 1600 px, JPEG), enviada à IA e não é guardada.
 - O histórico guarda só tema, nota e data, nunca o texto, por causa do limite do documento.
 
-## v1.4 — Raciocínio lógico (em teste local)
+## v1.4 — Raciocínio lógico
 
 **O que faz.** Gera um exercício, recebe a resolução em texto ou foto e mostra se acertou, onde errou e o que treinar.
 
