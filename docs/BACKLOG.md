@@ -51,3 +51,9 @@ Pedido do Victor em 31/10/2026, na aba Datas: dois dias antes de uma data do cro
 ## 10. Mais de um arquivo no cronograma
 
 Pedido do Victor em 31/10/2026, na aba Datas: aceitar mais de um anexo, porque há concursos com edital e cronograma separados ou com outros anexos. O sistema lê todos e junta as datas. O nome da aba continua Datas, que ele considerou bom.
+
+## 11. Central de ajuda com prints e guias
+
+Pedido do Victor em 31/10/2026, na Central de ajuda: hoje cada assunto é só uma lista de passos. Cada seção e funcionalidade deve ter prints do sistema e a opção "Me guiar", que mostra na tela como funciona.
+
+**Prints sempre atuais.** Quando o sistema mudar, os prints precisam ser atualizados automaticamente. O caminho a avaliar é um script com dados de exemplo que refaz as imagens antes de cada publicação.
