@@ -31,3 +31,9 @@ Pedido do Victor em 31/10/2026, ao ver as duas telas na v1.7: a trilha de cada c
 Pedido do Victor em 31/10/2026, ao ver o Mapa visual de um tópico: o mapa só com caixas de texto está pobre. A ideia é usar imagens, ilustrações ou outras representações gráficas, vindas de algum recurso ou API.
 
 **Limite.** O projeto segue no plano gratuito, então a fonte precisa ser gratuita, ter licença de uso clara e não inventar conteúdo.
+
+## 7. Visão geral do concurso
+
+Pedido do Victor em 31/10/2026, ao anexar um edital: depois da leitura, mostrar um resumo do concurso e do cargo. Salário e benefícios saem do próprio edital. Candidatos por vaga, com referência no concurso anterior, editais passados e progressão na carreira, com o salário em cada nível, entram só quando forem públicos.
+
+**Limite.** O que vem do edital já está ao alcance da leitura atual. O resto depende de fonte externa, e a busca na internet da IA não existe no plano gratuito. A IA não pode inventar: dado sem fonte citada fica de fora, e simulação aparece como estimativa.
