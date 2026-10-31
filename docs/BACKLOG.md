@@ -43,3 +43,11 @@ Pedido do Victor em 31/10/2026, ao anexar um edital: depois da leitura, mostrar 
 ## 8. Tirar o excluir do cronograma
 
 Pedido do Victor em 31/10/2026, na aba Datas: o aluno não deve poder excluir as datas do cronograma, nem as que já passaram. O botão X sai dessas linhas. Decisão do Victor: o aluno continua podendo excluir apenas as datas que ele mesmo adicionou.
+
+## 9. Lembrete de retificação antes das datas
+
+Pedido do Victor em 31/10/2026, na aba Datas: dois dias antes de uma data do cronograma, avisar o aluno para conferir se saiu retificação do edital. O canal do aviso segue o item 2.
+
+## 10. Mais de um arquivo no cronograma
+
+Pedido do Victor em 31/10/2026, na aba Datas: aceitar mais de um anexo, porque há concursos com edital e cronograma separados ou com outros anexos. O sistema lê todos e junta as datas. O nome da aba continua Datas, que ele considerou bom.
