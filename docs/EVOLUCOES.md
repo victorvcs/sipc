@@ -17,6 +17,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.2 | publicada | `6c09c43` | Cargo obrigatório no edital |
 | 1.3 | publicada, em uso | `bfaae37` | Foco, evolução, cronograma, novidades e ajuda |
 | 1.4 | **em teste local** | branch `feature/discursiva` | Discursiva e raciocínio lógico |
+| 1.5 | **em teste local** | branch `feature/rascunho-a-mao` | Escrita e rascunho à mão, inclusive no iPad |
 
 ---
 
@@ -118,3 +119,24 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - A correção compara com a resolução guardada ao gerar o exercício.
 - A resolução só aparece depois de o aluno enviar a dele.
 - A IA pode errar conta: a Central de ajuda orienta conferir a resolução.
+
+## v1.5 — Escrita e rascunho à mão
+
+**O que faz.** Uma folha de desenho com caneta, borracha, desfazer e limpar. Na Redação e no Raciocínio lógico, ela é alternativa à foto do papel. No Rascunho das questões, é a aba Desenhar, ao lado do texto. Funciona com Apple Pencil, dedo e mouse.
+
+**Objetivo.** Deixar o aluno resolver matemática e raciocínio lógico e treinar a redação à mão, como na prova, sem precisar de papel e câmera.
+
+**Racional.** Os portais costumam usar folha livre, teclado de fórmulas, reconhecimento de escrita ou foto para a IA. Teclado de fórmulas é lento para rascunhar, e reconhecimento de escrita é serviço pago. A folha livre com imagem para a IA não tem custo novo: o `gemini-3.5-flash-lite` já lê imagem e o campo `foto` de `DC()` já existia. Decisão do Victor: o desenho fica no aparelho do aluno, sem custo e sem depender do plano Blaze.
+
+**Regras de negócio.**
+- O desenho nunca vai para o Firestore, cujo documento tem limite de 1 MB. Fica no `localStorage`, por usuário, em `sipc::folha::<uid>::<chave>`.
+- Visitante e modo teste não guardam: o desenho some ao recarregar.
+- Guardam-se até 40 folhas e 3 milhões de caracteres; ao passar disso, saem as mais antigas.
+- Na correção, a folha vira JPEG em fundo branco, de 1200 por 1600, e preenche `foto`. O quadriculado é só visual.
+- O rascunho das questões não vai para a IA.
+- Só a caneta varia o traço com a pressão; mouse e dedo têm largura fixa.
+- Se a caneta foi usada há menos de 60 s, o toque é tratado como palma e ignorado. Se a palma encostou primeiro, a caneta descarta o risco dela.
+- Limpar pode ser desfeito, até 50 passos. O histórico do desfazer não sobrevive a recarregar a página.
+- Um novo exercício de raciocínio lógico limpa a folha dele.
+
+**Custo conhecido.** O desenho não acompanha o aluno para outro aparelho. Se isso for pedido, a opção gratuita é um documento por desenho no Firestore, mais mudança nas regras do banco.

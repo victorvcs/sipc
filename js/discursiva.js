@@ -1,8 +1,8 @@
 /* ------------------------- discursiva e raciocínio lógico -------------------------
    Treino em passos: cola do tema, exercício de estrutura e redação, escrita aqui
-   ou em foto do papel. As regras e o material estão em js/nucleo/discursiva.js.
+   à mão na tela ou em foto do papel. As regras e o material estão em js/nucleo/discursiva.js.
    Tudo que a IA devolve passa por escHtml. Script comum, depois do app.js. */
-const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', corr:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
+const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', mao:false, corr:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
 const DC = () => S.dc ??= novoDC();
 const temaFGV = () => { const d = DC(); return SIPC.discursiva.ehFGV(d.banca) ? SIPC.discursiva.TEMAS_FGV.find(t=>t.tema===d.tema) || null : null; };
 const estruturaAtual = () => SIPC.discursiva.ESTRUTURAS.find(e=>e.id===DC().estr);
@@ -30,11 +30,26 @@ async function dcEscolherFoto(input){
 }
 function dcTirarFoto(){ const d = DC(); d.foto = null; d.fotoNome = ''; render(true); }
 
+// A folha à mão vira JPEG só na hora de corrigir e segue pelo mesmo campo da foto.
+const NOME_DESENHO = 'Escrito à mão na tela';
+const folhaDC = () => 'dc#' + DC().tipo;
+function dcModoMao(sim){
+  const d = DC(); d.mao = sim;
+  if(!sim && d.fotoNome === NOME_DESENHO){ d.foto = null; d.fotoNome = ''; }
+  render(true);
+}
+function dcUsarDesenho(){
+  const d = DC(); if(!d.mao) return;
+  if(folhaTemDesenho(folhaDC())){ d.foto = folhaParaJPEG(folhaDC(), SIPC.desenho.ALTURA_FOLHA); d.fotoNome = NOME_DESENHO; }
+  else if(d.fotoNome === NOME_DESENHO){ d.foto = null; d.fotoNome = ''; }
+}
+
 async function dcCorrigir(modo){
   const d = DC();
   const texto = modo === 'estrutura' ? SIPC.discursiva.textoDaEstrutura(estruturaAtual(), d.partes) : d.texto.trim();
   if(!d.tema.trim()){ d.erro = 'Escreva o tema primeiro.'; return render(true); }
-  if(modo === 'estrutura' ? !texto : (!texto && !d.foto)){ d.erro = modo === 'estrutura' ? 'Preencha pelo menos uma parte.' : 'Escreva o texto ou anexe a foto.'; return render(true); }
+  if(modo !== 'estrutura') dcUsarDesenho();
+  if(modo === 'estrutura' ? !texto : (!texto && !d.foto)){ d.erro = modo === 'estrutura' ? 'Preencha pelo menos uma parte.' : 'Escreva o texto, use a folha à mão ou anexe a foto.'; return render(true); }
   d.ocupado = 'Corrigindo no padrão da banca…'; d.erro = null; d.corr = null; render(true);
   try{
     limiteVisitante();
@@ -47,14 +62,14 @@ async function dcCorrigir(modo){
 }
 async function dcNovoLogico(){
   const d = DC(); if(!d.tema.trim()){ d.erro = 'Escreva o assunto primeiro.'; return render(true); }
-  d.ocupado = 'Preparando o exercício…'; d.erro = null; d.ex = null; d.corrLog = null; d.resposta = ''; d.foto = null; render(true);
+  d.ocupado = 'Preparando o exercício…'; d.erro = null; d.ex = null; d.corrLog = null; d.resposta = ''; d.foto = null; d.fotoNome = ''; trocarFolha(folhaDC(), SIPC.desenho.folhaVazia()); render(true);
   try{ limiteVisitante(); d.ex = await SIPC.ia.gerarExercicioLogico({banca:d.banca, assunto:d.tema}); }
   catch(e){ d.erro = mensagemIA(e); }
   d.ocupado = null; render(true);
 }
 async function dcCorrigirLogico(){
-  const d = DC();
-  if(!d.resposta.trim() && !d.foto){ d.erro = 'Escreva a sua resolução ou anexe a foto.'; return render(true); }
+  const d = DC(); dcUsarDesenho();
+  if(!d.resposta.trim() && !d.foto){ d.erro = 'Escreva a sua resolução, use a folha à mão ou anexe a foto.'; return render(true); }
   d.ocupado = 'Conferindo a sua resolução…'; d.erro = null; render(true);
   try{
     limiteVisitante();
@@ -68,9 +83,14 @@ async function dcCorrigirLogico(){
 const listaHTML = l => `<ul>${l.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul>`;
 function campoFoto(){
   const d = DC();
-  return `<div class="campo-f"><label class="f" for="dcFoto">Escreveu no papel? Mande a foto</label>
+  const privacidade = 'Não inclua nome, CPF ou outros dados pessoais: a imagem vai para a IA do Google.';
+  return `<div class="campo-f"><div class="dc-temas" role="group" aria-label="Como enviar o texto à mão">
+      <button type="button" class="chip ${d.mao?'':'on'}" aria-pressed="${!d.mao}" onclick="dcModoMao(false)">Foto do papel</button>
+      <button type="button" class="chip ${d.mao?'on':''}" aria-pressed="${d.mao}" onclick="dcModoMao(true)">Escrever à mão na tela</button></div>
+    ${d.mao ? `${folhaHTML(folhaDC(), SIPC.desenho.ALTURA_FOLHA, 'Folha para escrever à mão')}
+    <p class="dica">Letra grande e clara ajuda a IA a ler. Para rolar a página, arraste fora da folha. ${privacidade}</p>` : `<label class="f" for="dcFoto">Escreveu no papel? Mande a foto</label>
     ${d.foto ? `<p class="dc-foto">Foto pronta: ${escHtml(d.fotoNome)} <button class="btn link" onclick="dcTirarFoto()">Trocar</button></p>` : `<input type="file" id="dcFoto" accept="image/jpeg,image/png,image/webp" onchange="dcEscolherFoto(this)">`}
-    <p class="dica">Foto reta, com boa luz, só com o texto. Não inclua nome, CPF ou outros dados pessoais: a imagem vai para a IA do Google.</p></div>`;
+    <p class="dica">Foto reta, com boa luz, só com o texto. ${privacidade}</p>`}</div>`;
 }
 function correcaoHTML(c){
   return `<section class="bloco dc-corr" aria-live="polite"><h3>Correção</h3>

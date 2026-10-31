@@ -391,8 +391,10 @@ label.f{display:block;font-size:13px;font-weight:600;margin:0 0 6px;}
 .rasc-ferr{margin-left:auto;display:flex;gap:2px;}
 .rasc-texto{border:none;border-radius:0;background:transparent;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.7;resize:vertical;min-height:120px;}
 .rasc-texto:focus{box-shadow:none;}
-.rasc-tela{display:block;width:100%;aspect-ratio:1200/420;touch-action:none;cursor:crosshair;
+.rasc-tela{display:block;width:100%;touch-action:none;cursor:crosshair;background-color:#fffef8;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
   background-image:linear-gradient(var(--line) 1px, transparent 1px),linear-gradient(90deg, var(--line) 1px, transparent 1px);background-size:24px 24px;}
+.folha .rasc-abas button{min-height:40px;}
+.campo-f .folha{margin-top:10px;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;}
 
 /* revisão 1-7-30 */
 .alerta{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);}

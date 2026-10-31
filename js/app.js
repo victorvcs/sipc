@@ -1332,21 +1332,24 @@ function estudarAtencao(k){ const x = S._atencao[k]; if(!x) return; const rev = 
 })();
 
 /* ------------------------- rascunho por questão -------------------------
-   Como a folha de rascunho da prova: texto livre, salvo por questão. (O
-   desenho com caneta fica para a v1.1.) */
-const RASC_ABERTO = {};
+   Como a folha de rascunho da prova: texto livre, salvo por questão, ou desenho
+   à mão, que fica só neste aparelho (js/desenho.js). */
+const RASC_ABERTO = {}, RASC_MODO = {};
 function rascunhoHTML(key){
   const k = encodeURIComponent(key).replace(/'/g,"%27");
   const txt = (S.E.rascunhos||{})[key] || '';
-  const aberto = !!RASC_ABERTO[key];
+  const aberto = !!RASC_ABERTO[key], desenhar = RASC_MODO[key] === 'desenhar';
+  const aba = (m, n) => `<button type="button" role="tab" aria-selected="${(m==='desenhar')===desenhar}" class="${(m==='desenhar')===desenhar?'on':''}" onclick="rascunhoModo('${k}','${m}')">${n}</button>`;
   return `<div class="rasc">
     <button class="rasc-btn ${aberto?'on':''}" onclick="alternarRascunho('${k}')" aria-expanded="${aberto}">
       <svg class="ico" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
-      Rascunho${txt.trim()?' <span class="rasc-salvo">salvo</span>':''}</button>
-    ${aberto ? `<div class="rasc-painel"><textarea id="rt_${k}" class="rasc-texto" rows="5" placeholder="Anote o que quiser: contas, a tabela-verdade, as premissas…" oninput="guardarRascunho('${k}',this.value)">${escHtml(txt)}</textarea></div>` : ''}
+      Rascunho${txt.trim()||folhaTemDesenho(key)?' <span class="rasc-salvo">salvo</span>':''}</button>
+    ${aberto ? `<div class="rasc-painel"><div class="rasc-abas" role="tablist" aria-label="Tipo de rascunho">${aba('escrever','Escrever')}${aba('desenhar','Desenhar')}</div>
+      ${desenhar ? folhaHTML(key, SIPC.desenho.ALTURA_RASCUNHO, 'Área de desenho do rascunho') : `<textarea id="rt_${k}" class="rasc-texto" rows="5" placeholder="Anote o que quiser: contas, a tabela-verdade, as premissas…" oninput="guardarRascunho('${k}',this.value)">${escHtml(txt)}</textarea>`}</div>` : ''}
   </div>`;
 }
 function alternarRascunho(k){ const key = decodeURIComponent(k); RASC_ABERTO[key] = !RASC_ABERTO[key]; render(true); }
+function rascunhoModo(k, m){ RASC_MODO[decodeURIComponent(k)] = m; render(true); }
 function guardarRascunho(k, v){ (S.E.rascunhos = S.E.rascunhos || {})[decodeURIComponent(k)] = v; salvarE(); }
 
 /* ------------------------- conta e lembretes ------------------------- */
@@ -1989,6 +1992,7 @@ function render(semAnimar){
   sincronizarHistorico();
   if(window.aoRenderizar) aoRenderizar();
   if(window.focoAoRenderizar) focoAoRenderizar();
+  if(window.desenhoAoRenderizar) desenhoAoRenderizar();
 }
 function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
 addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });
