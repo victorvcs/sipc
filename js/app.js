@@ -534,10 +534,54 @@ function planoDoDia(){
 }
 const ROTULO = {rev:['Revisão','rev'], est:['Estudar','est'], q:['Questões','q']};
 
+// Grupos do menu. No celular, os itens de MENU_INFERIOR ficam na barra e o resto em Mais.
+const MENU = [
+  ['Estudar', [['hoje','Hoje','hoje'],['trilha','Trilha','trilha'],['revisoes','Revisões','revisao'],['discursiva','Discursiva','caneta']]],
+  ['Acompanhar', [['painel','Painel','painel'],['datas','Datas','datas']]],
+  ['Geral', [['novidades','Novidades','spark'],['ajuda','Ajuda','ajuda'],['conta','Conta','conta']]],
+];
+const MENU_INFERIOR = ['hoje','trilha','revisoes','painel'];
+function itensDoMenu(){
+  const grupos = MENU.map(([g,itens])=>[g, itens.slice()]);
+  if(ehAdmin()) grupos[2][1].push(['admin','Admin','admin']);
+  return grupos;
+}
+function selosDoItem(k){
+  if(k==='novidades' && novidadeNaoVista()) return '<i class="nov-ponto" title="Tem novidade"></i>';
+  if(k==='revisoes'){ const n = revisoesDeHoje().filter(x=>!x.feita).length; if(n) return `<span class="menu-selo num" title="${n} para hoje">${n}</span>`; }
+  return '';
+}
+function itemMenu([k,n,i]){
+  return `<button class="menu-item ${S.aba===k?'on':''}" data-aba="${k}" ${S.aba===k?'aria-current="page"':''} onclick="irAba('${k}')">${ico(i)}<span>${n}</span>${selosDoItem(k)}</button>`;
+}
+function trocaTrilha(c=''){
+  return `<button class="troca-trilha ${c}" onclick="irAba('trilhas')" title="${escHtml(S.prova.nome)}" aria-label="Minhas trilhas. Trilha aberta: ${escHtml(S.prova.nome)}"><span><b>${escHtml(S.prova.nome)}</b><small>Banca ${escHtml(bancasTxt())}</small></span>${ico('troca')}</button>`;
+}
+function menuLateral(grupos){
+  return `<aside class="lateral"><span class="marca">SIPC</span>${trocaTrilha()}
+    <nav class="menu-lateral" aria-label="Seções">${grupos.map(([g,itens])=>`<div class="menu-grupo"><span>${g}</span>${itens.map(itemMenu).join('')}</div>`).join('')}</nav>
+  </aside>`;
+}
+function menuInferior(grupos){
+  const todos = grupos.flatMap(([,itens])=>itens), naBarra = MENU_INFERIOR.map(k=>todos.find(x=>x[0]===k));
+  const emMais = todos.filter(x=>!MENU_INFERIOR.includes(x[0])), maisOn = emMais.some(x=>x[0]===S.aba);
+  return `<div class="mais-folha" id="maisFolha" data-sem-print hidden onclick="if(event.target===this)alternarMais()">
+      <nav class="mais-in" aria-label="Mais seções">${emMais.map(itemMenu).join('')}
+        <button class="menu-item" onclick="irAba('trilhas')">${ico('troca')}<span>Minhas trilhas</span></button></nav>
+    </div>
+    <nav class="menu-inferior" data-sem-print aria-label="Seções">${naBarra.map(itemMenu).join('')}
+      <button class="menu-item ${maisOn?'on':''}" id="maisBtn" aria-expanded="false" aria-controls="maisFolha" onclick="alternarMais()">${ico('mais')}<span>Mais</span>${novidadeNaoVista()?'<i class="nov-ponto" title="Tem novidade"></i>':''}</button></nav>`;
+}
+// O render recria a folha fechada, então trocar de tela já a fecha.
+function alternarMais(){
+  const f = document.getElementById('maisFolha'), b = document.getElementById('maisBtn'); if(!f) return;
+  const abrir = f.hidden; f.hidden = !abrir; b.setAttribute('aria-expanded', abrir);
+  if(abrir) f.querySelector('button').focus(); else b.focus();
+}
+
 function telaApp(){
   const r = ritmo();
-  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['novidades','Novidades'],['ajuda','Ajuda'],['trilhas','Minhas trilhas'],['conta','Conta']];
-  if(ehAdmin()) abas.push(['admin','Admin']);
+  const grupos = itensDoMenu();
   let corpo = '';
   if(S.vista==='estudo') corpo = vistaEstudo();
   else if(S.vista==='quiz') corpo = vistaQuiz();
@@ -551,14 +595,17 @@ function telaApp(){
   else if(S.aba==='conta') corpo = abaConta();
   else if(S.aba==='admin') corpo = abaAdmin();
   else corpo = abaPainel();
+  const sub = `${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}`;
+  const nomeAba = (grupos.flatMap(([,itens])=>itens).find(x=>x[0]===S.aba) || [,'Painel'])[1];
   return `<div class="app">
-    <div class="topo">
-      <div><h1>${escHtml(S.prova.nome)}</h1><div class="sub">${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}</div></div>
+    ${S.vista ? '' : menuLateral(grupos)}
+    <div class="topo ${MENU_INFERIOR.includes(S.aba)?'tit-na-barra':''}">
+      <div class="topo-tit">${S.vista ? `<h1>${escHtml(S.prova.nome)}</h1>` : `${trocaTrilha('no-topo')}<h1>${nomeAba}</h1>`}<div class="sub">${sub}</div></div>
       <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova</div>
     </div>
-    ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" data-aba="${k}" onclick="irAba('${k}')">${n}${k==='novidades'&&novidadeNaoVista()?'<i class="nov-ponto" title="Tem novidade"></i>':''}</button>`).join('')}</nav>`}
     <div class="tela" key="${S.vista||S.aba}">${corpo}</div>
     ${alertaNovidade()}
+    ${S.vista ? '' : menuInferior(grupos)}
   </div>`;
 }
 function irAba(k){ if(k==='trilhas') return irTrilhas(); S.aba = k; if(k==='admin') carregarAdmin(); render(); }
@@ -1280,8 +1327,15 @@ function abaPainel(){
     const feitos = m.topicos.filter(t=>S.E.feito[chave(m.nome,t)]).length;
     const qs = Object.entries(porChave).filter(([c])=>c.startsWith(m.nome+'::')).map(([,v])=>v);
     const a = acertoGeral(qs);
-    return {m, cob: Math.round(feitos/Math.max(1,m.topicos.length)*100), ac: a.total ? a.pct : null};
+    const topicos = m.topicos.map(t=>{
+      const c = chave(m.nome,t), q = porChave[c] || {}, rev = S.E.revisoes.find(x=>x.chave===c);
+      return {t, nivel: SIPC.dominio.nivelDoTopico({feito:!!S.E.feito[c], consolidado:!!(rev && rev.consolidado), acertos:q.acertos, total:q.total})};
+    });
+    const prox = m.topicos.find(t=>!S.E.feito[chave(m.nome,t)]);
+    return {m, feitos, topicos, prox, res: SIPC.dominio.resumoDosNiveis(topicos.map(x=>x.nivel)), ac: a.total ? a.pct : null};
   }).sort((a,b)=>b.m.peso-a.m.peso);
+  S._proximos = mats;
+  const nomesNivel = Object.fromEntries(SIPC.dominio.NIVEIS.map(n=>[n.id,n.nome]));
   const fracos = S._atencao = Object.entries(porChave).map(([c,v])=>({c, mat:c.split('::')[0], top:c.split('::').slice(1).join('::'), pct: Math.round(v.acertos/v.total*100)}))
     .filter(x=>x.pct < 70).sort((a,b)=>a.pct-b.pct).slice(0,3);
   const revHoje = revisoesDeHoje().filter(x=>!x.feita);
@@ -1290,12 +1344,9 @@ function abaPainel(){
     <section class="bloco p-abre">
       <div class="p-status ${pace.dias>=0?'ok':''}">${ico(pace.dias>=0?'check':'info')} ${pace.dias>=0?'No ritmo':'Um pouco atrás'}</div>
       <h2>${pace.dias===0 ? 'Você está em dia com o plano' : 'Você está ' + pace.texto}</h2>
-      <p class="dim">${cob}% do edital coberto. ${restante>0 ? `Nesse passo, você fecha o conteúdo em <b>${fmtData(dataDe(fim),{day:'2-digit',month:'2-digit',year:'numeric'})}</b>${sobra>0?`, ${sobra} dias antes da prova, para revisar e fazer questões`:sobra<0?`, ${-sobra} dias depois da prova: vale estudar um pouco mais por dia`:''}.` : 'Edital todo estudado: agora é revisão.'}</p>
-      ${graficoLinha(P)}
-      <div class="g-legenda"><span><i class="l-real"></i>Realizado</span><span><i class="l-plano"></i>Planejado</span></div>
+      <p class="dim">${restante>0 ? `Nesse passo, você fecha o conteúdo em <b>${fmtData(dataDe(fim),{day:'2-digit',month:'2-digit',year:'numeric'})}</b>${sobra>0?`, ${sobra} dias antes da prova, para revisar e fazer questões`:sobra<0?`, ${-sobra} dias depois da prova: vale estudar um pouco mais por dia`:''}.` : 'Edital todo estudado: agora é revisão.'}</p>
+      <div class="p-edital"><div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${cob}" aria-label="Edital coberto"><i style="width:${Math.max(cob,1)}%"></i></div><span><b class="num">${cob}%</b> do edital coberto</span></div>
     </section>
-
-    ${cartaoDatas()}
 
     <section class="kpis" aria-label="Indicadores da semana">
       <div class="kpi"><span class="k-rot">Estudo nos últimos 7 dias</span><span class="k-val">${horasTxt(semana)}</span><span class="k-delta ${semana>anterior?'up':''}">${anterior ? (semana>=anterior ? `${semana-anterior} min a mais que a semana anterior` : `${anterior-semana} min a menos que a semana anterior`) : 'primeira semana'}</span></div>
@@ -1304,17 +1355,25 @@ function abaPainel(){
       <div class="kpi"><span class="k-rot">Dias seguidos</span><span class="k-val">${diasSeguidos()}</span><span class="k-delta">${faltouOntem()?'recomeça hoje, sem problema':'dias com estudo registrado'}</span></div>
     </section>
 
-    <section class="bloco p-mat">
-      <h3>Por matéria</h3>
-      <p class="dim" style="font-size:13px;margin:0 0 12px">Quanto do conteúdo de cada uma você já estudou, da que vale mais para a que vale menos.</p>
-      <div class="pm-cab"><span>Matéria</span><span>Coberto</span><span>Acerto</span></div>
-      ${mats.map(x=>`<div class="pm-linha" tabindex="0" data-tip="${escHtml(x.m.nome)}: ${x.cob}% coberto${x.ac!==null?' · '+x.ac+'% de acerto':''}">
-        <span class="pm-nome">${escHtml(x.m.nome)}<small>${S.prova.pesoTipo==='chance'?'chance '+x.m.peso+'%':'peso '+x.m.peso}</small></span>
-        <span class="pm-barra"><span class="peso-barra"><i style="width:${Math.max(x.cob,1.5)}%"></i></span><b>${x.cob}%</b></span>
-        <span class="pm-ac">${x.ac===null?'<span class="dim">—</span>':x.ac+'%'}</span></div>`).join('')}
-    </section>
+    <div class="p-centro">
+      <section class="bloco p-mat">
+        <h3>Domínio por matéria</h3>
+        <p class="dim" style="font-size:13px;margin:0 0 10px">Cada quadrado é um tópico, da matéria que vale mais para a que vale menos.</p>
+        <div class="dom-legenda">${SIPC.dominio.NIVEIS.map(n=>`<span><i class="dq ${n.id}"></i>${n.nome}</span>`).join('')}</div>
+        <ul class="dom-lista">${mats.map((x,i)=>`<li class="dom">
+          <div class="dom-cab"><b>${escHtml(x.m.nome)}</b><span class="dim">${S.prova.pesoTipo==='chance'?'chance '+x.m.peso+'%':'peso '+x.m.peso} · ${x.feitos} de ${x.topicos.length} tópicos${x.ac!==null?' · '+x.ac+'% de acerto':''}</span></div>
+          <div class="dom-qs" role="img" aria-label="${x.res.novo} a estudar, ${x.res.estudado} estudados, ${x.res.firme} firmes, ${x.res.consolidado} consolidados">${x.topicos.map(q=>`<i class="dq ${q.nivel}" data-tip="${escHtml(q.t)}: ${nomesNivel[q.nivel]}"></i>`).join('')}</div>
+          <div class="dom-prox">${x.prox ? `<span>Próximo: <b>${escHtml(x.prox)}</b></span><button class="btn sec" onclick="estudarProximo(${i})">Estudar</button>` : '<span class="dim">Matéria toda estudada. Agora é revisão.</span>'}</div>
+        </li>`).join('')}</ul>
+      </section>
+      <section class="bloco"><h3>Realizado e planejado</h3><p class="dim" style="font-size:13px;margin:0 0 12px">Quanto do edital você cobriu, semana a semana.</p>
+        ${graficoLinha(P)}
+        <div class="g-legenda"><span><i class="l-real"></i>Realizado</span><span><i class="l-plano"></i>Planejado</span></div>
+      </section>
+    </div>
 
     <div class="p-lado">
+      ${cartaoDatas()}
       ${blocoFoco()}
       <section class="bloco"><h3>Revisões 1-7-30</h3>
         <p class="dim" style="font-size:13px;margin:0 0 10px">O que vence hoje. Revisar no dia certo é o que fixa.</p>
@@ -1331,6 +1390,7 @@ function abaPainel(){
     </div>
   </div>`;
 }
+function estudarProximo(i){ const x = S._proximos[i]; if(x && x.prox) abrirEstudo(x.prox, x.m.nome, null); }
 function estudarAtencao(k){ const x = S._atencao[k]; if(!x) return; const rev = S.E.revisoes.find(r=>r.chave===x.c); abrirEstudo(x.top, x.mat, rev && !rev.consolidado ? rev : null); }
 
 /* dica de hover/foco compartilhada pelos gráficos do painel */
@@ -1972,6 +2032,7 @@ function render(semAnimar){
   }
   app.innerHTML = html;
   document.body.dataset.tela = S.tela;
+  document.body.classList.toggle('com-menu', !!app.querySelector('.lateral'));
   if(S.tela === 'carregando' && !S._carregandoDesde) S._carregandoDesde = Date.now(); // o vigia conta desde a entrada na tela
   document.querySelector('.reportar').hidden = S.tela === 'carregando' && !S._avisouLento;
   if(semAnimar) app.querySelectorAll('.tela').forEach(el=>el.style.animation='none');
@@ -1980,14 +2041,12 @@ function render(semAnimar){
   if(window.aoRenderizar) aoRenderizar();
   if(window.focoAoRenderizar) focoAoRenderizar();
   if(window.desenhoAoRenderizar) desenhoAoRenderizar();
-  // O menu é recriado a cada render: a aba atual volta a ficar à vista no celular.
-  const aba = document.querySelector('nav[aria-label="Seções"] .aba.on');
-  if(aba) aba.parentElement.scrollLeft = aba.offsetLeft - (aba.parentElement.clientWidth - aba.offsetWidth) / 2;
 }
 function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
 addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });
 document.addEventListener('keydown', e=>{
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role=button]')){ e.preventDefault(); e.target.click(); }
+  if(e.key==='Escape'){ const f = document.getElementById('maisFolha'); if(f && !f.hidden) alternarMais(); }
 });
 S = estadoInicial();
 // Sem login neste aparelho, a entrada aparece na hora; com login, espera o Firebase confirmar.

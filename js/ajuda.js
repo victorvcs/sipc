@@ -3,6 +3,11 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.7', data:'31/10/2026', itens:[
+    ['Menu novo', 'As seções agora ficam em grupos: Estudar, Acompanhar e Geral. No computador, o menu fica na lateral. No celular, fica em uma barra embaixo, e o resto está em Mais.'],
+    ['Trocar de trilha ficou mais fácil', 'Toque no nome da prova para trocar de trilha ou criar uma nova.'],
+    ['Domínio por matéria', 'O Painel mostra cada tópico como um quadrado, do que falta estudar ao que já está consolidado, e o próximo tópico de cada matéria.'],
+  ]},
   {versao:'1.6', data:'31/10/2026', itens:[
     ['Cronograma lido melhor', 'O SIPC procura as datas no edital inteiro, e o Painel mostra as próximas. Se a sua aba Datas está vazia, envie o edital de novo por lá.'],
     ['Menu mais completo', 'Novidades, Ajuda e Minhas trilhas agora ficam no menu principal. Novidades traz prints, e cada função tem um guia que mostra o caminho na tela.'],
@@ -37,6 +42,8 @@ const NOVIDADES = [
 
 const AJUDA = [
   ['Como começar', ['Crie sua conta ou entre com o Google.', 'Mande o edital e informe o seu cargo. A IA separa matérias, pesos e assuntos.', 'Confira as matérias, a banca e diga quantas horas por dia você tem.', 'Pronto: a aba Hoje mostra o que estudar em cada dia.']],
+  ['Encontrar cada seção', ['No computador, o menu fica na lateral, em três grupos: Estudar, Acompanhar e Geral.', 'No celular, Hoje, Trilha, Revisões e Painel ficam na barra de baixo. Discursiva, Datas e o resto ficam em Mais.', 'Para trocar de trilha ou criar uma nova, toque no nome da prova.']],
+  ['Domínio por matéria', ['No Painel, cada quadrado é um tópico.', 'A estudar: você ainda não concluiu o tópico. Estudado: concluiu. Firme: concluiu e acertou 70% ou mais das questões. Consolidado: passou por todas as revisões.', 'Toque em Estudar para abrir o próximo tópico da matéria.']],
   ['Plano de hoje', ['Abra cada item da lista e siga até o fim.', 'Faltou um dia? O plano se reorganiza a partir de hoje, sem acumular.', 'Saiu no meio? Use "Continuar de onde parou".']],
   ['Estudar um tópico', ['Cada tópico traz história, resumos, mapa mental, analogias, vídeos e flashcards.', 'Depois vêm as questões no estilo da sua banca, com a justificativa de cada alternativa.', 'Ao concluir, o tópico volta para revisão em 1, 7 e 30 dias.']],
   ['Cronômetro de foco', ['Toque em "Iniciar foco", no canto inferior esquerdo, ao começar a estudar.', 'Vai fazer outra coisa? Toque em "Pausar". Se você sair da página, ele pausa sozinho.', 'Use "Continuar" para retomar e "Encerrar" ao terminar a sessão.', 'As horas aparecem no Painel, em Tempo de foco.']],
@@ -53,13 +60,21 @@ const AJUDA = [
 const CHAVE_VISTA = 'sipc::novidade-vista';
 // O que a versão atual permite fazer: alimenta o alerta e o topo da aba Novidades.
 const DESTAQUES = [
-  {titulo:'Acompanhar a sua evolução na redação', texto:'Cada correção fica guardada: compare com a redação anterior, veja a média por critério e reabra os relatórios.', img:'img/novidades/evolucao.jpg', alt:'Painel Sua evolução, com notas por redação e média por critério', guia:'evolucao'},
-  {titulo:'Escrever à mão na tela', texto:'Resolva e redija com a Apple Pencil, o dedo ou o mouse. A IA corrige a folha como se fosse a foto do papel.', img:'img/novidades/mao.jpg', alt:'Folha quadriculada com caneta, borracha, desfazer e limpar', guia:'mao'},
-  {titulo:'Ver as datas do concurso', texto:'O SIPC lê o cronograma do edital inteiro e mostra as próximas datas no Painel. Dá para mandar cada uma para a sua agenda.', img:'img/novidades/datas.jpg', alt:'Aba Datas com o cronograma do concurso', guia:'datas'},
+  {titulo:'Ver o seu domínio em cada matéria', texto:'Cada tópico vira um quadrado no Painel, e cada matéria mostra o próximo tópico para estudar.', img:'img/novidades/dominio.jpg', alt:'Painel com os tópicos de cada matéria em quadrados coloridos por nível', guia:'dominio'},
+  {titulo:'Achar tudo no menu novo', texto:'As seções ficam em grupos, e tocar no nome da prova troca de trilha.', img:'img/novidades/menu.jpg', alt:'Menu lateral com a trilha aberta e os grupos Estudar, Acompanhar e Geral', guia:'menu'},
 ];
 // Abre a tela de cada passo. Trocar de tipo de treino não apaga o que o aluno escreveu.
 const guiaDC = (tipo, passo, mao) => () => { S.aba = 'discursiva'; if(DC().tipo !== tipo) dcTipo(tipo); const d = DC(); if(passo) d.passo = passo; if(mao != null) d.mao = mao; render(true); };
 const GUIAS = {
+  dominio:{titulo:'Domínio por matéria', resumo:'Como ler os quadrados e escolher o que estudar.', passos:[
+    {abrir:() => { S.aba = 'painel'; render(true); }, alvo:'.dom-legenda', titulo:'Os quatro níveis', texto:'<b>A estudar</b>, <b>Estudado</b>, <b>Firme</b> (70% ou mais de acerto) e <b>Consolidado</b> (passou por todas as revisões).'},
+    {alvo:'.dom-qs', titulo:'Cada quadrado é um tópico', texto:'As matérias vêm do maior para o menor peso. Passe o mouse num quadrado para ver o nome do tópico.'},
+    {alvo:'.dom-prox', titulo:'O próximo passo', texto:'Cada matéria mostra o próximo tópico. Toque em <b>Estudar</b> para abrir.'},
+  ]},
+  menu:{titulo:'Menu do SIPC', resumo:'Onde fica cada seção e como trocar de trilha.', passos:[
+    {abrir:() => { S.aba = 'hoje'; render(true); }, alvo:'.menu-lateral, .menu-inferior', titulo:'Tudo em um lugar', texto:'No computador, o menu fica na lateral. No celular, fica embaixo, e as outras seções estão em <b>Mais</b>.'},
+    {alvo:'.troca-trilha', titulo:'Sua trilha', texto:'Toque no nome da prova para trocar de trilha ou criar uma nova.'},
+  ]},
   evolucao:{titulo:'Sua evolução na redação', resumo:'Como corrigir, comparar e reabrir as redações.', passos:[
     {abrir:guiaDC('discursiva'), alvo:'#dcBanca', titulo:'Comece pela banca e pelo tema', texto:'Informe a banca e o tema. Na FGV, há temas prontos, com a cola do assunto.'},
     {abrir:guiaDC('discursiva','redacao'), alvo:'#dcTexto', titulo:'Escreva a redação', texto:'Digite aqui, escreva à mão na tela ou mande a foto do papel. Depois toque em <b>Corrigir a redação</b>.'},

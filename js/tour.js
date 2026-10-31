@@ -15,9 +15,9 @@ function passosDoTour(){
     { alvo: '.plano', titulo: 'Seu plano de hoje', texto: 'Aqui estão as revisões que vencem hoje, os tópicos novos e as questões para fixar. Toque num item para começar. Ele fica marcado quando você termina.' },
     { alvo: '.plano .item:not(.feito)', titulo: 'Como estudar um tópico', texto: 'Cada tópico tem 4 partes: Teoria, Mapa visual, Questões e Revisão. No fim, toque em <b>Concluir o tópico</b>: é isso que agenda as revisões de 24 horas, 7 dias e 30 dias.' },
     { alvo: '.plano', titulo: 'Nas revisões, diga como foi', texto: 'Quando um tópico voltar para revisão, marque <b>Lembrei</b>, <b>Difícil</b> ou <b>Esqueci</b>. O SIPC usa a sua resposta para decidir quando ele volta de novo.' },
-    { alvo: '.abas', titulo: 'As outras abas', texto: '<b>Painel</b> mostra se você está no ritmo. <b>Trilha</b> mostra os próximos dias. <b>Revisões</b> mostra o que vai voltar. Em <b>Conta</b> ficam seus dados e o lembrete diário.' },
+    { alvo: '.menu-lateral, .menu-inferior', titulo: 'O menu', texto: '<b>Painel</b> mostra o seu domínio em cada matéria. <b>Trilha</b> mostra os próximos dias. <b>Revisões</b> mostra o que vai voltar. Em <b>Conta</b> ficam seus dados e o lembrete diário. No celular, o resto fica em <b>Mais</b>.' },
     ...(semConta ? [{ alvo: '.contagem .mt-chave', titulo: 'Você está sem conta', texto: 'Sem conta, dá para usar tudo, mas nada fica salvo ao fechar a página. Toque aqui quando quiser criar a sua conta e guardar a trilha.' }] : []),
-    { alvo: '.aba[data-aba=trilhas]', titulo: 'Minhas trilhas', texto: 'Vai fazer mais de uma prova? Cada trilha tem o seu edital, o seu ritmo e o seu progresso. Troque ou crie uma nova em <b>Minhas trilhas</b>, no menu.' },
+    { alvo: '.troca-trilha', titulo: 'Minhas trilhas', texto: 'Vai fazer mais de uma prova? Cada trilha tem o seu edital, o seu ritmo e o seu progresso. Toque no nome da prova para trocar de trilha ou criar uma nova.' },
     { alvo: '.reportar', titulo: 'Estamos em beta: conte com você', texto: 'Viu algo errado ou teve uma ideia? Toque em <b>Reportar</b>, em qualquer tela. O print da tela vai junto, e cada retorno entra na lista do que vamos melhorar.' },
   ];
 }
@@ -63,10 +63,8 @@ function irTour(d){
 }
 function alvoDoPasso(p){
   if(!p.alvo) return null;
-  const el = document.querySelector(p.alvo);
-  if(!el) return null;
-  const b = el.getBoundingClientRect();
-  return b.width && b.height ? el : null;
+  // O menu muda entre o computador e o celular: vale o primeiro alvo que estiver à vista.
+  return [...document.querySelectorAll(p.alvo)].find(el => { const b = el.getBoundingClientRect(); return b.width && b.height; }) || null;
 }
 function desenharTour(){
   if(!TOUR) return;

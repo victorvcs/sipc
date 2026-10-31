@@ -20,6 +20,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.5 | publicada | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
 | 1.5.1 | publicada | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
 | 1.6 | publicada, em uso | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
+| 1.7 | branch `feature/novo-visual`, aguardando o ok | — | Menu em grupos, seletor de trilha e painel de domínio |
 
 ---
 
@@ -199,3 +200,20 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 **Regras de negócio.**
 - O mecanismo interno `S.modoTeste` continua só para quem usa o app sem conta: nada vai para o banco.
 - A aba atual é centralizada no menu ao renderizar, para não ficar cortada no celular.
+
+## v1.7 — Novo visual: menu e painel de domínio
+
+**O que faz.** Troca as abas horizontais por um menu em grupos (Estudar, Acompanhar e Geral), com barra lateral a partir de 1024px e barra inferior com a folha Mais abaixo disso. Minhas trilhas vira um seletor com o nome da prova. O Painel passa a destacar o domínio por matéria, com um quadrado por tópico e o próximo tópico de cada matéria.
+
+**Objetivo.** Pedido do Victor: o acesso às trilhas estava estranho e a interface precisava ficar mais amigável. Ele escolheu combinar a navegação de Linear e Notion com o painel da Khan Academy.
+
+**Racional.** Onze itens em abas horizontais não escalam e escondiam seções no celular. O seletor separa "Minhas trilhas" de "Trilha", que tinham nomes parecidos. Sequências e cadeados ao estilo Duolingo ficaram de fora porque contrariam o princípio de não gerar culpa por dias perdidos. As regras dos níveis estão em `js/nucleo/dominio.js`, com testes.
+
+**Regras de negócio.**
+- A estudar: tópico não concluído. Estudado: concluído. Firme: concluído, com questões feitas e acerto de 70% ou mais. Consolidado: passou por todas as revisões.
+- As matérias aparecem do maior para o menor peso.
+- O menu some nas telas de estudo e de questões, como já acontecia.
+- A barra inferior some enquanto a folha de escrita está à vista, para não atrapalhar a caneta.
+- O item Revisões mostra quantas vencem hoje.
+- Tour e guias usam o primeiro alvo visível, porque o menu muda entre computador e celular.
+- Os prints `dominio.jpg` e `menu.jpg` usam dados de exemplo. Os prints antigos seguem válidos: mostram só o conteúdo, sem o menu.
