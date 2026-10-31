@@ -25,3 +25,9 @@ Pedido do Victor em 31/10/2026, ao ver a aba Discursiva na v1.7: com uma redaç�
 ## 5. Rever "Trilha" e "Minhas trilhas"
 
 Pedido do Victor em 31/10/2026, ao ver as duas telas na v1.7: a trilha de cada concurso (Minhas trilhas) e a trilha da semana (item Trilha do menu) usam o mesmo nome e se confundem. Elas precisam virar uma coisa só, e falta decidir se a visão dos próximos dias faz sentido como tela própria. É uma revisão de usabilidade, com a decisão ainda em aberto.
+
+## 6. Mapa visual mais rico
+
+Pedido do Victor em 31/10/2026, ao ver o Mapa visual de um tópico: o mapa só com caixas de texto está pobre. A ideia é usar imagens, ilustrações ou outras representações gráficas, vindas de algum recurso ou API.
+
+**Limite.** O projeto segue no plano gratuito, então a fonte precisa ser gratuita, ter licença de uso clara e não inventar conteúdo.
