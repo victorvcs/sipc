@@ -2,14 +2,15 @@
    Treino em passos: cola do tema, exercício de estrutura e redação, escrita aqui
    à mão na tela ou em foto do papel. As regras e o material estão em js/nucleo/discursiva.js.
    Tudo que a IA devolve passa por escHtml. Script comum, depois do app.js. */
-const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', mao:false, corr:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
+const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', mao:false, extras:null, corr:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
 const DC = () => S.dc ??= novoDC();
 const temaFGV = () => { const d = DC(); return SIPC.discursiva.ehFGV(d.banca) ? SIPC.discursiva.TEMAS_FGV.find(t=>t.tema===d.tema) || null : null; };
 const estruturaAtual = () => SIPC.discursiva.ESTRUTURAS.find(e=>e.id===DC().estr);
 
 function dcCampo(k, v){ DC()[k] = v; }
 function dcIr(k, v){ const d = DC(); d[k] = v; d.erro = null; render(true); }
-function dcTipo(t){ S.dc = {...novoDC(), banca:DC().banca, tipo:t}; render(true); }
+// Cada tipo de treino guarda o seu trabalho: trocar de aba não apaga o que foi escrito.
+function dcTipo(t){ const d = DC(), g = S.dcGuardado ??= {}; g[d.tipo] = d; S.dc = g[t] || {...novoDC(), tipo:t}; S.dc.banca = d.banca; render(true); }
 function dcTema(i){ const t = SIPC.discursiva.TEMAS_FGV[i], d = DC(); d.tema = t.tema; d.enunciado = t.enunciado; d.corr = null; d.erro = null; render(true); }
 function dcParte(i, v){ DC().partes[i] = v; }
 
@@ -58,7 +59,7 @@ async function dcCorrigir(modo){
     S.E.discursivas = SIPC.discursiva.somarHistorico(S.E.discursivas, {data:hojeISO(), tipo:modo, banca:d.banca, tema:d.tema, nota:corr.total, max:corr.max});
     salvarE(); ev('discursiva-corrigida', d.tema + ' · ' + corr.total + '/' + corr.max);
   }catch(e){ d.erro = mensagemIA(e); }
-  d.ocupado = null; render(true);
+  d.ocupado = null; render(true); dcMostrarCorrecao();
 }
 async function dcNovoLogico(){
   const d = DC(); if(!d.tema.trim()){ d.erro = 'Escreva o assunto primeiro.'; return render(true); }
@@ -77,18 +78,21 @@ async function dcCorrigirLogico(){
     S.E.discursivas = SIPC.discursiva.somarHistorico(S.E.discursivas, {data:hojeISO(), tipo:'logico', banca:d.banca, tema:d.tema, nota:d.corrLog.acertou?1:0, max:1});
     salvarE(); ev('logico-corrigido', d.tema + (d.corrLog.acertou ? ' · acertou' : ' · errou'));
   }catch(e){ d.erro = mensagemIA(e); }
-  d.ocupado = null; render(true);
+  d.ocupado = null; render(true); dcMostrarCorrecao();
 }
+// A correção nasce abaixo do formulário, que na folha à mão é longo.
+function dcMostrarCorrecao(){ const el = document.querySelector('.dc-corr'); if(el) el.scrollIntoView({block:'start'}); }
 
 const listaHTML = l => `<ul>${l.map(x=>`<li>${escHtml(x)}</li>`).join('')}</ul>`;
 function campoFoto(){
   const d = DC();
   const privacidade = 'Não inclua nome, CPF ou outros dados pessoais: a imagem vai para a IA do Google.';
-  return `<div class="campo-f"><div class="dc-temas" role="group" aria-label="Como enviar o texto à mão">
+  return `<div class="campo-f"><p class="f" id="dcMaoRot">Prefere escrever à mão?</p>
+    <div class="dc-modo" role="group" aria-labelledby="dcMaoRot">
       <button type="button" class="chip ${d.mao?'':'on'}" aria-pressed="${!d.mao}" onclick="dcModoMao(false)">Foto do papel</button>
-      <button type="button" class="chip ${d.mao?'on':''}" aria-pressed="${d.mao}" onclick="dcModoMao(true)">Escrever à mão na tela</button></div>
+      <button type="button" class="chip ${d.mao?'on':''}" aria-pressed="${d.mao}" onclick="dcModoMao(true)">Escrever na tela</button></div>
     ${d.mao ? `${folhaHTML(folhaDC(), SIPC.desenho.ALTURA_FOLHA, 'Folha para escrever à mão')}
-    <p class="dica">Letra grande e clara ajuda a IA a ler. Para rolar a página, arraste fora da folha. ${privacidade}</p>` : `<label class="f" for="dcFoto">Escreveu no papel? Mande a foto</label>
+    <p class="dica">A folha segue para a correção junto com o que você digitou. Letra grande ajuda a IA a ler. Para rolar a página, arraste fora da folha. ${privacidade}</p>` : `<label class="dica" for="dcFoto">Escolha a foto do que você escreveu no papel.</label>
     ${d.foto ? `<p class="dc-foto">Foto pronta: ${escHtml(d.fotoNome)} <button class="btn link" onclick="dcTirarFoto()">Trocar</button></p>` : `<input type="file" id="dcFoto" accept="image/jpeg,image/png,image/webp" onchange="dcEscolherFoto(this)">`}
     <p class="dica">Foto reta, com boa luz, só com o texto. ${privacidade}</p>`}</div>`;
 }
@@ -134,9 +138,10 @@ function vistaDiscursiva(){
     <div class="campo-f"><label class="f" for="dcBanca">Banca</label><input type="text" id="dcBanca" value="${escHtml(d.banca)}" oninput="dcCampo('banca',this.value)" onchange="render(true)" placeholder="Ex.: FGV"></div>
     <div class="campo-f"><label class="f" for="dcTema">Tema</label><input type="text" id="dcTema" value="${escHtml(d.tema)}" oninput="dcCampo('tema',this.value)" onchange="render(true)" placeholder="Ex.: LGPD aplicada ao Judiciário"></div>
     ${fgv ? `<div class="dc-temas" role="group" aria-label="Temas sugeridos">${SIPC.discursiva.TEMAS_FGV.map((t,i)=>`<button class="chip ${d.tema===t.tema?'on':''}" onclick="dcTema(${i})">${escHtml(t.tema)}</button>`).join('')}</div>` : ''}
-    <div class="campo-f"><label class="f" for="dcEnun">Enunciado (opcional)</label><textarea id="dcEnun" rows="3" oninput="dcCampo('enunciado',this.value)">${escHtml(d.enunciado)}</textarea></div>
-    <div class="campo-f"><label class="f" for="dcEsp">Espelho ou critérios da banca (opcional)</label><textarea id="dcEsp" rows="3" oninput="dcCampo('espelho',this.value)" placeholder="Cole o que a banca pede. A correção segue este texto.">${escHtml(d.espelho)}</textarea></div>
-    ${fgv ? '' : '<p class="dica">Sem espelho, a correção usa critérios gerais, baseados no modelo FGV.</p>'}
+    <details class="aj dc-extras" ${(d.extras ?? !!(d.enunciado||d.espelho))?'open':''} ontoggle="DC().extras=this.open"><summary>Enunciado e espelho da banca (opcional)</summary>
+    <div class="campo-f"><label class="f" for="dcEnun">Enunciado</label><textarea id="dcEnun" rows="3" oninput="dcCampo('enunciado',this.value)">${escHtml(d.enunciado)}</textarea></div>
+    <div class="campo-f"><label class="f" for="dcEsp">Espelho ou critérios da banca</label><textarea id="dcEsp" rows="3" oninput="dcCampo('espelho',this.value)" placeholder="Cole o que a banca pede. A correção segue este texto.">${escHtml(d.espelho)}</textarea></div>
+    ${fgv ? '' : '<p class="dica">Sem espelho, a correção usa critérios gerais, baseados no modelo FGV.</p>'}</details>
   </section>
   <nav class="bl-filtro" aria-label="Passos">${[['cola','1. Cola'],['estrutura','2. Estrutura'],['redacao','3. Redação']].map(([k,n])=>`<button class="chip ${d.passo===k?'on':''}" onclick="dcIr('passo','${k}')">${n}</button>`).join('')}</nav>
   ${d.passo==='cola' ? passoCola() : d.passo==='estrutura' ? passoEstrutura() : passoRedacao()}`;
@@ -144,7 +149,7 @@ function vistaDiscursiva(){
 function vistaLogico(){
   const d = DC(), c = d.corrLog;
   return `<section class="bloco">
-    <div class="campo-f"><label class="f" for="dcBanca">Banca</label><input type="text" id="dcBanca" value="${escHtml(d.banca)}" oninput="dcCampo('banca',this.value)"></div>
+    <div class="campo-f"><label class="f" for="dcBanca">Banca</label><input type="text" id="dcBanca" value="${escHtml(d.banca)}" oninput="dcCampo('banca',this.value)" placeholder="Ex.: FGV"></div>
     <div class="campo-f"><label class="f" for="dcTema">Assunto</label><input type="text" id="dcTema" value="${escHtml(d.tema)}" oninput="dcCampo('tema',this.value)" placeholder="Ex.: Tabela-verdade, porcentagem, sequências"></div>
     <button class="btn" onclick="dcNovoLogico()" ${d.ocupado?'disabled':''}>${d.ex?'Outro exercício':'Gerar exercício'}</button></section>
   ${d.ex ? `<section class="bloco"><h3>Exercício</h3><p class="dc-texto">${escHtml(d.ex.enunciado)}</p>

@@ -56,7 +56,7 @@ function folhaHTML(chave, altura, rotulo){
   const botao = (f, nome) => `<button type="button" class="${cfg.ferramenta===f?'on':''}" aria-pressed="${cfg.ferramenta===f}" onclick="folhaFerramenta('${k}','${f}')">${nome}</button>`;
   return `<div class="folha"><div class="rasc-abas" role="toolbar" aria-label="Ferramentas de desenho">
       ${botao('c','Caneta')}${botao('b','Borracha')}
-      <span class="rasc-ferr"><button type="button" onclick="folhaDesfazer('${k}')">Desfazer</button><button type="button" onclick="folhaLimpar('${k}')">Limpar</button></span></div>
+      <span class="rasc-ferr"><button type="button" data-acao="desfazer" onclick="folhaDesfazer('${k}')">Desfazer</button><button type="button" data-acao="limpar" onclick="folhaLimpar('${k}')">Limpar</button></span></div>
     <canvas class="rasc-tela" data-folha="${k}" width="${SIPC.desenho.LARGURA}" height="${altura}" style="aspect-ratio:${SIPC.desenho.LARGURA}/${altura}" role="img" aria-label="${escHtml(rotulo)}"></canvas></div>`;
 }
 function folhaFerramenta(k, f){ FOLHA_CFG[decodeURIComponent(k)].ferramenta = f; render(true); }
@@ -86,6 +86,9 @@ function redesenhar(cv, chave){
   ctx.globalCompositeOperation = 'source-over'; ctx.clearRect(0, 0, cv.width, cv.height);
   obterFolha(chave).tracos.forEach(t => desenharTraco(ctx, t));
   if(DESENHANDO && DESENHANDO.chave === chave) desenharTraco(ctx, DESENHANDO.traco);
+  const f = obterFolha(chave), caixa = cv.closest('.folha');
+  caixa.querySelector('[data-acao=desfazer]').disabled = !f.passado.length;
+  caixa.querySelector('[data-acao=limpar]').disabled = !f.tracos.length;
 }
 
 function ligarFolha(cv){
@@ -97,7 +100,7 @@ function ligarFolha(cv){
   };
   const somar = e => {
     const t = DESENHANDO.traco, [x, y] = ponto(e);
-    if(!SIPC.desenho.somarPonto(t, x, y, SIPC.desenho.larguraDoPonto(t.f, e.pointerType, e.pressure))) return;
+    if(!SIPC.desenho.somarPonto(t, x, y, SIPC.desenho.larguraDoPonto(t.f, e.pointerType, e.pressure, SIPC.desenho.escalaDoTraco(cv.getBoundingClientRect().width)))) return;
     if(t.p.length > 3){ prepararTraco(ctx, t); desenharTrecho(ctx, t.p, t.p.length - 3); }
   };
   cv.addEventListener('pointerdown', e => {
@@ -133,10 +136,25 @@ function ligarFolha(cv){
   // O touch-action do CSS impede a rolagem; isto cobre o Safari quando a caneta arrasta a página.
   cv.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
 }
+// Em tela pequena, os botões flutuantes de foco e reportar cobririam a folha.
+let VIGIA_FOLHA = null;
+function vigiarFolhas(){
+  if(VIGIA_FOLHA) VIGIA_FOLHA.disconnect();
+  const folhas = document.querySelectorAll('canvas[data-folha]');
+  document.body.classList.remove('folha-visivel');
+  if(!folhas.length) return;
+  const visiveis = new Set();
+  VIGIA_FOLHA = new IntersectionObserver(lista => {
+    lista.forEach(i => i.isIntersecting ? visiveis.add(i.target) : visiveis.delete(i.target));
+    document.body.classList.toggle('folha-visivel', visiveis.size > 0);
+  });
+  folhas.forEach(cv => VIGIA_FOLHA.observe(cv));
+}
 function desenhoAoRenderizar(){
   // O canvas onde ele estava acabou de ser trocado: o traço em curso fica guardado.
   if(DESENHANDO){ const {chave, traco} = DESENHANDO; DESENHANDO = null; if(traco.p.length) trocarFolha(chave, SIPC.desenho.adicionar(obterFolha(chave), traco)); }
   document.querySelectorAll('canvas[data-folha]').forEach(ligarFolha);
+  vigiarFolhas();
 }
 
 // JPEG em fundo branco: o quadriculado da folha é só CSS e não confunde a IA.

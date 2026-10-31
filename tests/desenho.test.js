@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  folhaVazia, adicionar, limpar, desfazer, temTracos, novoTraco, somarPonto, larguraDoPonto, aoEncostar,
+  folhaVazia, escalaDoTraco, adicionar, limpar, desfazer, temTracos, novoTraco, somarPonto, larguraDoPonto, aoEncostar,
   toqueBloqueado, serializar, desserializar, instanteSalvo, quaisApagar, LARGURA_CANETA, LARGURA_BORRACHA,
   MAX_DESFAZER, TOQUE_BLOQUEADO_MS,
 } from '../js/nucleo/desenho.js';
@@ -43,6 +43,12 @@ test('mouse e dedo ficam com a largura fixa, mesmo informando pressão', () => {
 });
 test('a borracha tem largura própria', () => {
   assert.equal(larguraDoPonto('b', 'pen', 0.2), LARGURA_BORRACHA);
+});
+test('na tela estreita o traço engrossa, até um limite', () => {
+  assert.equal(escalaDoTraco(1000), 1);
+  assert.equal(escalaDoTraco(360), 2);
+  assert.equal(escalaDoTraco(100), 2.4);
+  assert.equal(larguraDoPonto('c', 'mouse', 0.5, 2), LARGURA_CANETA * 2);
 });
 test('ponto colado no anterior é ignorado', () => {
   const t = novoTraco('c');

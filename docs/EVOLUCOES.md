@@ -17,7 +17,8 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.2 | publicada | `6c09c43` | Cargo obrigatório no edital |
 | 1.3 | publicada | `bfaae37` | Foco, evolução, cronograma, novidades e ajuda |
 | 1.4 | publicada | `7d65903` | Discursiva e raciocínio lógico |
-| 1.5 | publicada, em uso | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
+| 1.5 | publicada | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
+| 1.5.1 | publicada, em uso | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
 
 ---
 
@@ -140,3 +141,18 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - Um novo exercício de raciocínio lógico limpa a folha dele.
 
 **Custo conhecido.** O desenho não acompanha o aluno para outro aparelho. Se isso for pedido, a opção gratuita é um documento por desenho no Firestore, mais mudança nas regras do banco.
+
+## v1.5.1 — Ajustes de experiência
+
+**O que faz.** Corrige problemas vistos na revisão de UX das telas da 1.4 e da 1.5.
+
+**Objetivo.** Evitar perda de trabalho e deixar a escrita à mão confortável no celular.
+
+**Racional.** Revisão do código e das capturas em 375px; ainda sem teste com alunos. Decisão do Victor: publicar sem o teste em localhost, porque o login real só pode ser testado no site no ar.
+
+**Regras de negócio.**
+- Trocar entre Discursiva e Raciocínio lógico mantém o trabalho de cada um; só a banca é compartilhada.
+- Enunciado e espelho ficam recolhidos quando vazios e abertos quando têm conteúdo.
+- Em telas de até 820 px, os botões de foco e Reportar somem enquanto a folha está visível. O cronômetro continua contando.
+- Em tela estreita, o traço engrossa até 2,4 vezes.
+- Desfazer e Limpar ficam desativados quando não têm efeito.

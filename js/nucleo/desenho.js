@@ -23,12 +23,15 @@ export const adicionar = (f, traco) => comHistorico(f, [...f.tracos, traco]);
 export const limpar = f => (f.tracos.length ? comHistorico(f, []) : f);
 export const desfazer = f => (f.passado.length ? { tracos: f.passado.at(-1), passado: f.passado.slice(0, -1) } : f);
 
+// Na tela estreita a folha encolhe e o traço sumiria: ele engrossa para continuar legível.
+export const escalaDoTraco = larguraNaTela => Math.min(2.4, Math.max(1, 720 / (larguraNaTela || 720)));
+
 // Só a caneta informa pressão de verdade: mouse e dedo mantêm a largura fixa.
-export function larguraDoPonto(ferramenta, tipoPonteiro, pressao) {
-  if (ferramenta === 'b') return LARGURA_BORRACHA;
-  if (tipoPonteiro !== 'pen') return LARGURA_CANETA;
+export function larguraDoPonto(ferramenta, tipoPonteiro, pressao, escala = 1) {
+  if (ferramenta === 'b') return Math.round(LARGURA_BORRACHA * escala);
+  if (tipoPonteiro !== 'pen') return Math.round(LARGURA_CANETA * escala * 10) / 10;
   const p = Math.min(1, Math.max(0, Number(pressao) || 0));
-  return Math.round(LARGURA_CANETA * (0.5 + p * 1.5) * 10) / 10;
+  return Math.round(LARGURA_CANETA * escala * (0.5 + p * 1.5) * 10) / 10;
 }
 
 export const novoTraco = ferramenta => ({ f: ferramenta === 'b' ? 'b' : 'c', p: [] });
