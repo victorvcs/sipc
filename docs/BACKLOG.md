@@ -21,3 +21,7 @@ Mudar a carga horária e o edital sem recriar a trilha (reporte do Rodolfo). A r
 ## 4. Detalhar a evolução na primeira redação
 
 Pedido do Victor em 31/10/2026, ao ver a aba Discursiva na v1.7: com uma redação só, Sua evolução e Correções guardadas mostram apenas a nota. O aluno precisa ver ali o detalhamento do feedback da última redação, como notas por critério e o que corrigir, sem depender da segunda redação.
+
+## 5. Rever "Trilha" e "Minhas trilhas"
+
+Pedido do Victor em 31/10/2026, ao ver as duas telas na v1.7: a trilha de cada concurso (Minhas trilhas) e a trilha da semana (item Trilha do menu) usam o mesmo nome e se confundem. Elas precisam virar uma coisa só, e falta decidir se a visão dos próximos dias faz sentido como tela própria. É uma revisão de usabilidade, com a decisão ainda em aberto.
