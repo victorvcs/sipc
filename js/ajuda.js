@@ -5,7 +5,7 @@
 const NOVIDADES = [
   {versao:'1.6', data:'31/10/2026', itens:[
     ['Cronograma lido melhor', 'O SIPC procura as datas no edital inteiro, e o Painel mostra as próximas. Se a sua aba Datas está vazia, envie o edital de novo por lá.'],
-    ['Novidades e guias', 'Novidades agora fica no menu principal, com prints, e cada função tem um guia que mostra o caminho na tela.'],
+    ['Menu mais completo', 'Novidades, Ajuda e Minhas trilhas agora ficam no menu principal. Novidades traz prints, e cada função tem um guia que mostra o caminho na tela.'],
     ['Sua evolução na redação', 'Cada correção fica guardada na sua conta. A aba Discursiva mostra a nota de cada redação, a média, a comparação com a anterior e o critério para focar.'],
     ['Relatório mais claro', 'A correção compara com a redação anterior, avisa quando o texto foge do tema e traz primeiro o que corrigir. Dá para reabrir as correções antigas.'],
   ]},

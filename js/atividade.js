@@ -4,8 +4,7 @@
    com interação nos últimos 2 minutos), tempo por tela e as ações
    principais. Grava no máximo uma vez por minuto, e ao esconder a aba,
    para caber folgado na cota gratuita do Firestore.
-   Não registra nada no modo teste nem sem conta: o tour promete que,
-   com o modo teste ligado, nada é gravado.
+   Não registra nada sem conta.
    Script comum, carregado depois do app.js (usa S, SIPC e nomeTelaAtual).
 ------------------------------------------------------------------- */
 const ATIV = { s: null, uid: null, ultimoUso: Date.now(), sujo: false, ultimaGravacao: 0 };

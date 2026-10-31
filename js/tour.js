@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------
    Tour de boas-vindas: na primeira vez que a pessoa chega ao plano de
    hoje, destaca cada parte da tela e explica o que fazer (o que tocar, o
-   que marcar e o que é o modo teste). Pode ser revisto em Conta.
+   que marcar). Pode ser revisto em Conta.
    Os guias de funcionalidade (GUIAS, em js/ajuda.js) usam o mesmo cartão.
    Script comum, carregado depois do app.js: usa S, render, avisar e SIPC.
 ------------------------------------------------------------------- */
@@ -16,11 +16,8 @@ function passosDoTour(){
     { alvo: '.plano .item:not(.feito)', titulo: 'Como estudar um tópico', texto: 'Cada tópico tem 4 partes: Teoria, Mapa visual, Questões e Revisão. No fim, toque em <b>Concluir o tópico</b>: é isso que agenda as revisões de 24 horas, 7 dias e 30 dias.' },
     { alvo: '.plano', titulo: 'Nas revisões, diga como foi', texto: 'Quando um tópico voltar para revisão, marque <b>Lembrei</b>, <b>Difícil</b> ou <b>Esqueci</b>. O SIPC usa a sua resposta para decidir quando ele volta de novo.' },
     { alvo: '.abas', titulo: 'As outras abas', texto: '<b>Painel</b> mostra se você está no ritmo. <b>Trilha</b> mostra os próximos dias. <b>Revisões</b> mostra o que vai voltar. Em <b>Conta</b> ficam seus dados e o lembrete diário.' },
-    { alvo: '.contagem .mt-chave', titulo: semConta ? 'Você está sem conta' : 'Modo teste',
-      texto: semConta
-        ? 'Sem conta, dá para usar tudo, mas nada fica salvo ao fechar a página. Toque aqui quando quiser criar a sua conta e guardar a trilha.'
-        : 'Quer só experimentar? Ligue o <b>Modo teste</b>: enquanto ele estiver ligado, nada do que você fizer é gravado. Ao desligar, seu progresso real volta como estava. Para estudar de verdade, deixe desligado.' },
-    { alvo: '.trocar-trilha', titulo: 'Minhas trilhas', texto: 'Vai fazer mais de uma prova? Cada trilha tem o seu edital, o seu ritmo e o seu progresso. Troque ou crie uma nova por aqui.' },
+    ...(semConta ? [{ alvo: '.contagem .mt-chave', titulo: 'Você está sem conta', texto: 'Sem conta, dá para usar tudo, mas nada fica salvo ao fechar a página. Toque aqui quando quiser criar a sua conta e guardar a trilha.' }] : []),
+    { alvo: '.aba[data-aba=trilhas]', titulo: 'Minhas trilhas', texto: 'Vai fazer mais de uma prova? Cada trilha tem o seu edital, o seu ritmo e o seu progresso. Troque ou crie uma nova em <b>Minhas trilhas</b>, no menu.' },
     { alvo: '.reportar', titulo: 'Estamos em beta: conte com você', texto: 'Viu algo errado ou teve uma ideia? Toque em <b>Reportar</b>, em qualquer tela. O print da tela vai junto, e cada retorno entra na lista do que vamos melhorar.' },
   ];
 }

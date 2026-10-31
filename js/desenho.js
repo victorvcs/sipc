@@ -8,7 +8,7 @@ const FOLHAS = new Map(), FOLHA_CFG = {};
 const PREFIXO_FOLHA = 'sipc::folha::';
 let DESENHANDO = null, ULTIMA_CANETA = null, SALVAR_FOLHAS = new Map();
 
-// Visitante e modo teste não guardam nada, como o resto do estudo.
+// Quem está sem conta não guarda nada, como o resto do estudo.
 const guardaFolhas = () => !!S.usuario && !S.modoTeste;
 const chaveFolha = chave => PREFIXO_FOLHA + uid() + '::' + chave;
 const idFolha = chave => encodeURIComponent(chave).replace(/'/g,'%27');

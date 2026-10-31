@@ -137,7 +137,7 @@ const barra = (nota, max) => `<span class="dc-barra" aria-hidden="true"><i style
 function avisoGuardar(c){
   const d = DC();
   if(d.corr !== c) return '';
-  if(S.visitante || S.modoTeste) return '<p class="dica">Sem conta ou em modo teste, esta correção não fica guardada.</p>';
+  if(S.visitante || S.modoTeste) return '<p class="dica">Sem conta, esta correção não fica guardada.</p>';
   if(d.salva === 'erro') return `<p class="erro-f" role="alert">Não consegui guardar esta correção no seu histórico. Ela continua aqui até você sair. <button class="btn link" onclick="dcEnviarCorrecao(DC().corr)">Tentar de novo</button></p>`;
   return d.salva === 'ok' ? '<p class="dica">Guardada no seu histórico.</p>' : '<p class="dica">Guardando no seu histórico…</p>';
 }

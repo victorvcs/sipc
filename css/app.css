@@ -433,8 +433,6 @@ label.f{display:block;font-size:13px;font-weight:600;margin:0 0 6px;}
 .mt-chave.on{color:var(--warn);} .mt-chave.on .mt-trilho{background:var(--warn);} .mt-chave.on .mt-trilho::after{transform:translateX(14px);}
 .mt-chave input:focus-visible + .mt-trilho{outline:2px solid var(--accent);outline-offset:2px;}
 .contagem .mt-chave{display:flex;justify-content:flex-end;}
-.mt-faixa{background:var(--warn-soft);color:#6e4800;font-size:13px;text-align:center;padding:8px 12px;border-bottom:1px solid #ecd9b0;}
-.mt-faixa button{border:none;background:none;color:#6e4800;font-weight:700;text-decoration:underline;cursor:pointer;font-size:13px;}
 
 /* minhas trilhas */
 .trocar-trilha{display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--accent-deep);font-size:13px;font-weight:600;cursor:pointer;padding:0;margin-bottom:4px;}

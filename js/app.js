@@ -337,7 +337,7 @@ function passoPronto(){
       <div><span>Questões</span><b>${S.qtdQuestoes} por tópico · ${formatoAtual()==='certoErrado'?'Certo ou Errado':formatoAtual()==='multipla4'?'A a D':'A a E'}</b></div>
       <div><span>Edital fechado em</span><b>${r.diasCorridos} dias${r.folga>=0?` · ${r.folga} de revisão`:''}</b></div>
     </div>
-    ${S.usuario ? `<p class="dim" style="font-size:14px;margin:0">Tudo fica salvo na sua conta (${escHtml(S.usuario.email)}).${S.modoTeste?' <b>Modo teste ligado: esta trilha não será salva.</b>':''}</p>`
+    ${S.usuario ? `<p class="dim" style="font-size:14px;margin:0">Tudo fica salvo na sua conta (${escHtml(S.usuario.email)}).</p>`
       : `<div class="conta"><p style="margin:0;font-size:14px" class="dim">Você está sem conta: esta trilha some ao fechar a página.</p>
           <button class="btn link" onclick="irEntrada()">Entrar ou criar conta</button></div>`}`;
 }
@@ -536,7 +536,7 @@ const ROTULO = {rev:['Revisão','rev'], est:['Estudar','est'], q:['Questões','q
 
 function telaApp(){
   const r = ritmo();
-  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['novidades','Novidades'],['conta','Conta']];
+  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['novidades','Novidades'],['ajuda','Ajuda'],['trilhas','Minhas trilhas'],['conta','Conta']];
   if(ehAdmin()) abas.push(['admin','Admin']);
   let corpo = '';
   if(S.vista==='estudo') corpo = vistaEstudo();
@@ -553,15 +553,15 @@ function telaApp(){
   else corpo = abaPainel();
   return `<div class="app">
     <div class="topo">
-      <div><button class="trocar-trilha" onclick="irTrilhas()" title="Minhas trilhas">${ico('list')} Minhas trilhas (${S.trilhas.length})</button><h1>${escHtml(S.prova.nome)}</h1><div class="sub">${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}</div></div>
-      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova<br><button class="mini" onclick="S.vista=null;S.aba='painel';render()">ver painel</button><br><button class="mini" onclick="S.vista=null;irAba('ajuda')">Ajuda</button></div>
+      <div><h1>${escHtml(S.prova.nome)}</h1><div class="sub">${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}</div></div>
+      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova</div>
     </div>
-    ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" onclick="irAba('${k}')">${n}${k==='novidades'&&novidadeNaoVista()?'<i class="nov-ponto" title="Tem novidade"></i>':''}</button>`).join('')}</nav>`}
+    ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" data-aba="${k}" onclick="irAba('${k}')">${n}${k==='novidades'&&novidadeNaoVista()?'<i class="nov-ponto" title="Tem novidade"></i>':''}</button>`).join('')}</nav>`}
     <div class="tela" key="${S.vista||S.aba}">${corpo}</div>
     ${alertaNovidade()}
   </div>`;
 }
-function irAba(k){ S.aba = k; if(k==='admin') carregarAdmin(); render(); }
+function irAba(k){ if(k==='trilhas') return irTrilhas(); S.aba = k; if(k==='admin') carregarAdmin(); render(); }
 
 function semanaAtual(){
   const hoje = hojeISO(), seg = somar(hoje, -dowDe(hoje));
@@ -1401,7 +1401,6 @@ function abaConta(){
       </div>
       <div class="fim-estudo" style="margin-top:6px"><button class="btn link" onclick="testarLembrete()">Testar o lembrete agora</button></div>
     </section>` : ''}
-    <section class="bloco"><h3>Modo teste</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Para experimentar sem mexer no seu progresso: com ele ligado, nada é gravado. Ao desligar, tudo volta como estava.</p>${chaveTeste()}</section>
     <section class="bloco"><h3>Minhas trilhas</h3><p class="dim" style="font-size:14px;margin:0 0 12px">${S.trilhas.length} ${S.trilhas.length===1?'trilha':'trilhas'} nesta conta.</p><button class="btn sec" onclick="irTrilhas()">Ver minhas trilhas</button></section>
     <section class="bloco"><h3>Como usar o SIPC</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Reveja o tour rápido pelas partes do app: plano do dia, como estudar, revisões, modo teste e Reportar.</p><button class="btn sec" onclick="iniciarTour()">Ver o tour de novo</button></section>
     <section class="bloco"><h3>Privacidade</h3><p class="dim" style="font-size:14px;margin:0 0 12px">O que guardamos, para quê e como pedir a exclusão.</p><a class="btn sec" href="privacidade.html" target="_blank" rel="noopener">Ler o aviso de privacidade</a></section>
@@ -1561,35 +1560,14 @@ function telaTrilhas(){
 function abrirTrilhaIdx(i){ const t = S.trilhas[i]; if(!t) return; if(t.id===S.trilhaAtual) return voltarTrilhaAberta(); abrirTrilha(t.id); }
 function voltarTrilhaAberta(){ S.tela = 'app'; S.vista = null; window.scrollTo(0,0); render(); }
 
-/* ------------------------- modo teste -------------------------
-   Com o modo teste ligado, tudo acontece normalmente, mas nada vai para o
-   banco. Ao desligar, o progresso real é relido e o teste é descartado. */
-async function alternarModoTeste(){
-  if(S.visitante) return irEntrada();
-  if(!S.modoTeste){
-    guardarProgresso(); await SIPC.store.salvarAgora();
-    ev('modo-teste', 'ligou'); if(window.gravarSessao) await gravarSessao(); // depois disso nada é registrado
-    SIPC.store.setModoTeste(true); S.modoTeste = true;
-    avisar('Modo teste ligado: nada do que você fizer agora é salvo.');
-    render();
-  } else {
-    SIPC.store.setModoTeste(false); S.modoTeste = false;
-    try{ S.trilhas = await SIPC.store.listarTrilhas(uid()); }catch(e){}
-    if(S.trilhaAtual && S.trilhas.some(t=>t.id===S.trilhaAtual)) await abrirTrilha(S.trilhaAtual);
-    else if(S.trilhas.length) await abrirTrilha(S.trilhas[0].id);
-    else novaTrilha();
-    avisar('Modo teste desligado. O que você fez no teste foi descartado e seu progresso real voltou.');
-  }
-}
 function avisar(txt){
   let t = document.getElementById('lembrete');
   if(!t){ t = document.createElement('div'); t.id = 'lembrete'; t.className = 'lembrete'; t.setAttribute('role','status'); document.body.appendChild(t); }
   t.innerHTML = '<span>' + escHtml(txt) + '</span>'; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('on'), 6000);
 }
+// O modo sem conta usa S.modoTeste para nada ir ao banco; o aluno com conta não tem mais essa chave.
 function chaveTeste(){
-  if(S.visitante) return `<button class="mt-chave on" onclick="irEntrada()" title="Criar conta para salvar">Sem conta · nada é salvo</button>`;
-  if(!S.usuario) return '';
-  return `<label class="mt-chave ${S.modoTeste?'on':''}"><input type="checkbox" ${S.modoTeste?'checked':''} onchange="alternarModoTeste()"><span class="mt-trilho"></span>Modo teste</label>`;
+  return S.visitante ? `<button class="mt-chave on" onclick="irEntrada()" title="Criar conta para salvar">Sem conta · nada é salvo</button>` : '';
 }
 
 /* ------------------------- reportar bug ou melhoria -------------------------
@@ -1983,11 +1961,9 @@ function render(semAnimar){
   const foco = document.activeElement && document.activeElement.id;
   const pos = foco && document.activeElement.selectionStart;
   document.body.classList.toggle('teste', !!S.modoTeste);
-  const faixa = S.modoTeste && !S.visitante && ['app','trilhas','assist'].includes(S.tela)
-    ? `<div class="mt-faixa" role="status"><b>Modo teste ligado</b>: nada do que você fizer agora é salvo na sua conta. <button onclick="alternarModoTeste()">Desligar</button></div>` : '';
   const telas = {carregando:telaCarregando, erro:telaErro, entrada:telaEntrada, aceite:telaAceite, trilhas:telaTrilhas, assist:telaAssist, app:telaApp};
   let html;
-  try{ html = faixa + (telas[S.tela] || telaCarregando)(); }
+  try{ html = (telas[S.tela] || telaCarregando)(); }
   catch(e){
     // Um dado inesperado (resposta da IA, documento antigo) não pode congelar a tela.
     console.error(e);
@@ -2004,6 +1980,9 @@ function render(semAnimar){
   if(window.aoRenderizar) aoRenderizar();
   if(window.focoAoRenderizar) focoAoRenderizar();
   if(window.desenhoAoRenderizar) desenhoAoRenderizar();
+  // O menu é recriado a cada render: a aba atual volta a ficar à vista no celular.
+  const aba = document.querySelector('nav[aria-label="Seções"] .aba.on');
+  if(aba) aba.parentElement.scrollLeft = aba.offsetLeft - (aba.parentElement.clientWidth - aba.offsetWidth) / 2;
 }
 function sairDoErro(){ if(S.estudo) delete CONTEUDO[chaveConteudo(S.estudo)]; S.vista = null; S.estudo = null; S.quiz = null; if(S.tela==='app') S.aba = 'hoje'; render(); }
 addEventListener('unhandledrejection', e => { console.error(e.reason); avisar('Algo não saiu como esperado: ' + ((e.reason && e.reason.message) || e.reason) + '. Se repetir, use o Reportar.'); });

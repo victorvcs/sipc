@@ -5,7 +5,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 ## Como versionamos
 
 - **`main` é o que está no ar.** Todo push na `main` publica no GitHub Pages em cerca de 1 minuto.
-- **Funcionalidade nova nasce numa branch** (`feature/nome`). Nada vai para a `main` antes de o Victor testar em `http://localhost:5500`.
+- **Funcionalidade nova nasce numa branch** (`feature/nome`). Nada vai para a `main` sem o ok do Victor. Desde 31/10/2026 ele testa em produção o que depende de login e do banco.
 - **Número da versão:** `1.X` para funcionalidade nova e `1.X.Y` para correção. Fica no rodapé do `index.html`, com a data, e no topo de `NOVIDADES` em `js/ajuda.js`.
 - **Tag por versão publicada** (`v1.3`), para voltar a qualquer ponto.
 - **Voltar uma publicação:** `git revert <commit>` na `main` e `git push origin main`.
@@ -189,3 +189,13 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - O alerta aparece uma vez por versão e neste aparelho, depois do tour de boas-vindas. Ver ou dispensar encerra o alerta.
 - Terminar um guia não marca o tour de boas-vindas como visto.
 - Os prints de `img/novidades` usam dados de exemplo.
+
+### Navegação e fim do modo teste (também na v1.6)
+
+**O que faz.** Novidades, Ajuda e Minhas trilhas entram no menu principal, e os atalhos do topo saem. A chave de Modo teste deixa de existir.
+
+**Racional.** Decisão do Victor: o acesso às trilhas no topo da tela estava estranho, e o modo teste perdeu o sentido porque ele testa em produção.
+
+**Regras de negócio.**
+- O mecanismo interno `S.modoTeste` continua só para quem usa o app sem conta: nada vai para o banco.
+- A aba atual é centralizada no menu ao renderizar, para não ficar cortada no celular.
