@@ -19,8 +19,8 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.4 | publicada | `7d65903` | Discursiva e raciocínio lógico |
 | 1.5 | publicada | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
 | 1.5.1 | publicada | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
-| 1.6 | publicada, em uso | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
-| 1.7 | branch `feature/novo-visual`, aguardando o ok | — | Menu em grupos, seletor de trilha e painel de domínio |
+| 1.6 | publicada | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
+| 1.7 | publicada, em uso | tag `v1.7` | Menu em grupos, seletor de trilha e painel de domínio |
 
 ---
 
