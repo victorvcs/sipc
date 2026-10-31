@@ -18,8 +18,8 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.3 | publicada | `bfaae37` | Foco, evolução, cronograma, novidades e ajuda |
 | 1.4 | publicada | `7d65903` | Discursiva e raciocínio lógico |
 | 1.5 | publicada | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
-| 1.5.1 | publicada, em uso | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
-| 1.6 | **em teste local** | branch `feature/evolucao-redacao` | Histórico de correções, evolução e relatório mais claro |
+| 1.5.1 | publicada | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
+| 1.6 | publicada, em uso | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
 
 ---
 
@@ -158,7 +158,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - Em tela estreita, o traço engrossa até 2,4 vezes.
 - Desfazer e Limpar ficam desativados quando não têm efeito.
 
-## v1.6 — Evolução na redação (em teste local)
+## v1.6 — Evolução na redação
 
 **O que faz.** Guarda cada correção de redação e de estrutura na conta do aluno, mostra a evolução na aba Discursiva e permite reabrir os relatórios. O relatório compara com a redação anterior, avisa quando o texto foge do tema e traz primeiro o que corrigir.
 
