@@ -2,12 +2,14 @@
    Treino em passos: cola do tema, exercício de estrutura e redação, escrita aqui
    à mão na tela ou em foto do papel. As regras e o material estão em js/nucleo/discursiva.js.
    Tudo que a IA devolve passa por escHtml. Script comum, depois do app.js. */
-const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', mao:false, extras:null, corr:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
+const novoDC = () => ({tipo:'discursiva', banca:(S.bancas||[])[0]||'', tema:'', enunciado:'', espelho:'', passo:'cola', estr:'cdarf', partes:{}, texto:'', foto:null, fotoNome:'', mao:false, extras:null, corr:null, salva:null, ver:null, ocupado:null, erro:null, ex:null, resposta:'', corrLog:null});
 const DC = () => S.dc ??= novoDC();
 const temaFGV = () => { const d = DC(); return SIPC.discursiva.ehFGV(d.banca) ? SIPC.discursiva.TEMAS_FGV.find(t=>t.tema===d.tema) || null : null; };
 const estruturaAtual = () => SIPC.discursiva.ESTRUTURAS.find(e=>e.id===DC().estr);
 
 function dcCampo(k, v){ DC()[k] = v; }
+// Redesenhar no blur trocaria o botão no meio do clique, e o clique se perderia.
+function dcAtualizar(){ setTimeout(() => render(true), 200); }
 function dcIr(k, v){ const d = DC(); d[k] = v; d.erro = null; render(true); }
 // Cada tipo de treino guarda o seu trabalho: trocar de aba não apaga o que foi escrito.
 function dcTipo(t){ const d = DC(), g = S.dcGuardado ??= {}; g[d.tipo] = d; S.dc = g[t] || {...novoDC(), tipo:t}; S.dc.banca = d.banca; render(true); }
@@ -45,6 +47,40 @@ function dcUsarDesenho(){
   else if(d.fotoNome === NOME_DESENHO){ d.foto = null; d.fotoNome = ''; }
 }
 
+// A correção aparece mesmo se a gravação falhar: o aluno não perde o resultado e pode tentar de novo.
+function dcGuardarCorrecao(corr, modo, texto){
+  const d = DC(), reg = SIPC.discursiva.registroDaCorrecao(corr, {data:hojeISO(), tipo:modo, banca:d.banca, tema:d.tema, enunciado:d.enunciado, texto});
+  reg.id = 'r' + Date.now(); d.corr = reg; d.ver = null;
+  S.dcHist = [reg, ...(S.dcHist||[])].slice(0, SIPC.discursiva.MAX_CORRECOES);
+  dcEnviarCorrecao(reg);
+}
+async function dcEnviarCorrecao(reg){
+  const d = DC(), {id, ...dados} = reg; d.salva = 'salvando'; render(true);
+  try{ await SIPC.store.salvarCorrecao(uid(), id, dados); d.salva = 'ok'; }
+  catch(e){ console.error(e); d.salva = 'erro'; }
+  render(true);
+}
+async function dcCarregarHistorico(){
+  S.dcHistEstado = 'carregando';
+  try{
+    const lista = await SIPC.store.listarCorrecoes(uid());
+    S.dcHist = [...(S.dcHist||[]).filter(h => !lista.some(x => x.id === h.id)), ...lista];
+    S.dcHistEstado = 'ok';
+  }catch(e){ console.error(e); S.dcHistEstado = 'erro'; }
+  render(true);
+}
+function dcVer(id){ DC().ver = id; render(true); dcMostrarCorrecao(); }
+function dcReescrever(){
+  dcIr('passo', 'redacao');
+  const el = document.getElementById('dcTexto');
+  if(el){ el.scrollIntoView({block:'center'}); el.focus(); }
+}
+function dcNovaRedacao(){
+  const d = DC(); d.texto = ''; d.corr = null; d.salva = null; d.foto = null; d.fotoNome = ''; d.passo = 'redacao';
+  trocarFolha(folhaDC(), SIPC.desenho.limpar(obterFolha(folhaDC())));
+  dcReescrever();
+}
+
 async function dcCorrigir(modo){
   const d = DC();
   const texto = modo === 'estrutura' ? SIPC.discursiva.textoDaEstrutura(estruturaAtual(), d.partes) : d.texto.trim();
@@ -55,9 +91,8 @@ async function dcCorrigir(modo){
   try{
     limiteVisitante();
     const corr = await SIPC.ia.corrigirDiscursiva({banca:d.banca, tema:d.tema, enunciado:d.enunciado, espelho:d.espelho, texto, foto: modo === 'estrutura' ? null : d.foto, modo, estrutura: modo === 'estrutura' ? estruturaAtual().nome : ''});
-    d.corr = corr;
-    S.E.discursivas = SIPC.discursiva.somarHistorico(S.E.discursivas, {data:hojeISO(), tipo:modo, banca:d.banca, tema:d.tema, nota:corr.total, max:corr.max});
-    salvarE(); ev('discursiva-corrigida', d.tema + ' · ' + corr.total + '/' + corr.max);
+    dcGuardarCorrecao(corr, modo, texto);
+    ev('discursiva-corrigida', d.tema + ' · ' + corr.total + '/' + corr.max);
   }catch(e){ d.erro = mensagemIA(e); }
   d.ocupado = null; render(true); dcMostrarCorrecao();
 }
@@ -96,16 +131,52 @@ function campoFoto(){
     ${d.foto ? `<p class="dc-foto">Foto pronta: ${escHtml(d.fotoNome)} <button class="btn link" onclick="dcTirarFoto()">Trocar</button></p>` : `<input type="file" id="dcFoto" accept="image/jpeg,image/png,image/webp" onchange="dcEscolherFoto(this)">`}
     <p class="dica">Foto reta, com boa luz, só com o texto. ${privacidade}</p>`}</div>`;
 }
+const fmtNota = n => String(n).replace('.',',');
+const diaMes = data => String(data||'').split('-').reverse().slice(0,2).join('/');
+const barra = (nota, max) => `<span class="dc-barra" aria-hidden="true"><i style="width:${Math.round(nota/max*100)}%"></i></span>`;
+function avisoGuardar(c){
+  const d = DC();
+  if(d.corr !== c) return '';
+  if(S.visitante || S.modoTeste) return '<p class="dica">Sem conta ou em modo teste, esta correção não fica guardada.</p>';
+  if(d.salva === 'erro') return `<p class="erro-f" role="alert">Não consegui guardar esta correção no seu histórico. Ela continua aqui até você sair. <button class="btn link" onclick="dcEnviarCorrecao(DC().corr)">Tentar de novo</button></p>`;
+  return d.salva === 'ok' ? '<p class="dica">Guardada no seu histórico.</p>' : '<p class="dica">Guardando no seu histórico…</p>';
+}
 function correcaoHTML(c){
-  return `<section class="bloco dc-corr" aria-live="polite"><h3>Correção</h3>
-    <div class="dc-nota"><b class="num">${String(c.total).replace('.',',')}</b><span class="dim">de ${c.max}. Nota estimada, não é a da banca.</span></div>
-    <ul class="dc-crit">${c.notas.map(n=>`<li><div><b>${escHtml(n.rot)}</b>${n.comentario?`<span class="dim">${escHtml(n.comentario)}</span>`:''}</div><span class="num">${String(n.nota).replace('.',',')}/${n.max}</span></li>`).join('')}</ul>
-    ${c.bem.length ? `<h4>O que você fez bem</h4>${listaHTML(c.bem)}` : ''}
+  const ant = SIPC.discursiva.anteriorDe(S.dcHist||[], c);
+  const dif = ant ? Math.round((SIPC.discursiva.notaEm10(c) - SIPC.discursiva.notaEm10(ant))*10)/10 : null;
+  const antiga = DC().ver === c.id;
+  return `<section class="bloco dc-corr" aria-live="polite"><h3>${antiga ? 'Correção de ' + diaMes(c.data) : 'Correção'}</h3>
+    ${antiga ? `<p class="dim dc-tema-corr">${escHtml(c.tema)}</p>` : ''}
+    <div class="dc-nota"><b class="num">${fmtNota(c.total)}</b><span class="dim">de ${c.max}. Nota estimada, não é a da banca.</span></div>
+    ${dif != null ? `<p class="dc-dif ${dif>0?'sobe':dif<0?'desce':''}">${dif>0?'Subiu '+fmtNota(dif):dif<0?'Caiu '+fmtNota(-dif):'Igual à'} ${dif===0?'anterior':'ponto'+(Math.abs(dif)===1?'':'s')+' em relação à redação anterior'}</p>` : ''}
+    ${SIPC.discursiva.fugiuDoTema(c) ? '<p class="aviso">O texto ficou fora do tema pedido. Releia o enunciado antes de reescrever: é o que mais pesa na nota.</p>' : ''}
+    <ul class="dc-crit">${c.notas.map(n=>`<li><div><b>${escHtml(n.rot)}</b>${n.comentario?`<span class="dim">${escHtml(n.comentario)}</span>`:''}${barra(n.nota,n.max)}</div><span class="num">${fmtNota(n.nota)}/${n.max}</span></li>`).join('')}</ul>
     ${c.corrigir.length ? `<h4>O que corrigir para subir a nota</h4>${listaHTML(c.corrigir)}` : ''}
+    ${c.bem.length ? `<h4>O que você fez bem</h4>${listaHTML(c.bem)}` : ''}
     ${c.lingua.length ? `<h4>Língua portuguesa</h4><ul>${c.lingua.map(l=>`<li><s>${escHtml(l.trecho)}</s> → <b>${escHtml(l.correcao)}</b>${l.tipo?` <span class="dim">(${escHtml(l.tipo)})</span>`:''}</li>`).join('')}</ul>` : ''}
-    ${c.modelo ? `<details class="aj" open><summary>Versão modelo</summary><p class="dc-texto">${escHtml(c.modelo)}</p></details>` : ''}
-    ${c.transcricao ? `<details class="aj"><summary>O que a IA leu na foto</summary><p class="dc-texto">${escHtml(c.transcricao)}</p></details>` : ''}
+    ${c.modelo ? `<details class="aj"><summary>Versão modelo</summary><p class="dc-texto">${escHtml(c.modelo)}</p></details>` : ''}
+    ${c.texto ? `<details class="aj"><summary>O seu texto</summary><p class="dc-texto">${escHtml(c.texto)}</p></details>` : ''}
+    ${c.transcricao ? `<details class="aj"><summary>O que a IA leu na imagem</summary><p class="dc-texto">${escHtml(c.transcricao)}</p></details>` : ''}
+    ${avisoGuardar(c)}
+    <div class="fim-estudo">${antiga ? '<button class="btn sec" onclick="dcVer(null)">Fechar</button>' : c.tipo === 'redacao' ? '<button class="btn" onclick="dcReescrever()">Reescrever este texto</button><button class="btn sec" onclick="dcNovaRedacao()">Nova redação</button>' : ''}</div>
   </section>`;
+}
+function evolucaoHTML(hist){
+  const e = SIPC.discursiva.resumoEvolucao(hist);
+  if(!e.qtd) return '';
+  if(e.qtd === 1) return `<section class="bloco"><h3>Sua evolução</h3><p class="dim" style="font-size:14px;margin:0">Sua primeira redação tirou ${fmtNota(e.ultima)} de 10. Na próxima, mostramos a comparação.</p></section>`;
+  const teto = 10;
+  return `<section class="bloco"><h3>Sua evolução</h3>
+    <div class="dc-resumo"><div><b class="num">${fmtNota(e.ultima)}</b><span class="dim">última nota</span></div><div><b class="num">${fmtNota(e.media)}</b><span class="dim">média das últimas 5</span></div><div><b class="num">${e.diferenca>0?'+':''}${fmtNota(e.diferenca)}</b><span class="dim">desde a anterior</span></div></div>
+    <ol class="dc-serie" aria-label="Notas das últimas redações, da mais antiga para a mais recente">${e.serie.map(s=>`<li><span class="dc-coluna"><i style="height:${Math.max(4,s.nota/teto*100)}%"></i></span><b class="num">${fmtNota(s.nota)}</b><span class="dim">${diaMes(s.data)}</span></li>`).join('')}</ol>
+    ${e.criterios.length ? `<h4>Por critério, nas últimas redações</h4><ul class="dc-crit">${e.criterios.map(c=>`<li><div><b>${escHtml(c.rot)}</b>${barra(c.media,c.max)}</div><span class="num">${fmtNota(c.media)}/${c.max}</span></li>`).join('')}</ul>` : ''}
+    ${e.pontoFraco ? `<p class="dc-foco">Para subir a nota, foque em <b>${escHtml(e.pontoFraco.rot)}</b>.</p>` : ''}
+  </section>`;
+}
+function historicoHTML(hist){
+  if(S.dcHistEstado === 'erro') return `<p class="erro-f" role="alert">Não consegui carregar o seu histórico. <button class="btn link" onclick="dcCarregarHistorico()">Tentar de novo</button></p>`;
+  if(!hist.length) return '';
+  return `<section class="bloco"><h3>Correções guardadas</h3><ul class="ev-lista">${hist.slice(0,10).map(h=>`<li><span>${diaMes(h.data)} · ${escHtml(h.tema)}${h.tipo==='estrutura'?' · estrutura':''}</span><span class="dc-linha"><b class="num">${fmtNota(h.total??h.nota)}/${h.max}</b>${h.notas&&h.id?`<button class="btn link" onclick="dcVer('${escHtml(h.id)}')">Ver</button>`:''}</span></li>`).join('')}</ul></section>`;
 }
 function passoCola(){
   const t = temaFGV(), d = DC();
@@ -135,8 +206,8 @@ function passoRedacao(){
 function vistaDiscursiva(){
   const d = DC(), fgv = SIPC.discursiva.ehFGV(d.banca);
   return `<section class="bloco">
-    <div class="campo-f"><label class="f" for="dcBanca">Banca</label><input type="text" id="dcBanca" value="${escHtml(d.banca)}" oninput="dcCampo('banca',this.value)" onchange="render(true)" placeholder="Ex.: FGV"></div>
-    <div class="campo-f"><label class="f" for="dcTema">Tema</label><input type="text" id="dcTema" value="${escHtml(d.tema)}" oninput="dcCampo('tema',this.value)" onchange="render(true)" placeholder="Ex.: LGPD aplicada ao Judiciário"></div>
+    <div class="campo-f"><label class="f" for="dcBanca">Banca</label><input type="text" id="dcBanca" value="${escHtml(d.banca)}" oninput="dcCampo('banca',this.value)" onchange="dcAtualizar()" placeholder="Ex.: FGV"></div>
+    <div class="campo-f"><label class="f" for="dcTema">Tema</label><input type="text" id="dcTema" value="${escHtml(d.tema)}" oninput="dcCampo('tema',this.value)" onchange="dcAtualizar()" placeholder="Ex.: LGPD aplicada ao Judiciário"></div>
     ${fgv ? `<div class="dc-temas" role="group" aria-label="Temas sugeridos">${SIPC.discursiva.TEMAS_FGV.map((t,i)=>`<button class="chip ${d.tema===t.tema?'on':''}" onclick="dcTema(${i})">${escHtml(t.tema)}</button>`).join('')}</div>` : ''}
     <details class="aj dc-extras" ${(d.extras ?? !!(d.enunciado||d.espelho))?'open':''} ontoggle="DC().extras=this.open"><summary>Enunciado e espelho da banca (opcional)</summary>
     <div class="campo-f"><label class="f" for="dcEnun">Enunciado</label><textarea id="dcEnun" rows="3" oninput="dcCampo('enunciado',this.value)">${escHtml(d.enunciado)}</textarea></div>
@@ -165,13 +236,17 @@ function vistaLogico(){
   </section>` : ''}`;
 }
 function abaDiscursiva(){
-  const d = DC(), hist = (S.E.discursivas||[]).filter(h=>h.tipo!=='logico').slice(0,5);
+  const d = DC();
+  if(!S.dcHistEstado) dcCarregarHistorico();
+  // O que a v1.4 guardou na trilha continua contando, só com a nota.
+  const hist = [...(S.dcHist||[]), ...(S.E.discursivas||[]).filter(h=>h.tipo!=='logico')];
+  const vista = d.ver ? (S.dcHist||[]).find(h=>h.id===d.ver) : d.corr;
   return `<div class="discursiva">
     <nav class="abas" aria-label="Tipo de treino" style="margin-bottom:0">${[['discursiva','Discursiva'],['logico','Raciocínio lógico']].map(([k,n])=>`<button class="aba ${d.tipo===k?'on':''}" onclick="dcTipo('${k}')">${n}</button>`).join('')}</nav>
     ${d.tipo==='logico' ? vistaLogico() : vistaDiscursiva()}
     ${d.ocupado ? `<div class="carregando-etapa" role="status"><span class="giro"></span>${escHtml(d.ocupado)}</div>` : ''}
     ${d.erro ? `<p class="erro-f" role="alert">${escHtml(d.erro)}</p>` : ''}
-    ${d.tipo==='discursiva' && d.corr ? correcaoHTML(d.corr) : ''}
-    ${d.tipo==='discursiva' && hist.length ? `<section class="bloco"><h3>Suas últimas notas</h3><ul class="ev-lista">${hist.map(h=>`<li><span>${escHtml(h.tema)}${h.tipo==='estrutura'?' · estrutura':''}</span><b class="num">${String(h.nota).replace('.',',')}/${h.max}</b></li>`).join('')}</ul></section>` : ''}
+    ${d.tipo==='discursiva' && vista ? correcaoHTML(vista) : ''}
+    ${d.tipo==='discursiva' ? evolucaoHTML(hist) + historicoHTML(hist) : ''}
   </div>`;
 }

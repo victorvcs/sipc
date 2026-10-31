@@ -161,3 +161,54 @@ export function validarCorrecaoLogico(o) {
 // O documento do aluno tem limite: o histórico guarda só o resultado.
 export const HISTORICO_MAX = 40;
 export const somarHistorico = (lista, item) => [item, ...(lista || [])].slice(0, HISTORICO_MAX);
+
+// Cada correção vira um documento próprio em users/{uid}/redacoes. Os limites
+// protegem o documento de uma resposta enorme da IA. Foto e desenho não entram.
+export const MAX_CORRECOES = 40;
+const corta = (s, n) => String(s ?? '').slice(0, n);
+export const registroDaCorrecao = (c, { data, tipo, banca, tema, enunciado, texto }) => ({
+  data, tipo, banca: corta(banca, 120), tema: corta(tema, 300), enunciado: corta(enunciado, 3000), texto: corta(texto, 12000),
+  total: c.total, max: c.max,
+  notas: c.notas.map(({ id, rot, max, nota, comentario }) => ({ id, rot, max, nota, comentario: corta(comentario, 800) })),
+  bem: c.bem.slice(0, 10).map(s => corta(s, 800)),
+  corrigir: c.corrigir.slice(0, 10).map(s => corta(s, 800)),
+  lingua: c.lingua.slice(0, 30).map(l => ({ trecho: corta(l.trecho, 300), correcao: corta(l.correcao, 300), tipo: corta(l.tipo, 80) })),
+  modelo: corta(c.modelo, 8000), transcricao: corta(c.transcricao, 12000),
+});
+
+// Um quarto da nota de tema, ou menos, indica que o texto respondeu a outra pergunta.
+export function fugiuDoTema(c) {
+  const n = (c?.notas || []).find(x => x.id === 'tema');
+  return !!n && n.nota / n.max <= 0.25;
+}
+
+const umaCasa = n => Math.round(n * 10) / 10;
+const media = l => umaCasa(l.reduce((t, n) => t + n, 0) / l.length);
+const notaDe = h => h.total ?? h.nota; // o histórico da v1.4 guardava só "nota"
+const redacoes = lista => (lista || []).filter(h => h.tipo === 'redacao' && h.max > 0);
+export const notaEm10 = h => umaCasa(notaDe(h) / h.max * 10);
+
+// lista: da correção mais recente para a mais antiga. Estrutura não entra: é outro tipo de treino.
+export function resumoEvolucao(lista) {
+  const r = redacoes(lista);
+  if (!r.length) return { qtd: 0 };
+  const recentes = r.slice(0, 5), comNotas = recentes.filter(h => h.notas);
+  const criterios = (comNotas[0]?.notas || []).map(c => ({
+    id: c.id, rot: c.rot, max: c.max, ultima: c.nota,
+    media: media(comNotas.map(h => h.notas.find(n => n.id === c.id)?.nota).filter(n => n != null)),
+  }));
+  const ultima = notaEm10(r[0]), anterior = r[1] ? notaEm10(r[1]) : null;
+  return {
+    qtd: r.length, ultima, anterior, media: media(recentes.map(notaEm10)),
+    diferenca: anterior == null ? null : umaCasa(ultima - anterior),
+    criterios,
+    pontoFraco: criterios.length ? criterios.reduce((a, b) => (b.media / b.max < a.media / a.max ? b : a)) : null,
+    serie: r.slice(0, 8).reverse().map(h => ({ data: h.data, nota: notaEm10(h) })),
+  };
+}
+
+// A redação anterior a c, para comparar a nota dentro do relatório.
+export function anteriorDe(lista, c) {
+  const r = redacoes(lista), i = r.findIndex(h => h.id === c.id);
+  return i >= 0 ? r[i + 1] || null : null;
+}

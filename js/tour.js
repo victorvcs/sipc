@@ -2,6 +2,7 @@
    Tour de boas-vindas: na primeira vez que a pessoa chega ao plano de
    hoje, destaca cada parte da tela e explica o que fazer (o que tocar, o
    que marcar e o que é o modo teste). Pode ser revisto em Conta.
+   Os guias de funcionalidade (GUIAS, em js/ajuda.js) usam o mesmo cartão.
    Script comum, carregado depois do app.js: usa S, render, avisar e SIPC.
 ------------------------------------------------------------------- */
 const TOUR_VERSAO = 'v1';
@@ -42,9 +43,16 @@ function iniciarTour(){
   TOUR = {i:0, passos: passosDoTour(), voltarFoco: document.activeElement};
   desenharTour();
 }
+function iniciarGuia(id){
+  const g = GUIAS[id]; if(!g || S.tela !== 'app') return;
+  S.vista = null; TOUR = {i:0, passos:g.passos, guia:g.titulo, voltarFoco:document.activeElement};
+  abrirPasso(); desenharTour();
+}
+// Cada passo do guia pode levar à tela que ele explica.
+function abrirPasso(){ const p = TOUR.passos[TOUR.i]; if(p.abrir){ p.abrir(); window.scrollTo(0,0); } }
 function fecharTour(){
-  if(window.evento && TOUR) evento('tour', 'até o passo ' + (TOUR.i+1) + ' de ' + TOUR.passos.length);
-  marcarTourVisto();
+  if(window.evento && TOUR) evento(TOUR.guia ? 'guia' : 'tour', (TOUR.guia ? TOUR.guia + ' · ' : '') + 'até o passo ' + (TOUR.i+1) + ' de ' + TOUR.passos.length);
+  if(!TOUR || !TOUR.guia) marcarTourVisto();
   const el = document.getElementById('tour'); if(el) el.remove();
   removeEventListener('resize', desenharTour); removeEventListener('scroll', posicionarTour, true);
   const foco = TOUR && TOUR.voltarFoco; TOUR = null;
@@ -54,7 +62,7 @@ function irTour(d){
   if(!TOUR) return;
   const i = TOUR.i + d;
   if(i >= TOUR.passos.length) return fecharTour();
-  TOUR.i = Math.max(0, i); desenharTour();
+  TOUR.i = Math.max(0, i); abrirPasso(); desenharTour();
 }
 function alvoDoPasso(p){
   if(!p.alvo) return null;
@@ -79,9 +87,9 @@ function desenharTour(){
       <p id="tourTexto">${p.texto}</p>
       <div class="tour-pontos" aria-hidden="true">${TOUR.passos.map((_,k)=>`<i class="${k===TOUR.i?'on':''}"></i>`).join('')}</div>
       <div class="tour-acoes">
-        <button class="btn link" onclick="fecharTour()">${ultimo ? 'Fechar' : 'Pular o tour'}</button>
+        <button class="btn link" onclick="fecharTour()">${ultimo ? 'Fechar' : TOUR.guia ? 'Sair do guia' : 'Pular o tour'}</button>
         <span>${TOUR.i ? '<button class="btn sec" onclick="irTour(-1)">Voltar</button>' : ''}
-        <button class="btn" id="tourProximo" onclick="irTour(1)">${ultimo ? 'Começar a estudar' : 'Próximo'}</button></span>
+        <button class="btn" id="tourProximo" onclick="irTour(1)">${ultimo ? (TOUR.guia ? 'Entendi' : 'Começar a estudar') : 'Próximo'}</button></span>
       </div>
     </div>`;
   const alvo = alvoDoPasso(p);

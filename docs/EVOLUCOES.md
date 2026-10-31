@@ -19,6 +19,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.4 | publicada | `7d65903` | Discursiva e raciocínio lógico |
 | 1.5 | publicada | `702a4f8` | Escrita e rascunho à mão, inclusive no iPad |
 | 1.5.1 | publicada, em uso | tag `v1.5.1` | Ajustes de experiência na discursiva e na folha |
+| 1.6 | **em teste local** | branch `feature/evolucao-redacao` | Histórico de correções, evolução e relatório mais claro |
 
 ---
 
@@ -156,3 +157,35 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 - Em telas de até 820 px, os botões de foco e Reportar somem enquanto a folha está visível. O cronômetro continua contando.
 - Em tela estreita, o traço engrossa até 2,4 vezes.
 - Desfazer e Limpar ficam desativados quando não têm efeito.
+
+## v1.6 — Evolução na redação (em teste local)
+
+**O que faz.** Guarda cada correção de redação e de estrutura na conta do aluno, mostra a evolução na aba Discursiva e permite reabrir os relatórios. O relatório compara com a redação anterior, avisa quando o texto foge do tema e traz primeiro o que corrigir.
+
+**Objetivo.** Pedido do Victor: guardar o feedback e os indicadores no banco, para o aluno ver a evolução de uma redação para a próxima.
+
+**Racional.** Antes só a nota ficava na trilha, em `S.E.discursivas`. Um documento por correção, em `users/{uid}/redacoes/{id}`, não pesa no limite de 1 MB do estado, acompanha o aluno em qualquer trilha e não exige mudança nas regras: esse caminho já é só do dono e do admin.
+
+**Regras de negócio.**
+- Guarda notas por critério, feedback, versão modelo, texto digitado e transcrição, com limite de tamanho por campo. Foto e desenho não são guardados.
+- A evolução conta só redações; exercício de estrutura aparece na lista, mas fica fora das médias.
+- A média usa as últimas 5 redações; a série mostra as últimas 8; a lista traz as últimas 10.
+- O ponto fraco é o critério com o menor aproveitamento médio, proporcional à nota máxima dele.
+- Nota de tema de até 25% do máximo gera o aviso de texto fora do tema. É uma regra do app, não da banca.
+- Falha ao gravar não esconde a correção: o aluno vê o aviso e pode tentar de novo.
+- As notas guardadas na trilha pela v1.4 continuam contando, sem detalhes.
+- Visitante e modo teste não gravam no banco.
+
+### Cronograma, novidades e guias (também na v1.6)
+
+**O que faz.** Procura as datas no edital inteiro, mostra as próximas no Painel, transforma as Novidades em alerta e aba do menu principal, com prints, e cria guias passo a passo, abertos pela aba Novidades e pela Ajuda.
+
+**Racional.** Pedido do Victor ao ver a aba Datas vazia num edital com cronograma e o aviso de novidade misturado aos cartões do plano. Datas em DD/MM/AAAA eram descartadas sem aviso, e só os últimos 150 mil caracteres do edital iam para a IA. Os guias reaproveitam o cartão do tour.
+
+**Regras de negócio.**
+- Data em DD/MM/AAAA é convertida; data inválida continua fora.
+- Se a leitura do edital vier sem datas, uma segunda chamada usa só o começo do arquivo e a vizinhança de cada data, até 40 mil caracteres. Sem data no texto, a IA não é chamada. Falha nessa etapa não impede criar a trilha.
+- A IA não calcula data; só completa o ano quando o cronograma ou o edital o informa.
+- O alerta aparece uma vez por versão e neste aparelho, depois do tour de boas-vindas. Ver ou dispensar encerra o alerta.
+- Terminar um guia não marca o tour de boas-vindas como visto.
+- Os prints de `img/novidades` usam dados de exemplo.

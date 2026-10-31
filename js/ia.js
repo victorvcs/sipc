@@ -3,7 +3,7 @@
 import { obterIA, IA_MODELOS } from './firebase.js';
 import { validarEdital, validarConteudo, validarQuestoes } from './nucleo/validar.js';
 import { idConteudo, orcamento, comTentativas, criarFila, extrairJSON, embaralhar } from './nucleo/iautil.js';
-import { validarCronograma } from './nucleo/cronograma.js';
+import { validarCronograma, trechoDeDatas } from './nucleo/cronograma.js';
 import { CRITERIOS_FGV, validarCorrecao, validarExercicioLogico, validarCorrecaoLogico } from './nucleo/discursiva.js';
 import { lerConteudo, gravarConteudo } from './store.js';
 
@@ -34,7 +34,7 @@ async function chamarIA({ system, user, maxTokens, validar = o => o }) {
 
 const PEDIDO_CRONOGRAMA = 'as datas do concurso que constam no texto (inscrição, isenção da taxa, pagamento, provas, resultados, recursos), ' +
   'cada uma com "evento" curto, "inicio" e, se for um período, "fim", no formato AAAA-MM-DD. ' +
-  'Copie só as datas escritas no texto, nunca calcule nem estime; data "a definir" fica de fora. Sem datas no texto, [];';
+  'Copie só as datas escritas no texto, nunca calcule nem estime; se o ano não vier junto da data, use o ano do cronograma ou do edital; data "a definir" fica de fora. Sem datas no texto, [];';
 
 export async function extrairEdital(texto, filtroCargo) {
   const filtro = filtroCargo.trim();
@@ -62,12 +62,15 @@ export async function extrairEdital(texto, filtroCargo) {
   return edital;
 }
 
+// Recebe o arquivo inteiro: só os trechos com data vão para a IA. Sem data, nem gasta a cota.
 export async function extrairCronograma(texto) {
+  const trecho = trechoDeDatas(texto);
+  if (!trecho) return [];
   return gerarJSON({
-    maxTokens: 2000,
+    maxTokens: 3000,
     validar: o => validarCronograma(o.cronograma),
     user: 'Você recebe um edital, uma retificação ou um cronograma de concurso. Devolva "cronograma": ' + PEDIDO_CRONOGRAMA +
-      '\nResponda SOMENTE com JSON: {"cronograma":[{"evento":"","inicio":"","fim":""}]}\n\nTEXTO:\n' + texto.slice(-150000),
+      '\nResponda SOMENTE com JSON: {"cronograma":[{"evento":"","inicio":"","fim":""}]}\n\nTEXTO:\n' + trecho,
   });
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarCronograma, atualizarCronograma, proximasDatas, faltam, datasUrgentes, linkAgenda } from '../js/nucleo/cronograma.js';
+import { validarCronograma, atualizarCronograma, proximasDatas, faltam, datasUrgentes, linkAgenda, normalizarData, trechoDeDatas } from '../js/nucleo/cronograma.js';
 
 test('descarta data inválida, repetida e sem nome, e ordena', () => {
   const l = validarCronograma([
@@ -36,3 +36,21 @@ test('link da agenda: dia inteiro, com fim exclusivo e texto codificado', () => 
   assert.equal(u.searchParams.get('dates'), '20261130/20261201');
   assert.equal(u.searchParams.get('text'), 'Fim & início · ABDI');
 });
+
+test('aceita a data no formato do edital', () => {
+  const [i] = validarCronograma([{ evento: 'Prova', inicio: '12/11/2026', fim: '13.11.2026' }]);
+  assert.equal(i.inicio, '2026-11-12');
+  assert.equal(i.fim, '2026-11-13');
+  assert.equal(normalizarData('2026-11-12'), '2026-11-12');
+});
+test('o trecho guarda as datas de um edital enorme, mesmo no começo do arquivo', () => {
+  const texto = 'EDITAL 1/2026 ANPD. Inscrições de 05/11/2026 a 20/11/2026. ' + 'conteúdo '.repeat(100000);
+  const t = trechoDeDatas(texto);
+  assert.ok(t.includes('05/11/2026') && t.includes('20/11/2026'));
+  assert.ok(t.length < 5000);
+});
+test('o trecho entende data por extenso e ignora número de lei', () => {
+  assert.ok(trechoDeDatas('A prova será em 15 de março de 2027.').includes('15 de março'));
+  assert.equal(trechoDeDatas('Lei nº 13.709/2018, artigo 5.'), '');
+});
+test('texto sem data não gera trecho', () => assert.equal(trechoDeDatas('sem nada aqui'), ''));

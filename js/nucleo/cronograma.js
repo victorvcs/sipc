@@ -5,17 +5,27 @@
 const DATA = /^\d{4}-\d{2}-\d{2}$/;
 const dataValida = d => DATA.test(d || '') && !isNaN(new Date(d + 'T12:00:00').getTime());
 
+// A IA às vezes devolve a data como está no edital (12/11/2026) em vez de 2026-11-12.
+export function normalizarData(d) {
+  const s = String(d ?? '').trim();
+  const br = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s);
+  return br ? `${br[3]}-${br[2].padStart(2, '0')}-${br[1].padStart(2, '0')}` : s;
+}
+
 const fimDe = i => i.fim || i.inicio;
 const ordem = (a, b) => a.inicio.localeCompare(b.inicio) || a.evento.localeCompare(b.evento);
 
 export function validarCronograma(lista) {
   const vistos = new Set();
-  return (Array.isArray(lista) ? lista : []).map(i => ({
-    evento: String(i?.evento ?? '').trim().slice(0, 160),
-    inicio: i?.inicio,
-    fim: dataValida(i?.fim) && i.fim > i.inicio ? i.fim : '',
-    manual: !!i?.manual,
-  })).filter(i => i.evento && dataValida(i.inicio)).filter(i => {
+  return (Array.isArray(lista) ? lista : []).map(i => {
+    const inicio = normalizarData(i?.inicio), fim = normalizarData(i?.fim);
+    return {
+      evento: String(i?.evento ?? '').trim().slice(0, 160),
+      inicio,
+      fim: dataValida(fim) && fim > inicio ? fim : '',
+      manual: !!i?.manual,
+    };
+  }).filter(i => i.evento && dataValida(i.inicio)).filter(i => {
     const k = i.evento.toLowerCase() + i.inicio;
     if (vistos.has(k)) return false;
     vistos.add(k);
@@ -26,6 +36,21 @@ export function validarCronograma(lista) {
 // Retificação: as datas novas da IA substituem as antigas; as do aluno ficam.
 export const atualizarCronograma = (atual, novas) =>
   validarCronograma([...validarCronograma(novas).map(i => ({ ...i, manual: false })), ...(atual || []).filter(i => i.manual)]);
+
+const DATA_NO_TEXTO = /\b\d{1,2}[/.]\d{1,2}(?:[/.]\d{2,4})?\b|\b\d{1,2}º? de (?:janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/gi;
+
+// Edital longo não cabe inteiro na IA: fica só o começo, que costuma dizer o ano,
+// e a vizinhança de cada data. Um edital sem nenhuma data devolve ''.
+export function trechoDeDatas(texto, max = 40000, vizinhanca = 140) {
+  const t = String(texto ?? ''), faixas = [];
+  for (const m of t.matchAll(DATA_NO_TEXTO)) {
+    const de = Math.max(0, m.index - vizinhanca), ate = Math.min(t.length, m.index + m[0].length + vizinhanca);
+    const ultima = faixas.at(-1);
+    if (ultima && de <= ultima[1]) ultima[1] = ate; else faixas.push([de, ate]);
+  }
+  if (!faixas.length) return '';
+  return (t.slice(0, 600) + '\n…\n' + faixas.map(([a, b]) => t.slice(a, b)).join('\n…\n')).slice(0, max);
+}
 
 export const proximasDatas = (lista, hoje) => (lista || []).filter(i => fimDe(i) >= hoje);
 

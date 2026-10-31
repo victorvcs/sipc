@@ -386,6 +386,7 @@ async function lerEdital(){
     if(S.edModo==='texto'){
       limiteVisitante();
       res = deEdital(await SIPC.ia.extrairEdital(texto.slice(-150000), S.filtroCargo), 'texto');
+      await lerDatasDeNovo(texto);
     } else {
       const lidos = [];
       for(const a of S.arquivos){
@@ -402,6 +403,7 @@ async function lerEdital(){
         limiteVisitante();
         const junto = lidos.map(x=>x.r.texto).join('\n\n').slice(-150000);
         res = deEdital(await SIPC.ia.extrairEdital(junto, S.filtroCargo), 'ia');
+        await lerDatasDeNovo(lidos.map(x=>x.r.completo||x.r.texto).join('\n\n'));
       }
     }
     if(!valendo()) return;
@@ -418,6 +420,12 @@ async function lerEdital(){
 }
 // Volta ao passo de envio guardando os arquivos e o texto já colados.
 function tentarLeituraDeNovo(){ S.edStatus='ocioso'; S.edPasso=0; S.erroLeitura=null; render(); const ta = document.getElementById('edTexto'); if(ta && S.textoColado) ta.value = S.textoColado; }
+// A leitura geral pode não trazer as datas (cronograma fora do trecho enviado).
+// A segunda tentativa olha o arquivo inteiro; se falhar, a trilha segue sem datas.
+async function lerDatasDeNovo(textoInteiro){
+  if(S.cronograma.length) return;
+  try{ S.cronograma = await SIPC.ia.extrairCronograma(textoInteiro); }catch(e){ console.error(e); }
+}
 function deEdital(ed, fonte){
   S.formatoQuestoes = ed.formatoQuestoes || 'multipla5';
   S.cronograma = ed.cronograma || [];
@@ -528,7 +536,7 @@ const ROTULO = {rev:['Revisão','rev'], est:['Estudar','est'], q:['Questões','q
 
 function telaApp(){
   const r = ritmo();
-  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['conta','Conta']];
+  const abas = [['hoje','Hoje'],['painel','Painel'],['trilha','Trilha'],['revisoes','Revisões'],['discursiva','Discursiva'],['datas','Datas'],['novidades','Novidades'],['conta','Conta']];
   if(ehAdmin()) abas.push(['admin','Admin']);
   let corpo = '';
   if(S.vista==='estudo') corpo = vistaEstudo();
@@ -538,6 +546,7 @@ function telaApp(){
   else if(S.aba==='revisoes') corpo = abaRevisoes();
   else if(S.aba==='discursiva') corpo = abaDiscursiva();
   else if(S.aba==='datas') corpo = abaDatas();
+  else if(S.aba==='novidades') corpo = abaNovidades();
   else if(S.aba==='ajuda') corpo = abaAjuda();
   else if(S.aba==='conta') corpo = abaConta();
   else if(S.aba==='admin') corpo = abaAdmin();
@@ -545,10 +554,11 @@ function telaApp(){
   return `<div class="app">
     <div class="topo">
       <div><button class="trocar-trilha" onclick="irTrilhas()" title="Minhas trilhas">${ico('list')} Minhas trilhas (${S.trilhas.length})</button><h1>${escHtml(S.prova.nome)}</h1><div class="sub">${S.prova.cargo?escHtml(S.prova.cargo)+' · ':''}banca ${escHtml(bancasTxt())}</div></div>
-      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova<br><button class="mini" onclick="S.vista=null;S.aba='painel';render()">ver painel</button><br><button class="mini" onclick="S.vista=null;irAba('ajuda')">Novidades e ajuda${novidadeNaoVista()?'<i class="nov-ponto" aria-label="há novidade"></i>':''}</button></div>
+      <div class="contagem">${chaveTeste()}<span class="num">${r.ateProva}</span>dias até a prova<br><button class="mini" onclick="S.vista=null;S.aba='painel';render()">ver painel</button><br><button class="mini" onclick="S.vista=null;irAba('ajuda')">Ajuda</button></div>
     </div>
-    ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" onclick="irAba('${k}')">${n}</button>`).join('')}</nav>`}
+    ${S.vista ? '' : `<nav class="abas" aria-label="Seções">${abas.map(([k,n])=>`<button class="aba ${S.aba===k?'on':''}" onclick="irAba('${k}')">${n}${k==='novidades'&&novidadeNaoVista()?'<i class="nov-ponto" title="Tem novidade"></i>':''}</button>`).join('')}</nav>`}
     <div class="tela" key="${S.vista||S.aba}">${corpo}</div>
+    ${alertaNovidade()}
   </div>`;
 }
 function irAba(k){ S.aba = k; if(k==='admin') carregarAdmin(); render(); }
@@ -602,7 +612,6 @@ function abaHoje(){
       ${faltouOntem() ? `<div class="nota">${ico('info')}<div><b>Ontem não teve estudo, e tudo bem.</b> O plano foi reorganizado a partir de hoje: nada acumulou.</div></div>` : ''}
       ${folga ? `<div class="nota">${ico('info')}<div><b>Hoje está fora do seu ritmo.</b> Se quiser, adiante a lista abaixo; senão, até o próximo dia de estudo.</div></div>` : ''}
       ${cont ? `<div class="continuar"><div><b>Continuar de onde parou</b><span>${escHtml(cont.titulo)} · ${escHtml(cont.rot)}</span></div><button class="btn" onclick="continuar()">Continuar</button></div>` : ''}
-      ${avisoNovidade()}
       ${avisoDatas()}
       ${alertaDoDia(itens)}
       ${tudo ? `<div class="nota" style="background:var(--seal-soft);color:#155f37">${ico('check')}<div><b>Plano de hoje concluído.</b> Amanhã já tem o próximo.${proximoTopico() ? ' <button class="btn link" onclick="adiantarTopico()">Adiantar o próximo tópico</button>' : ''}</div></div>` : ''}
@@ -1286,6 +1295,8 @@ function abaPainel(){
       <div class="g-legenda"><span><i class="l-real"></i>Realizado</span><span><i class="l-plano"></i>Planejado</span></div>
     </section>
 
+    ${cartaoDatas()}
+
     <section class="kpis" aria-label="Indicadores da semana">
       <div class="kpi"><span class="k-rot">Estudo nos últimos 7 dias</span><span class="k-val">${horasTxt(semana)}</span><span class="k-delta ${semana>anterior?'up':''}">${anterior ? (semana>=anterior ? `${semana-anterior} min a mais que a semana anterior` : `${anterior-semana} min a menos que a semana anterior`) : 'primeira semana'}</span></div>
       <div class="kpi"><span class="k-rot">Acerto nas questões</span><span class="k-val">${ac.total ? ac.pct+'%' : '—'}</span><span class="k-delta">${ac.total ? `${ac.acertos} de ${ac.total} · últimas 2 semanas: ${ac14.total?ac14.pct+'%':'—'}` : 'faça as questões de um tópico'}</span></div>
@@ -1602,7 +1613,7 @@ function nomeTelaAtual(){
   if(S.tela==='entrada') return 'Entrada';
   if(S.vista==='estudo') return 'Estudar tópico · ' + ((S.estudo && NOME_PARTE[S.estudo.parte]) || '');
   if(S.vista==='quiz') return 'Questões do dia';
-  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', discursiva:'Discursiva', datas:'Datas', ajuda:'Ajuda', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
+  return {hoje:'Plano de hoje', trilha:'Trilha', revisoes:'Revisões', painel:'Painel', discursiva:'Discursiva', datas:'Datas', novidades:'Novidades', ajuda:'Ajuda', conta:'Conta', admin:'Admin'}[S.aba] || 'App';
 }
 let REP = null; // rascunho do reporte aberto
 const scriptsCarregados = {};

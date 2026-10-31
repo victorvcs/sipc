@@ -27,14 +27,14 @@ async function lerPdf(file) {
     texto += content.items.map(it => it.str).join(' ') + '\n';
   }
   if (!texto.trim()) throw new Error('o PDF não tem texto selecionável (pode ser imagem escaneada); cole o texto do edital');
-  return { tipo: 'pdf', paginas: pdf.numPages, texto: texto.slice(-LIMITE_CHARS) };
+  return { tipo: 'pdf', paginas: pdf.numPages, texto: texto.slice(-LIMITE_CHARS), completo: texto };
 }
 
 async function lerWord(file) {
   await carregarScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js');
   const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
   if (!value.trim()) throw new Error('o documento Word está vazio');
-  return { tipo: 'word', texto: value.slice(-LIMITE_CHARS) };
+  return { tipo: 'word', texto: value.slice(-LIMITE_CHARS), completo: value };
 }
 
 async function lerPlanilha(file) {
@@ -49,6 +49,6 @@ export async function lerArquivo(file) {
   if (nome.endsWith('.pdf') || file.type === 'application/pdf') return lerPdf(file);
   if (/\.docx$/.test(nome)) return lerWord(file);
   if (/\.(xlsx|xls|csv|ods)$/.test(nome)) return lerPlanilha(file);
-  if (/\.txt$/.test(nome)) return { tipo: 'texto', texto: (await file.text()).slice(-LIMITE_CHARS) };
+  if (/\.txt$/.test(nome)) { const completo = await file.text(); return { tipo: 'texto', texto: completo.slice(-LIMITE_CHARS), completo }; }
   throw new Error('formato não suportado: use PDF, planilha ou Word (.docx)');
 }

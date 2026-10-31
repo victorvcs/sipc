@@ -39,10 +39,10 @@ async function lerDatas(){
   S.dtLendo = true; S.dtErro2 = null; render(true);
   try{
     limiteVisitante();
-    const texto = arq && arq[0] ? (await SIPC.lerArquivo(arq[0])).texto : colado;
+    const lido = arq && arq[0] ? await SIPC.lerArquivo(arq[0]) : null, texto = lido ? lido.completo || lido.texto : colado;
     if(!texto) throw new Error('Não consegui tirar texto deste arquivo. Use PDF, Word ou cole o cronograma.');
     const novas = await SIPC.ia.extrairCronograma(texto);
-    if(!novas.length) throw new Error('Não encontrei datas neste arquivo. Nada foi alterado.');
+    if(!novas.length) throw new Error('Não encontrei datas neste arquivo. Se o cronograma é um documento separado, envie-o ou adicione as datas abaixo. Nada foi alterado.');
     await salvarCronograma(SIPC.cronograma.atualizarCronograma(S.cronograma, novas));
     avisar('Cronograma atualizado com ' + novas.length + ' datas. Confira com o edital.');
   }catch(e){ S.dtErro2 = mensagemIA(e); }
@@ -65,7 +65,7 @@ function abaDatas(){
     <section class="bloco">
       <h2 style="font-size:20px;margin-bottom:6px">Cronograma do concurso</h2>
       <p class="dim" style="font-size:14px;margin:0 0 14px">As datas que você não pode perder. A leitura pode errar: confira sempre no edital. Use <b>Agenda</b> para receber o aviso do Google mesmo com o SIPC fechado.</p>
-      ${lista.length ? `<ul class="data-lista">${lista.map(x=>linhaData(x.i,x.k,false)).join('')}</ul>` : `<p class="vazio">${todas.length?'Todas as datas já passaram.':'Nenhuma data ainda. Envie o edital ou o cronograma abaixo.'}</p>`}
+      ${lista.length ? `<ul class="data-lista">${lista.map(x=>linhaData(x.i,x.k,false)).join('')}</ul>` : `<p class="vazio">${todas.length?'Todas as datas já passaram.':'Nenhuma data ainda. Envie o edital abaixo: eu procuro as datas no arquivo inteiro.'}</p>`}
       ${passadas.length ? `<details class="data-passadas"><summary>Datas que já passaram (${passadas.length})</summary><ul class="data-lista">${passadas.map(x=>linhaData(x.i,x.k,true)).join('')}</ul></details>` : ''}
     </section>
     <section class="bloco">
@@ -91,6 +91,12 @@ function abaDatas(){
 
 // Aviso na tela de hoje e no lembrete do navegador.
 const datasPerto = () => SIPC.cronograma.datasUrgentes(S.cronograma, hojeISO());
+function cartaoDatas(){
+  const prox = SIPC.cronograma.proximasDatas(S.cronograma, hojeISO()).slice(0,3);
+  return `<section class="bloco p-datas"><h3>Próximas datas do concurso</h3>
+    ${prox.length ? `<ul class="ev-lista">${prox.map(i=>`<li><span>${escHtml(i.evento)}</span><b class="num">${dataBR(i.inicio).slice(0,5)} · ${escHtml(faltaTxt(i))}</b></li>`).join('')}</ul>` : '<p class="dim" style="font-size:14px;margin:0">Ainda não temos as datas deste concurso.</p>'}
+    <button class="btn link" onclick="irAba('datas')">${prox.length?'Ver o cronograma completo':'Enviar o edital ou o cronograma'}</button></section>`;
+}
 function avisoDatas(){
   const u = datasPerto(); if(!u.length) return '';
   return `<div class="nota">${ico('info')}<div><b>Datas do concurso chegando:</b> ${u.slice(0,3).map(i=>escHtml(i.evento)+' ('+escHtml(faltaTxt(i))+')').join(' · ')}. <button class="btn link" onclick="irAba('datas')">Ver cronograma</button></div></div>`;

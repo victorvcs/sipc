@@ -81,6 +81,19 @@ export async function salvarAgora() {
   await Promise.all(fila.map(p => p.gravar().catch(avisarErro)));
 }
 
+/* correções de redação: um documento por correção, para o histórico não pesar
+   no estado da trilha e acompanhar o aluno em qualquer trilha */
+export const salvarCorrecao = (uid, id, dados) => gravar(doc(db, 'users', uid, 'redacoes', id), { ...dados, criadaEm: agora() });
+export async function listarCorrecoes(uid, n = 40) {
+  let reais = [];
+  try { reais = (await getDocs(query(collection(db, 'users', uid, 'redacoes'), orderBy('criadaEm', 'desc'), limit(n)))).docs.map(d => ({ id: d.id, ...d.data() })); }
+  catch (e) { if (!teste) throw e; }
+  if (!teste) return reais;
+  const prefixo = `users/${uid}/redacoes/`;
+  const daMemoria = [...memoria].filter(([p]) => p.startsWith(prefixo)).map(([p, v]) => ({ id: p.split('/')[3], ...v }));
+  return [...daMemoria.reverse(), ...reais];
+}
+
 /* vídeos por tópico (resultado da busca no YouTube), compartilhados entre alunos */
 export const lerVideos = id => ler(doc(db, 'videos', id));
 export const gravarVideos = (id, dados) => gravar(doc(db, 'videos', id), dados);
