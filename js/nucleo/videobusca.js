@@ -15,6 +15,17 @@ export function tentativasBusca(materia, topico) {
   return [...new Set([`${topico} ${materia} aula concurso`, `${topico} aula concurso`, `${topicoCurto(topico)} aula concurso`])];
 }
 
-const melhores = (lista, min, max) => lista.filter(v => v.seg >= min && v.seg <= max).sort((a, b) => b.views - a.views).slice(0, 5);
+// As regras da API do YouTube não deixam guardar dados dos vídeos por mais de
+// 30 dias. Cada período de 30 dias usa uma chave nova no cache, então nada é
+// reaproveitado depois do prazo; o admin apaga os documentos vencidos.
+export const DIAS_CACHE_VIDEOS = 30;
+const MS_CACHE = DIAS_CACHE_VIDEOS * 86400000;
+export const periodoVideos = (agora = Date.now()) => Math.floor(agora / MS_CACHE);
+export function videosVencidos(criadoEm, agora = Date.now()) {
+  const t = Date.parse(criadoEm || '');
+  return isNaN(t) || agora - t > MS_CACHE;
+}
+
+const melhores =(lista, min, max) => lista.filter(v => v.seg >= min && v.seg <= max).sort((a, b) => b.views - a.views).slice(0, 5);
 export const selecionarVideos = lista => melhores(lista, SEG_MIN, SEG_MAX);
 export const selecionarAberto = lista => melhores(lista, ABERTO_MIN, ABERTO_MAX);

@@ -204,6 +204,9 @@ export function resumoEvolucao(lista) {
     criterios,
     pontoFraco: criterios.length ? criterios.reduce((a, b) => (b.media / b.max < a.media / a.max ? b : a)) : null,
     serie: r.slice(0, 8).reverse().map(h => ({ data: h.data, nota: notaEm10(h) })),
+    // O que a última correção mandou corrigir: aparece já na primeira redação.
+    corrigir: (r[0].corrigir || []).slice(0, 3),
+    idUltima: r[0].notas && r[0].id ? r[0].id : null,
   };
 }
 

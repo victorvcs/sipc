@@ -78,6 +78,15 @@ test('com uma redação, ainda não há comparação', () => {
   assert.equal(e.qtd, 1);
   assert.equal(e.diferenca, null);
 });
+test('com uma redação, já mostra critérios e o que corrigir', () => {
+  const r = { ...reg('a', 6), id: 'r1', corrigir: ['Citar causa raiz', 'Fechar com proposta', 'Rever vírgulas', 'Quarto item'] };
+  const e = resumoEvolucao([r]);
+  assert.equal(e.criterios.length, 2);
+  assert.ok(e.criterios.every(c => c.ultima === c.media));
+  assert.deepEqual(e.corrigir, ['Citar causa raiz', 'Fechar com proposta', 'Rever vírgulas']);
+  assert.equal(e.idUltima, 'r1');
+  assert.deepEqual(resumoEvolucao([{ tipo: 'redacao', nota: 5, max: 10, data: '2026-10-01' }]).corrigir, []);
+});
 test('compara com a anterior e calcula a média das últimas', () => {
   const e = resumoEvolucao([reg('c', 8), reg('b', 5.5), reg('a', 2)]);
   assert.equal(e.diferenca, 2.5);

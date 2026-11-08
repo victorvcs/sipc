@@ -52,7 +52,17 @@ export function trechoDeDatas(texto, max = 40000, vizinhanca = 140) {
   return (t.slice(0, 600) + '\n…\n' + faixas.map(([a, b]) => t.slice(a, b)).join('\n…\n')).slice(0, max);
 }
 
-export const proximasDatas = (lista, hoje) => (lista || []).filter(i => fimDe(i) >= hoje);
+// Edital, cronograma e retificação em arquivos separados: cada um ganha sua parte
+// do espaço, com o próprio começo (que costuma dizer o ano), numa chamada só.
+export function juntarTrechos(textos, max = 40000) {
+  const lista = (textos || []).map(t => String(t ?? '')).filter(t => t.trim());
+  if (!lista.length) return '';
+  const cada = Math.floor(max / lista.length);
+  return lista.map(t => trechoDeDatas(t, cada)).filter(Boolean)
+    .map((t, k) => `=== ARQUIVO ${k + 1} ===\n${t}`).join('\n\n').slice(0, max);
+}
+
+export const proximasDatas =(lista, hoje) => (lista || []).filter(i => fimDe(i) >= hoje);
 
 const diasAte = (de, ate) => Math.round((new Date(ate + 'T12:00:00') - new Date(de + 'T12:00:00')) / 86400000);
 
@@ -77,4 +87,58 @@ export function linkAgenda(item, prova = '') {
     details: 'Data do cronograma do edital, guardada pelo SIPC. Confira sempre no edital.',
   });
   return 'https://calendar.google.com/calendar/render?' + p.toString();
+}
+
+const DETALHE = 'Data do cronograma do edital, guardada pelo SIPC. Confira sempre no edital.';
+const titulo = (item, prova) => prova ? `${item.evento} · ${prova}` : item.evento;
+
+// Outlook (conta pessoal): o fim de dia inteiro também é exclusivo.
+export function linkOutlook(item, prova = '') {
+  const p = new URLSearchParams({
+    path: '/calendar/action/compose', rru: 'addevent', allday: 'true',
+    subject: titulo(item, prova), startdt: item.inicio, enddt: diaSeguinte(fimDe(item)), body: DETALHE,
+  });
+  return 'https://outlook.live.com/calendar/0/deeplink/compose?' + p.toString();
+}
+
+// Retificação: dois dias antes de uma data do edital, conferir se o edital mudou.
+// As datas que o próprio aluno escreveu não vêm do edital, então ficam de fora.
+export const DIAS_RETIFICACAO = 2;
+export const conferirRetificacao = (lista, hoje) =>
+  (lista || []).filter(i => !i.manual && i.inicio > hoje && diasAte(hoje, i.inicio) <= DIAS_RETIFICACAO);
+
+// Arquivo de calendário (.ics) para qualquer agenda: Outlook, Apple, celular.
+// Cada data leva um alarme no dia anterior e, nas do edital, outro dois dias antes
+// para conferir a retificação. A agenda do aluno avisa mesmo com o SIPC fechado.
+const escIcs = s => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+// Linha de no máximo 75 bytes; as seguintes começam com espaço (acentos ocupam 2 bytes).
+const bytesDe = c => new TextEncoder().encode(c).length;
+function dobrar(l) {
+  const partes = []; let atual = '', n = 0;
+  for (const c of l) {
+    const b = bytesDe(c);
+    if (n + b > 75) { partes.push(atual); atual = ' '; n = 1; }
+    atual += c; n += b;
+  }
+  partes.push(atual);
+  return partes.join('\r\n');
+}
+const alarme = (gatilho, texto) => ['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:' + gatilho, 'DESCRIPTION:' + escIcs(texto), 'END:VALARM'];
+
+export function gerarIcs(lista, prova = '', agora = new Date()) {
+  const so = d => d.replace(/-/g, '');
+  const carimbo = agora.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SIPC//Cronograma//PT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  for (const i of validarCronograma(lista)) {
+    const t = titulo(i, prova);
+    linhas.push('BEGIN:VEVENT',
+      'UID:' + so(i.inicio) + '-' + escIcs(i.evento.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 60) + '@sipc',
+      'DTSTAMP:' + carimbo, 'DTSTART;VALUE=DATE:' + so(i.inicio), 'DTEND;VALUE=DATE:' + so(diaSeguinte(fimDe(i))),
+      'SUMMARY:' + escIcs(t), 'DESCRIPTION:' + escIcs(DETALHE),
+      ...alarme('-PT15H', t + ' é amanhã.'),
+      ...(i.manual ? [] : alarme('-P1DT15H', 'Confira se saiu retificação do edital antes de: ' + t)),
+      'END:VEVENT');
+  }
+  linhas.push('END:VCALENDAR');
+  return linhas.map(dobrar).join('\r\n') + '\r\n';
 }

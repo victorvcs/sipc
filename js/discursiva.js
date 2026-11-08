@@ -164,13 +164,22 @@ function correcaoHTML(c){
 function evolucaoHTML(hist){
   const e = SIPC.discursiva.resumoEvolucao(hist);
   if(!e.qtd) return '';
-  if(e.qtd === 1) return `<section class="bloco"><h3>Sua evolução</h3><p class="dim" style="font-size:14px;margin:0">Sua primeira redação tirou ${fmtNota(e.ultima)} de 10. Na próxima, mostramos a comparação.</p></section>`;
+  const corrigir = e.corrigir.length ? `<h4>O que corrigir na próxima redação</h4>${listaHTML(e.corrigir)}` : '';
+  const verUltima = e.idUltima ? `<button class="btn link" onclick="dcVer('${escHtml(e.idUltima)}')">Ver a correção completa</button>` : '';
+  // Primeira redação: ainda sem comparação, mas já com o detalhe do feedback.
+  if(e.qtd === 1) return `<section class="bloco"><h3>Sua evolução</h3>
+    <p class="dim" style="font-size:14px;margin:0 0 12px">Sua primeira redação tirou <b class="num">${fmtNota(e.ultima)}</b> de 10. Na próxima, mostramos a comparação.</p>
+    ${e.criterios.length ? `<h4>Por critério</h4><ul class="dc-crit">${e.criterios.map(c=>`<li><div><b>${escHtml(c.rot)}</b>${barra(c.ultima,c.max)}</div><span class="num">${fmtNota(c.ultima)}/${c.max}</span></li>`).join('')}</ul>` : ''}
+    ${e.pontoFraco ? `<p class="dc-foco">Para subir a nota, foque em <b>${escHtml(e.pontoFraco.rot)}</b>.</p>` : ''}
+    ${corrigir}${verUltima}
+  </section>`;
   const teto = 10;
   return `<section class="bloco"><h3>Sua evolução</h3>
     <div class="dc-resumo"><div><b class="num">${fmtNota(e.ultima)}</b><span class="dim">última nota</span></div><div><b class="num">${fmtNota(e.media)}</b><span class="dim">média das últimas 5</span></div><div><b class="num">${e.diferenca>0?'+':''}${fmtNota(e.diferenca)}</b><span class="dim">desde a anterior</span></div></div>
     <ol class="dc-serie" aria-label="Notas das últimas redações, da mais antiga para a mais recente">${e.serie.map(s=>`<li><span class="dc-coluna"><i style="height:${Math.max(4,s.nota/teto*100)}%"></i></span><b class="num">${fmtNota(s.nota)}</b><span class="dim">${diaMes(s.data)}</span></li>`).join('')}</ol>
     ${e.criterios.length ? `<h4>Por critério, nas últimas redações</h4><ul class="dc-crit">${e.criterios.map(c=>`<li><div><b>${escHtml(c.rot)}</b>${barra(c.media,c.max)}</div><span class="num">${fmtNota(c.media)}/${c.max}</span></li>`).join('')}</ul>` : ''}
     ${e.pontoFraco ? `<p class="dc-foco">Para subir a nota, foque em <b>${escHtml(e.pontoFraco.rot)}</b>.</p>` : ''}
+    ${corrigir}${verUltima}
   </section>`;
 }
 function historicoHTML(hist){

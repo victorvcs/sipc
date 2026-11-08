@@ -810,7 +810,7 @@ async function gerarQuestoesTopico(forcar){
     const lista = await SIPC.ia.gerarQuestoes({banca, formato: formatoAtual(), materia:E.mat, topico:E.topico, conteudo:C, qtd: E.n || S.qtdQuestoes});
     if(E.genQ !== g || E.concluido) return;
     // geradoEm identifica esta leva: o rascunho de uma leva antiga não aparece na nova.
-    E.questoes = lista.map(q=>({...q, banca})); E.resp = {}; E.corrigido = false; E.geradoEm = Date.now();
+    E.questoes = lista.map(q=>({...q, banca})); E.resp = {}; E.corrigido = false; E.geradoEm = Date.now(); E.qPedidas = E.n || S.qtdQuestoes;
     if(S.estudo === E && S.vista === 'estudo') guardarProgresso();
     else if(S.E === estado){ S.E.parcial[E.chave] = fotoEstudo(E); salvarE(); } // saiu antes de terminar: guarda para depois
   }catch(e){ if(E.genQ === g) E.erroQ = mensagemIA(e); }
@@ -1047,7 +1047,9 @@ function parteQuestoes(E){
   }).join('');
   const gab = E.corrigido ? secao(`Gabarito e comentários <span class="num dim" style="font-size:15px;font-weight:500">· ${ac}/${L.length}</span>`,
     `<ol class="gab">${L.map((q,k)=>`<li class="${E.resp[k]===q.c?'ok':'nao'}"><b>${q.ce ? q.alts[q.c] : 'abcde'[q.c]}</b> — ${escHtml(q.just)}</li>`).join('')}</ol>`, 'id="gabarito"') : '';
-  return escolha + `<p class="dim" style="font-size:14px;margin:0 0 12px">${L.length} ${L.length===1?'questão gerada':'questões geradas'} a partir da teoria, no estilo ${escHtml(bancasTxt())}. Responda todas; o gabarito aparece separado depois.</p>
+  // A IA às vezes entrega menos do que foi pedido (resposta cortada): avisa em vez de esconder.
+  const faltaram = E.qPedidas && L.length < E.qPedidas ? `<div class="nota" role="status">${ico('info')}<div><b>Vieram ${L.length} de ${E.qPedidas} ${E.qPedidas===1?'questão':'questões'}.</b> A IA entregou menos do que o pedido. Você pode responder estas ou ${E.corrigido?'':'<button class="btn link" onclick="gerarQuestoesTopico(true)">gerar de novo</button>'}${E.corrigido?'refazer depois':''}.</div></div>` : '';
+  return escolha + faltaram + `<p class="dim" style="font-size:14px;margin:0 0 12px">${L.length} ${L.length===1?'questão gerada':'questões geradas'} a partir da teoria, no estilo ${escHtml(bancasTxt())}. Responda todas; o gabarito aparece separado depois.</p>
     ${lista}${gab}
     <div class="fim-estudo">${E.corrigido
       ? `<button class="btn" onclick="irParte('revisao')">Ir para a revisão</button><button class="btn sec" onclick="refazerTopico()">Refazer</button>`
@@ -1103,7 +1105,7 @@ async function gerarQuestoesDoDia(){
       const qs = await SIPC.ia.gerarQuestoes({banca, formato:formatoAtual(), materia:mat, topico, conteudo:C, qtd:porTopico});
       lista = lista.concat(qs.map(q=>({...q, banca, topico, mat, chave:c})));
     }
-    Q.lista = lista.slice(0, S.qtdQuestoes);
+    Q.lista = lista.slice(0, S.qtdQuestoes); Q.pedidas = S.qtdQuestoes;
     if(S.quiz !== Q && S.E === estado){ S.E.parcial[id] = {quiz: JSON.parse(JSON.stringify({...Q, carregando:false})), rot:'questões prontas', em: Date.now()}; salvarE(); }
   }catch(e){ Q.erro = mensagemIA(e); }
   finally{ Q.carregando = false; if(S.quiz===Q) render(true); }
@@ -1127,6 +1129,7 @@ function vistaQuiz(){
   const acertou = Q.sel===q.c;
   return `<div class="quiz">
     ${voltar}
+    ${Q.i===0 && !Q.conf && Q.pedidas && L.length < Q.pedidas ? `<div class="nota" role="status">${ico('info')}<div><b>Vieram ${L.length} de ${Q.pedidas} questões.</b> A IA entregou menos do que o pedido; as que vieram valem normalmente.</div></div>` : ''}
     <div class="quiz-cab"><span class="dim" style="font-size:14px">Questão <span class="num">${Q.i+1}</span> de <span class="num">${L.length}</span> · ${escHtml(q.topico)}</span><div class="pontos" aria-hidden="true">${pontos}</div></div>
     <article class="questao">
       <span class="origem ined">${ico('spark')} ${q.ce ? 'Item inédito no estilo Cebraspe · julgue Certo ou Errado' : 'Inédita no estilo '+escHtml(q.banca||bancasTxt())}</span>
@@ -1505,7 +1508,8 @@ function textoLembrete(){
   const it = S.trilhaAtual ? planoDoDia() : [];
   const rev = it.filter(i=>i.tipo==='rev'&&!i.feito).map(i=>i.titulo), novos = it.filter(i=>i.tipo==='est'&&!i.feito).map(i=>i.titulo);
   const datas = S.trilhaAtual ? datasPerto().slice(0,2).map(i=>i.evento+' ('+faltaTxt(i)+')') : [];
-  return 'Revisar: ' + (rev.join(', ') || 'nada') + '. Estudar: ' + (novos.join(', ') || 'nada novo') + '.' + (datas.length ? ' Datas: ' + datas.join(', ') + '.' : '');
+  const retif = S.trilhaAtual ? datasRetificacao().slice(0,1).map(i=>i.evento) : [];
+  return 'Revisar: ' + (rev.join(', ') || 'nada') + '. Estudar: ' + (novos.join(', ') || 'nada novo') + '.' + (datas.length ? ' Datas: ' + datas.join(', ') + '.' : '') + (retif.length ? ' Confira se saiu retificação antes de ' + retif[0] + '.' : '');
 }
 function testarLembrete(){
   const corpo = textoLembrete();

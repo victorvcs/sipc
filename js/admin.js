@@ -126,7 +126,15 @@ function admGeral(){
         ${topTelas.length ? barrasLinhas(topTelas.map(([t,seg])=>({rot:t, valor:seg, texto:duracao(seg)}))) : '<p class="dim">Ainda sem sessões registradas: os dados aparecem conforme os alunos usam o app.</p>'}</section>
       <section class="bloco"><h3>Últimas ações</h3>
         ${recentes.length ? `<ul class="adm-feed">${recentes.map(e=>`<li><span class="dim num">${quandoTs(e.t)}</span><span><b>${escHtml(e.u.nome||e.u.email||'Aluno')}</b> ${escHtml(rotuloEvento(e))}</span></li>`).join('')}</ul>` : '<p class="dim">Nenhuma ação registrada ainda.</p>'}</section>
+      <section class="bloco"><h3>Vídeos guardados</h3><p class="dim adm-sub">As regras do YouTube permitem guardar os dados dos vídeos por até 30 dias. O app já refaz a busca depois disso; aqui você apaga os registros vencidos. Faça isso uma vez por mês.</p>
+        <button class="btn sec" onclick="limparVideosVencidos()" ${ADM.limpandoVideos?'disabled':''}>${ADM.limpandoVideos?'Apagando…':'Apagar vídeos com mais de 30 dias'}</button></section>
     </div>`;
+}
+async function limparVideosVencidos(){
+  ADM.limpandoVideos = true; render(true);
+  try{ const n = await SIPC.videos.limparVencidos(); avisar(n ? `${n} ${n===1?'registro de vídeo apagado':'registros de vídeo apagados'}.` : 'Nenhum vídeo vencido para apagar.'); }
+  catch(e){ avisar('Não consegui apagar: ' + SIPC.traduzir(e)); }
+  ADM.limpandoVideos = false; render(true);
 }
 
 const ROT_EVENTO = {login:'entrou', 'trilha-criada':'criou a trilha', 'trilha-aberta':'abriu a trilha', 'topico-aberto':'abriu o tópico', 'topico-concluido':'concluiu o tópico',

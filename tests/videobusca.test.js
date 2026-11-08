@@ -37,3 +37,13 @@ test('selecionarAberto aceita aula longa e descarta vídeo curtíssimo', () => {
 test('seleção traz no máximo 5 vídeos', () => {
   assert.equal(selecionarVideos(Array.from({ length: 8 }, (_, i) => v(600, i))).length, 5);
 });
+
+test('cache de vídeos vale por no máximo 30 dias', async () => {
+  const { periodoVideos, videosVencidos } = await import('../js/nucleo/videobusca.js');
+  const agora = Date.parse('2026-11-08T12:00:00Z'), dia = 86400000;
+  assert.equal(videosVencidos(new Date(agora - 29 * dia).toISOString(), agora), false);
+  assert.equal(videosVencidos(new Date(agora - 31 * dia).toISOString(), agora), true);
+  assert.equal(videosVencidos(undefined, agora), true);
+  assert.notEqual(periodoVideos(agora), periodoVideos(agora + 30 * dia));
+  assert.equal(periodoVideos(agora), periodoVideos(agora + 1000));
+});

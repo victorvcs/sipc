@@ -54,3 +54,51 @@ test('o trecho entende data por extenso e ignora número de lei', () => {
   assert.equal(trechoDeDatas('Lei nº 13.709/2018, artigo 5.'), '');
 });
 test('texto sem data não gera trecho', () => assert.equal(trechoDeDatas('sem nada aqui'), ''));
+
+test('link do Outlook com dia inteiro e fim exclusivo', async () => {
+  const { linkOutlook } = await import('../js/nucleo/cronograma.js');
+  const u = new URL(linkOutlook({ evento: 'Prova', inicio: '2026-12-20', fim: '' }, 'TRT'));
+  assert.equal(u.hostname, 'outlook.live.com');
+  assert.equal(u.searchParams.get('startdt'), '2026-12-20');
+  assert.equal(u.searchParams.get('enddt'), '2026-12-21');
+  assert.equal(u.searchParams.get('subject'), 'Prova · TRT');
+});
+test('conferir retificação: só datas do edital, até 2 dias antes', async () => {
+  const { conferirRetificacao } = await import('../js/nucleo/cronograma.js');
+  const l = validarCronograma([
+    { evento: 'Prova', inicio: '2026-11-10' }, { evento: 'Hoje', inicio: '2026-11-08' },
+    { evento: 'Longe', inicio: '2026-11-11' }, { evento: 'Minha', inicio: '2026-11-09', manual: true },
+  ]);
+  assert.deepEqual(conferirRetificacao(l, '2026-11-08').map(i => i.evento), ['Prova']);
+  assert.deepEqual(conferirRetificacao(undefined, '2026-11-08'), []);
+});
+test('arquivo .ics: eventos de dia inteiro, alarmes e texto escapado', async () => {
+  const { gerarIcs } = await import('../js/nucleo/cronograma.js');
+  const ics = gerarIcs([
+    { evento: 'Inscrição; taxa, boleto', inicio: '2026-11-01', fim: '2026-11-30' },
+    { evento: 'Comprar caneta', inicio: '2026-12-10', manual: true },
+  ], 'TRT', new Date('2026-11-08T12:00:00Z'));
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /END:VCALENDAR\r\n$/);
+  assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 2);
+  assert.match(ics, /DTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261201/);
+  assert.match(ics, /SUMMARY:Inscrição\\; taxa\\, boleto · TRT/);
+  assert.equal((ics.match(/BEGIN:VALARM/g) || []).length, 3); // retificação só na data do edital
+  const bytes = l => new TextEncoder().encode(l).length;
+  assert.ok(ics.split('\r\n').every(l => bytes(l) <= 75));
+  const longo = gerarIcs([{ evento: 'Ã'.repeat(150), inicio: '2026-11-01' }]);
+  assert.ok(longo.split('\r\n').every(l => bytes(l) <= 75));
+  assert.match(longo.replace(/\r\n /g, ''), new RegExp('SUMMARY:' + 'Ã'.repeat(150)));
+});
+
+test('vários arquivos: cada um entra com sua parte e o próprio começo', async () => {
+  const { juntarTrechos } = await import('../js/nucleo/cronograma.js');
+  const edital = 'EDITAL 2027 ' + 'x'.repeat(5000) + ' inscrições de 10/01 a 20/01 ' + 'y'.repeat(5000);
+  const crono = 'CRONOGRAMA ANEXO II prova em 15/03/2027';
+  const t = juntarTrechos([edital, '', crono, 'sem data nenhuma aqui']);
+  assert.match(t, /=== ARQUIVO 1 ===\nEDITAL 2027/);
+  assert.match(t, /=== ARQUIVO 2 ===\nCRONOGRAMA ANEXO II/);
+  assert.match(t, /10\/01 a 20\/01/);
+  assert.equal(juntarTrechos([]), '');
+  assert.ok(juntarTrechos([edital, edital], 1000).length <= 1000);
+});

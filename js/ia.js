@@ -3,7 +3,7 @@
 import { obterIA, IA_MODELOS } from './firebase.js';
 import { validarEdital, validarConteudo, validarQuestoes } from './nucleo/validar.js';
 import { idConteudo, orcamento, comTentativas, criarFila, extrairJSON, embaralhar } from './nucleo/iautil.js';
-import { validarCronograma, trechoDeDatas } from './nucleo/cronograma.js';
+import { validarCronograma, trechoDeDatas, juntarTrechos } from './nucleo/cronograma.js';
 import { CRITERIOS_FGV, validarCorrecao, validarExercicioLogico, validarCorrecaoLogico } from './nucleo/discursiva.js';
 import { lerConteudo, gravarConteudo } from './store.js';
 
@@ -63,13 +63,14 @@ export async function extrairEdital(texto, filtroCargo) {
 }
 
 // Recebe o arquivo inteiro: só os trechos com data vão para a IA. Sem data, nem gasta a cota.
+// Aceita um texto ou uma lista (vários arquivos do mesmo concurso).
 export async function extrairCronograma(texto) {
-  const trecho = trechoDeDatas(texto);
+  const trecho = Array.isArray(texto) ? juntarTrechos(texto) : trechoDeDatas(texto);
   if (!trecho) return [];
   return gerarJSON({
     maxTokens: 3000,
     validar: o => validarCronograma(o.cronograma),
-    user: 'Você recebe um edital, uma retificação ou um cronograma de concurso. Devolva "cronograma": ' + PEDIDO_CRONOGRAMA +
+    user: 'Você recebe um edital, uma retificação ou um cronograma de concurso (às vezes em mais de um arquivo; junte as datas de todos e, se houver conflito, vale a do arquivo mais recente, como a retificação). Devolva "cronograma": ' + PEDIDO_CRONOGRAMA +
       '\nResponda SOMENTE com JSON: {"cronograma":[{"evento":"","inicio":"","fim":""}]}\n\nTEXTO:\n' + trecho,
   });
 }

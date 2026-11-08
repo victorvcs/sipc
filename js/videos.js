@@ -4,12 +4,13 @@
 // Firestore (videos/{id}), porque a cota gratuita é de ~100 buscas por dia
 // para o projeto inteiro e o mesmo tópico serve para todos os alunos.
 import { YOUTUBE_KEY } from './firebase.js';
-import { lerVideos, gravarVideos } from './store.js';
+import { lerVideos, gravarVideos, apagarVideosVencidos } from './store.js';
 import { slug } from './nucleo/iautil.js';
-import { tentativasBusca, selecionarVideos, selecionarAberto } from './nucleo/videobusca.js';
+import { tentativasBusca, selecionarVideos, selecionarAberto, periodoVideos, videosVencidos } from './nucleo/videobusca.js';
 
 export const temChave = () => !!YOUTUBE_KEY;
-const idVideos = (materia, topico) => `${slug(materia)}__${slug(topico)}`;
+// O período entra na chave: depois de 30 dias a busca é refeita (regra do YouTube).
+const idVideos = (materia, topico) => `${slug(materia)}__${slug(topico)}__p${periodoVideos()}`;
 const ID_OK = /^[A-Za-z0-9_-]{11}$/;
 
 // "PT1H2M3S" → segundos
@@ -49,10 +50,13 @@ async function buscarNoYouTube(materia, topico) {
   return selecionarAberto([...achados.values()]);
 }
 
+// Admin: apaga do cache os vídeos guardados há mais de 30 dias.
+export const limparVencidos = () => apagarVideosVencidos(c => videosVencidos(c));
+
 export async function obterVideos({ materia, topico, uid }) {
   const id = idVideos(materia, topico);
   const salvo = await lerVideos(id).catch(() => null);
-  if (salvo && Array.isArray(salvo.itens)) return salvo.itens.filter(v => v && ID_OK.test(v.id));
+  if (salvo && Array.isArray(salvo.itens) && !videosVencidos(salvo.criadoEm)) return salvo.itens.filter(v => v && ID_OK.test(v.id));
   if (!YOUTUBE_KEY) return null; // sem chave configurada: o app mostra o aviso
   const itens = await buscarNoYouTube(materia, topico);
   if (uid && itens.length) gravarVideos(id, { itens, materia: String(materia).slice(0, 300), topico: String(topico).slice(0, 300), uid, criadoEm: new Date().toISOString() }).catch(() => {});

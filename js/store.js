@@ -97,6 +97,12 @@ export async function listarCorrecoes(uid, n = 40) {
 /* vídeos por tópico (resultado da busca no YouTube), compartilhados entre alunos */
 export const lerVideos = id => ler(doc(db, 'videos', id));
 export const gravarVideos = (id, dados) => gravar(doc(db, 'videos', id), dados);
+// Só o admin apaga (Regras). Devolve quantos vídeos guardados venceram e saíram.
+export async function apagarVideosVencidos(vencido) {
+  const docs = (await getDocs(collection(db, 'videos'))).docs.filter(d => vencido(d.data().criadoEm));
+  for (const d of docs) await deleteDoc(d.ref);
+  return docs.length;
+}
 
 /* conteúdo gerado pela IA, compartilhado entre alunos */
 export const lerConteudo = id => ler(doc(db, 'conteudos', id));
