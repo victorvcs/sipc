@@ -2,7 +2,7 @@
 
 Pedidos do Victor ainda não implementados. O que já foi feito está em `docs/EVOLUCOES.md`, e as dívidas técnicas em `DEBITO_TECNICO.md`.
 
-Atualizado em 31/10/2026.
+Atualizado em 08/11/2026. Os itens 4, 8, 9 e 10 e a parte sem servidor do item 2 entraram na v1.8 (ver `docs/EVOLUCOES.md`).
 
 ## 1. Estrutura de outras bancas
 
@@ -14,15 +14,11 @@ Atualizado em 31/10/2026.
 
 E-mail ou push automático exigem envio agendado fora do navegador, e o Firebase só oferece isso no plano pago. Hoje quem avisa é a agenda do Google do aluno.
 
-Pedido do Victor em 31/10/2026, na aba Datas: dar mais opções de aviso para cada data, como notificação no navegador, Google Agenda, Outlook e e-mail. WhatsApp ele mesmo considerou improvável, e e-mail já bastaria. Um botão de Outlook ou um arquivo de calendário para qualquer agenda são os caminhos a avaliar primeiro, por não exigirem envio agendado.
+Pedido do Victor em 31/10/2026, na aba Datas: dar mais opções de aviso para cada data, como notificação no navegador, Google Agenda, Outlook e e-mail. WhatsApp ele mesmo considerou improvável, e e-mail já bastaria. **Feito na v1.8:** botão do Outlook e arquivo de calendário (.ics) para qualquer agenda, com alarme. **Continua pendente:** e-mail e push com o site fechado, que dependem do plano pago.
 
 ## 3. Editar a trilha depois de criada
 
 Mudar a carga horária e o edital sem recriar a trilha (reporte do Rodolfo). A retificação ainda não altera a data da prova usada no plano.
-
-## 4. Detalhar a evolução na primeira redação
-
-Pedido do Victor em 31/10/2026, ao ver a aba Discursiva na v1.7: com uma redação só, Sua evolução e Correções guardadas mostram apenas a nota. O aluno precisa ver ali o detalhamento do feedback da última redação, como notas por critério e o que corrigir, sem depender da segunda redação.
 
 ## 5. Rever "Trilha" e "Minhas trilhas"
 
@@ -39,18 +35,6 @@ Pedido do Victor em 31/10/2026, ao ver o Mapa visual de um tópico: o mapa só c
 Pedido do Victor em 31/10/2026, ao anexar um edital: depois da leitura, mostrar um resumo do concurso e do cargo. Salário e benefícios saem do próprio edital. Candidatos por vaga, com referência no concurso anterior, editais passados e progressão na carreira, com o salário em cada nível, entram só quando forem públicos.
 
 **Limite.** O que vem do edital já está ao alcance da leitura atual. O resto depende de fonte externa, e a busca na internet da IA não existe no plano gratuito. A IA não pode inventar: dado sem fonte citada fica de fora, e simulação aparece como estimativa.
-
-## 8. Tirar o excluir do cronograma
-
-Pedido do Victor em 31/10/2026, na aba Datas: o aluno não deve poder excluir as datas do cronograma, nem as que já passaram. O botão X sai dessas linhas. Decisão do Victor: o aluno continua podendo excluir apenas as datas que ele mesmo adicionou.
-
-## 9. Lembrete de retificação antes das datas
-
-Pedido do Victor em 31/10/2026, na aba Datas: dois dias antes de uma data do cronograma, avisar o aluno para conferir se saiu retificação do edital. O canal do aviso segue o item 2.
-
-## 10. Mais de um arquivo no cronograma
-
-Pedido do Victor em 31/10/2026, na aba Datas: aceitar mais de um anexo, porque há concursos com edital e cronograma separados ou com outros anexos. O sistema lê todos e junta as datas. O nome da aba continua Datas, que ele considerou bom.
 
 ## 11. Central de ajuda com prints e guias
 
