@@ -84,19 +84,21 @@ export function linkAgenda(item, prova = '') {
     action: 'TEMPLATE',
     text: prova ? `${item.evento} · ${prova}` : item.evento,
     dates: `${so(item.inicio)}/${so(diaSeguinte(fimDe(item)))}`,
-    details: 'Data do cronograma do edital, guardada pelo SIPC. Confira sempre no edital.',
+    details: detalhe(item),
   });
   return 'https://calendar.google.com/calendar/render?' + p.toString();
 }
 
-const DETALHE = 'Data do cronograma do edital, guardada pelo SIPC. Confira sempre no edital.';
-const titulo = (item, prova) => prova ? `${item.evento} · ${prova}` : item.evento;
+const DETALHE_EDITAL = 'Data do cronograma do edital, guardada pelo SIPC. Confira sempre no edital.';
+const DETALHE_ALUNO = 'Data que você adicionou no SIPC.';
+const detalhe = i => i.manual ? DETALHE_ALUNO : DETALHE_EDITAL;
+const titulo =(item, prova) => prova ? `${item.evento} · ${prova}` : item.evento;
 
 // Outlook (conta pessoal): o fim de dia inteiro também é exclusivo.
 export function linkOutlook(item, prova = '') {
   const p = new URLSearchParams({
     path: '/calendar/action/compose', rru: 'addevent', allday: 'true',
-    subject: titulo(item, prova), startdt: item.inicio, enddt: diaSeguinte(fimDe(item)), body: DETALHE,
+    subject: titulo(item, prova), startdt: item.inicio, enddt: diaSeguinte(fimDe(item)), body: detalhe(item),
   });
   return 'https://outlook.live.com/calendar/0/deeplink/compose?' + p.toString();
 }
@@ -134,7 +136,7 @@ export function gerarIcs(lista, prova = '', agora = new Date()) {
     linhas.push('BEGIN:VEVENT',
       'UID:' + so(i.inicio) + '-' + escIcs(i.evento.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 60) + '@sipc',
       'DTSTAMP:' + carimbo, 'DTSTART;VALUE=DATE:' + so(i.inicio), 'DTEND;VALUE=DATE:' + so(diaSeguinte(fimDe(i))),
-      'SUMMARY:' + escIcs(t), 'DESCRIPTION:' + escIcs(DETALHE),
+      'SUMMARY:' + escIcs(t), 'DESCRIPTION:' + escIcs(detalhe(i)),
       ...alarme('-PT15H', t + ' é amanhã.'),
       ...(i.manual ? [] : alarme('-P1DT15H', 'Confira se saiu retificação do edital antes de: ' + t)),
       'END:VEVENT');

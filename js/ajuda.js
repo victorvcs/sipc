@@ -71,8 +71,8 @@ const AJUDA = [
 const CHAVE_VISTA = 'sipc::novidade-vista';
 // O que a versão atual permite fazer: alimenta o alerta e o topo da aba Novidades.
 const DESTAQUES = [
-  {titulo:'Ver o seu domínio em cada matéria', texto:'Cada tópico vira um quadrado no Painel, e cada matéria mostra o próximo tópico para estudar.', img:'img/novidades/dominio.jpg', alt:'Painel com os tópicos de cada matéria em quadrados coloridos por nível', guia:'dominio'},
-  {titulo:'Achar tudo no menu novo', texto:'As seções ficam em grupos, e tocar no nome da prova troca de trilha.', img:'img/novidades/menu.jpg', alt:'Menu lateral com a trilha aberta e os grupos Estudar, Acompanhar e Geral', guia:'menu'},
+  {titulo:'Levar as datas para qualquer agenda', texto:'Cada data vai para o Google ou o Outlook, ou baixe o arquivo para a agenda do celular. Dois dias antes, o SIPC lembra de conferir a retificação.', img:'img/novidades/datas.jpg', alt:'Aba Datas com os botões Google e Outlook em cada data e o aviso para conferir a retificação', guia:'datas'},
+  {titulo:'Ver o detalhe já na primeira redação', texto:'A aba Discursiva mostra a nota por critério e o que corrigir desde a primeira correção.', img:'img/novidades/evolucao.jpg', alt:'Quadro Sua evolução com as notas por critério e a lista do que corrigir', guia:'evolucao'},
 ];
 // Abre a tela de cada passo. Trocar de tipo de treino não apaga o que o aluno escreveu.
 const guiaDC = (tipo, passo, mao) => () => { S.aba = 'discursiva'; if(DC().tipo !== tipo) dcTipo(tipo); const d = DC(); if(passo) d.passo = passo; if(mao != null) d.mao = mao; render(true); };

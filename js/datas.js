@@ -57,7 +57,7 @@ async function lerDatas(){
     if(!novas.length) throw new Error('Não encontrei datas ' + (textos.length>1?'nestes arquivos':'neste arquivo') + '. Se o cronograma é um documento separado, envie-o junto ou adicione as datas abaixo. Nada foi alterado.');
     if(semTexto.length) avisar('Não consegui ler: ' + semTexto.join(', ') + '. As datas vieram dos outros.');
     await salvarCronograma(SIPC.cronograma.atualizarCronograma(S.cronograma, novas));
-    avisar('Cronograma atualizado com ' + novas.length + ' datas. Confira com o edital.');
+    avisar('Cronograma atualizado com ' + novas.length + (novas.length===1?' data':' datas') + '. Confira com o edital.');
   }catch(e){ S.dtErro2 = mensagemIA(e); }
   S.dtLendo = false; render(true);
 }
@@ -88,7 +88,7 @@ function abaDatas(){
   return `<div class="datas">
     <section class="bloco">
       <h2 style="font-size:20px;margin-bottom:6px">Cronograma do concurso</h2>
-      <p class="dim" style="font-size:14px;margin:0 0 14px">As datas que você não pode perder. A leitura pode errar: confira sempre no edital. Ponha as datas na sua agenda (<b>Google</b>, <b>Outlook</b> ou o arquivo para qualquer agenda) para receber o aviso mesmo com o SIPC fechado. Dois dias antes de cada data do edital, eu lembro você de conferir se saiu retificação.</p>
+      <p class="dim" style="font-size:14px;margin:0 0 14px">As datas que você não pode perder. A leitura pode errar: confira sempre no edital. Ponha as datas na sua agenda para ser avisado mesmo com o SIPC fechado.</p>
       ${conferirRetificacaoNota()}
       ${lista.length ? `<ul class="data-lista">${lista.map(x=>linhaData(x.i,x.k,false)).join('')}</ul>
       <button class="btn link" onclick="baixarIcs()">${ico('calendar')} Baixar todas para qualquer agenda (.ics)</button>` : `<p class="vazio">${todas.length?'Todas as datas já passaram.':'Nenhuma data ainda. Envie o edital abaixo: eu procuro as datas no arquivo inteiro.'}</p>`}

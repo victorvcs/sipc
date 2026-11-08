@@ -48,3 +48,21 @@ Prioridade = impacto × probabilidade. Última rodada: 23/10/2026 (v1, commit cd
 | CT-16 | média | Produção: headers, `.git`, source maps, dados no localStorage | nada sensível exposto | parcial: `.git` ok; `legado/` sai do ar ao publicar; sem CSP (risco aceito) |
 | CT-17 | baixa | favicon, título, idioma da página | sem 404 no console | passou (reteste 23/10) |
 | CT-18 | alta | Login real, gravação no Firestore, Reportar real, Admin real | dados persistem; Admin só para o Victor | passou com a conta do Victor (24/10): perfil, aceite, trilha, sessões e Reportar no Firestore; reporte visível no Admin |
+
+## v1.8 (08/11/2026, branch `feature/v1.8`)
+
+Executados em localhost:5502, sem conta, com trilha de exemplo injetada e IA simulada (a IA real dá 403 em localhost sem o token de depuração do App Check).
+
+| ID | Prioridade | Cenário | Esperado | Resultado |
+|---|---|---|---|---|
+| CT-19 | alta | Datas: X em data do edital e em data do aluno; chamar `removerData` direto numa data do edital | X só na data do aluno; a do edital não sai | passou |
+| CT-20 | alta | Datas: botões Google e Outlook | links com título, dia inteiro e fim exclusivo; texto diferente para data do aluno | passou (após corrigir BUG-02) |
+| CT-21 | alta | Baixar .ics | `text/calendar`, só datas futuras, alarme na véspera e de retificação só nas do edital | passou (4 eventos, 7 alarmes) |
+| CT-22 | média | Lembrete de retificação 2 dias antes | nota na aba Datas, no aviso de Hoje e no lembrete do navegador | passou (nota e aviso; notificação do navegador não testada) |
+| CT-23 | alta | Vários arquivos (2 válidos + 1 sem texto); 6 arquivos | uma chamada de IA com a lista; 6 recusados com mensagem | passou |
+| CT-24 | média | Discursiva com uma redação | critérios, ponto fraco, até 3 itens a corrigir, botão abre a correção | passou |
+| CT-25 | média | IA entrega 8 de 10 questões | aviso "Vieram 8 de 10" com gerar de novo | passou |
+| CT-26 | média | Alerta de Novidades da versão nova | lista o que a v1.8 trouxe | passou (após corrigir BUG-01) |
+| CT-27 | média | Datas em 375px | sem rolagem lateral | passou |
+| CT-28 | baixa | privacidade.html cita o YouTube | seção com links dos termos | passou |
+| CT-29 | média | Admin: apagar vídeos vencidos | botão aparece; apaga só os vencidos | parcial: botão e função existem; exclusão real não testada (precisa login de admin) |
