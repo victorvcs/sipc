@@ -42,7 +42,11 @@ Atualizado em 31/10/2026 (item 1); os demais itens são de 18/10/2026.
 
 ---
 
-## 3. O resgate por regex esconde respostas cortadas
+## 3. ~~O resgate por regex esconde respostas cortadas~~ — resolvido na v1.8 (08/11/2026)
+
+**Como foi resolvido.** O resgate por regex não existe mais no código, mas a validação ainda aceitava menos questões que o pedido sem avisar. Desde a v1.8, o tópico e as questões do dia mostram "Vieram X de N", e o tópico oferece gerar de novo.
+
+**Histórico abaixo.**
 
 **Situação.** Quando o JSON das questões vem truncado, o código recupera por expressão regular apenas as questões completas e segue em frente, sem avisar.
 

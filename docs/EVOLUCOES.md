@@ -22,6 +22,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.6 | publicada | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
 | 1.7 | publicada | tag `v1.7` | Menu em grupos, seletor de trilha e painel de domínio |
 | 1.7.1 | publicada, em uso | tag `v1.7.1` | Vídeos sempre dentro da plataforma |
+| 1.8 | em teste (branch `feature/v1.8`) | — | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
 
 ---
 
@@ -228,3 +229,42 @@ Reporte do Victor: no tópico "Conceitos de produtividade, eficiência, eficáci
 **Correção.** Até 3 tentativas, só quando a anterior não acha nada: tópico com matéria, tópico sem matéria e tópico encurtado (`js/nucleo/videobusca.js`, com testes). Se nenhuma tiver aula de 3 a 30 minutos, a duração abre para 1 minuto a 2 horas sobre o que já veio, sem gastar outra busca. O link externo saiu: sem vídeo, o aviso fica no app, e em caso de erro há o botão Tentar de novo.
 
 **Cota.** Um tópico sem resultado gasta até 3 buscas das cerca de 100 diárias, porque o vazio não fica no cache. O resultado encontrado continua no cache compartilhado.
+
+## v1.8 — Datas em qualquer agenda e correções
+
+Primeira versão depois da troca de computador (08/11/2026). Junta quatro pedidos do backlog que cabem no plano gratuito e quatro correções. Escopo aprovado pelo Victor em 08/11/2026.
+
+### Datas: Outlook, arquivo de calendário e retificação (backlog 2 e 9)
+
+**O que faz.** Cada data futura tem os botões Google e Outlook. "Baixar todas para qualquer agenda" gera um arquivo `.ics` com as próximas datas, que abre na agenda do iPhone, do Android ou do Outlook do computador. Dois dias antes de uma data do edital, a aba Datas, o aviso em Hoje e o lembrete do navegador pedem para conferir se saiu retificação.
+
+**Racional.** E-mail e push com o site fechado exigem envio agendado, que o Firebase só tem no plano pago. A agenda do próprio aluno avisa sem servidor: o `.ics` leva um alarme na véspera e, nas datas do edital, outro dois dias antes para a retificação. O WhatsApp ficou de fora (o próprio Victor considerou improvável).
+
+**Regras de negócio** (`js/nucleo/cronograma.js`, com testes).
+- O link do Outlook é o de conta pessoal (`outlook.live.com`). Conta de trabalho usa o arquivo `.ics`.
+- O arquivo leva só as datas que ainda não passaram. Período (inscrição) vira um evento de vários dias.
+- Lembrete de retificação: só datas do edital (não as do aluno), quando faltam 1 ou 2 dias.
+- Alarmes do `.ics`: às 9h da véspera e, para a retificação, às 9h de dois dias antes.
+
+### Datas: vários arquivos e exclusão só do que é do aluno (backlog 10 e 8)
+
+**O que faz.** "Saiu retificação?" aceita até 5 arquivos de uma vez. O X de remover aparece só nas datas que o aluno adicionou.
+
+**Racional.** Há concursos com edital e cronograma em arquivos separados. Uma chamada só de IA para todos poupa a cota: cada arquivo ganha uma parte igual dos 40 mil caracteres, com o próprio começo (que costuma trazer o ano). Decisão do Victor de 31/10: o aluno não exclui as datas do cronograma, só as que ele mesmo adicionou.
+
+**Regras de negócio.**
+- Arquivo que não dá para ler é ignorado com aviso, se outro foi lido.
+- Se houver conflito entre arquivos, a IA é instruída a ficar com a data do mais recente (a retificação).
+- A troca das datas continua a mesma: as do edital são substituídas, as do aluno ficam.
+
+### Evolução já na primeira redação (backlog 4)
+
+**O que faz.** Com uma redação só, "Sua evolução" mostra a nota por critério, o critério para focar e até 3 pontos do que corrigir, com o botão "Ver a correção completa". A partir da segunda, o que corrigir da última redação também aparece.
+
+**Racional.** Pedido do Victor ao ver a v1.7: com uma redação, a aba só mostrava a nota.
+
+### Correções
+
+- **Vídeos por no máximo 30 dias.** As regras da API do YouTube não permitem guardar dados dos vídeos por mais de 30 dias. A chave do cache (`videos/{id}`) passou a ter o período de 30 dias, então a busca é refeita depois do prazo sem mudar as Regras do Firestore. O Admin ganhou "Apagar vídeos com mais de 30 dias" (só o admin apaga). `privacidade.html` passou a citar o YouTube, com os termos e a política do Google. **Custo:** a cada 30 dias os tópicos gastam busca de novo.
+- **Questões a menos.** Se a IA entrega menos questões do que o pedido, aparece "Vieram X de N", com "gerar de novo" no tópico. Fecha o item 3 do `DEBITO_TECNICO.md`.
+- **`prototipo.html` fora do site.** Decidido em 23/10. Continua no histórico do Git e na pasta `prototipo/` do Drive.

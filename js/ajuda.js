@@ -3,6 +3,14 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.8', data:'08/11/2026', itens:[
+    ['Datas em qualquer agenda', 'Na aba Datas, cada data vai para o Google Agenda ou para o Outlook. Se você usa outra agenda, como a do iPhone, baixe o arquivo com todas as datas: a agenda avisa na véspera, mesmo com o SIPC fechado.'],
+    ['Lembrete de retificação', 'Dois dias antes de cada data do edital, o SIPC lembra você de conferir se saiu retificação.'],
+    ['Vários arquivos de uma vez', 'Se o concurso tem edital, cronograma e anexos separados, mande todos juntos na aba Datas. O SIPC junta as datas.'],
+    ['Datas do edital protegidas', 'As datas lidas do edital não podem mais ser apagadas por engano. Só as datas que você adicionou têm o botão de remover.'],
+    ['Detalhes já na primeira redação', 'A aba Discursiva mostra a nota por critério, o ponto para focar e o que corrigir desde a primeira redação.'],
+    ['Aviso de questões a menos', 'Se a IA entregar menos questões do que o pedido, o SIPC avisa e você pode gerar de novo.'],
+  ]},
   {versao:'1.7.1', data:'31/10/2026', itens:[
     ['Vídeos dentro do SIPC', 'A busca agora tenta de outras formas antes de desistir, e os vídeos aparecem também em tópicos que ficavam sem nenhum. Se não houver vídeo, o aviso fica aqui mesmo, sem mandar você para o YouTube.'],
   ]},
@@ -52,10 +60,10 @@ const AJUDA = [
   ['Cronômetro de foco', ['Toque em "Iniciar foco", no canto inferior esquerdo, ao começar a estudar.', 'Vai fazer outra coisa? Toque em "Pausar". Se você sair da página, ele pausa sozinho.', 'Use "Continuar" para retomar e "Encerrar" ao terminar a sessão.', 'As horas aparecem no Painel, em Tempo de foco.']],
   ['Sua evolução', ['Em Hoje, o quadro Sua evolução compara o seu foco cronometrado com a meta do dia.', 'Estudar além da meta adianta o plano e soma em "Dias adiantados".', 'O extra conta até 1,5 vez a meta, com teto de 6 horas por dia. Depois disso o melhor é descansar.', 'A cada 50 minutos de foco, o SIPC sugere uma pausa.']],
   ['Treino de discursiva', ['Na aba Discursiva, informe a banca e o tema. Na FGV, há 6 temas de TI no Judiciário com a cola pronta.', 'Passo 1: leia a cola do tema.', 'Passo 2: treine só a estrutura, começando pelo C-D-A-R-F (Conceito, Desdobramento, Aplicação, Riscos e Fechamento).', 'Passo 3: escreva a redação no app, à mão na tela ou mande a foto do papel.', 'A correção mostra a nota por critério, o que corrigir, os erros de português e uma versão modelo. A nota é uma estimativa, não a da banca.', 'Tem o espelho da banca? Cole no campo próprio: a correção segue o que ele pede.']],
-  ['Sua evolução na redação', ['Cada correção de redação e de estrutura fica guardada na sua conta, em qualquer aparelho.', 'A partir da segunda redação, a aba Discursiva mostra a última nota, a média das últimas 5, a diferença para a anterior e a média por critério.', 'Em "Correções guardadas", toque em Ver para reabrir o relatório completo.', 'A foto e o desenho não são guardados: só as notas, o feedback, o seu texto e o que a IA leu na imagem.']],
+  ['Sua evolução na redação', ['Cada correção de redação e de estrutura fica guardada na sua conta, em qualquer aparelho.', 'Desde a primeira redação, a aba Discursiva mostra a nota por critério, o critério para focar e o que corrigir na próxima.', 'A partir da segunda, aparecem também a média das últimas 5 e a diferença para a anterior.', 'Em "Correções guardadas", toque em Ver para reabrir o relatório completo.', 'A foto e o desenho não são guardados: só as notas, o feedback, o seu texto e o que a IA leu na imagem.']],
   ['Escrever e desenhar à mão', ['Na redação e no raciocínio lógico, toque em "Escrever na tela". A folha é corrigida como a foto do papel: não precisa enviar antes.', 'Nas questões, abra o Rascunho e toque em Desenhar. Esse desenho não vai para a IA.', 'Use caneta, borracha, Desfazer e Limpar. No iPad, a Apple Pencil engrossa o traço com a pressão e a palma apoiada é ignorada.', 'Para rolar a página, arraste fora da folha.', 'O desenho fica só neste aparelho e os mais antigos saem quando o espaço acaba. Em outro aparelho ele não aparece.']],
   ['Raciocínio lógico', ['Na aba Discursiva, escolha Raciocínio lógico e informe o assunto.', 'Resolva digitando, à mão na tela ou no papel, com a foto.', 'A IA mostra se acertou, em qual passo errou e o que treinar. Confira a resolução: a IA também pode errar.']],
-  ['Cronograma do concurso', ['Na aba Datas ficam as datas lidas do edital. Confira sempre no edital original.', 'Toque em Agenda para levar a data à sua agenda do Google e ser avisado mesmo com o SIPC fechado.', 'Saiu retificação? Em "Saiu retificação?", mande o arquivo novo ou cole só o cronograma.', 'Para incluir um compromisso seu, use "Adicionar uma data". Ele não é apagado nas retificações.']],
+  ['Cronograma do concurso', ['Na aba Datas ficam as datas lidas do edital. Confira sempre no edital original.', 'Toque em Google ou Outlook para levar a data à sua agenda. Para outra agenda (iPhone, celular), toque em "Baixar todas para qualquer agenda" e abra o arquivo. A agenda avisa mesmo com o SIPC fechado.', 'Dois dias antes de cada data do edital, o SIPC lembra você de conferir se saiu retificação.', 'Saiu retificação? Em "Saiu retificação?", mande o arquivo novo ou cole só o cronograma. Se o edital e o cronograma são arquivos separados, mande até 5 de uma vez.', 'Para incluir um compromisso seu, use "Adicionar uma data". Ele não é apagado nas retificações, e só as datas que você adicionou podem ser removidas.']],
   ['Lembretes', ['Em Conta, escolha o horário e ative a notificação do navegador.', 'O aviso chega enquanto o SIPC estiver aberto em alguma aba.']],
   ['Reportar um problema ou ideia', ['Toque em Reportar, no canto inferior direito.', 'Conte o que aconteceu. O print da tela ajuda a resolver mais rápido.']],
 ];
@@ -82,7 +90,7 @@ const GUIAS = {
     {abrir:guiaDC('discursiva'), alvo:'#dcBanca', titulo:'Comece pela banca e pelo tema', texto:'Informe a banca e o tema. Na FGV, há temas prontos, com a cola do assunto.'},
     {abrir:guiaDC('discursiva','redacao'), alvo:'#dcTexto', titulo:'Escreva a redação', texto:'Digite aqui, escreva à mão na tela ou mande a foto do papel. Depois toque em <b>Corrigir a redação</b>.'},
     {titulo:'Leia o relatório', texto:'A correção mostra a nota por critério, o que corrigir primeiro e a comparação com a redação anterior. Ela fica guardada na sua conta.'},
-    {alvo:'.dc-resumo', titulo:'Veja a sua evolução', texto:'A partir da segunda redação, aparecem a última nota, a média e o critério para focar. Em <b>Correções guardadas</b>, toque em <b>Ver</b> para reabrir um relatório.'},
+    {alvo:'.dc-evol', titulo:'Veja a sua evolução', texto:'Desde a primeira redação, aparecem a nota por critério e o que corrigir. A partir da segunda, também a média e a comparação. Em <b>Correções guardadas</b>, toque em <b>Ver</b> para reabrir um relatório.'},
   ]},
   mao:{titulo:'Escrever à mão na tela', resumo:'Como usar a folha com caneta, dedo ou mouse.', passos:[
     {abrir:guiaDC('discursiva','redacao',false), alvo:'.dc-modo', titulo:'Escolha como enviar', texto:'Toque em <b>Escrever na tela</b> para abrir a folha. Ela também está no Raciocínio lógico.'},
@@ -92,9 +100,9 @@ const GUIAS = {
   ]},
   datas:{titulo:'Cronograma do concurso', resumo:'Como enviar o edital e receber os avisos.', passos:[
     {abrir:() => { S.aba = 'datas'; render(true); }, alvo:'.datas .bloco', titulo:'Suas datas', texto:'Aqui ficam inscrição, prova, resultado e recursos. Confira sempre com o edital: a leitura pode errar.'},
-    {alvo:'#dtArq', titulo:'Está vazio ou saiu retificação?', texto:'Envie o edital ou cole o cronograma e toque em <b>Atualizar cronograma</b>. O SIPC procura as datas no arquivo inteiro.'},
+    {alvo:'#dtArq', titulo:'Está vazio ou saiu retificação?', texto:'Envie o edital (ou até 5 arquivos, se o cronograma vem separado) ou cole o cronograma e toque em <b>Atualizar cronograma</b>. O SIPC procura as datas nos arquivos inteiros.'},
     {alvo:'#dtEvento', titulo:'Falta alguma data?', texto:'Adicione as suas. Elas continuam aqui mesmo depois de uma retificação.'},
-    {abrir:() => { S.aba = 'painel'; render(true); }, alvo:'.p-datas', titulo:'No Painel', texto:'As próximas datas também aparecem no Painel. Use <b>Agenda</b>, na aba Datas, para receber o aviso do Google com o SIPC fechado.'},
+    {abrir:() => { S.aba = 'painel'; render(true); }, alvo:'.p-datas', titulo:'No Painel', texto:'As próximas datas também aparecem no Painel. Na aba Datas, use <b>Google</b>, <b>Outlook</b> ou o arquivo para qualquer agenda e receba o aviso com o SIPC fechado.'},
   ]},
   logico:{titulo:'Raciocínio lógico', resumo:'Como gerar um exercício e conferir a resolução.', passos:[
     {abrir:guiaDC('logico'), alvo:'#dcTema', titulo:'Escolha o assunto', texto:'Escreva o assunto e toque em <b>Gerar exercício</b>.'},
