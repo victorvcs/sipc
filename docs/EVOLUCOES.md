@@ -23,6 +23,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.7 | publicada | tag `v1.7` | Menu em grupos, seletor de trilha e painel de domínio |
 | 1.7.1 | publicada | tag `v1.7.1` | Vídeos sempre dentro da plataforma |
 | 1.8 | publicada, em uso | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
+| 1.8.1 | em teste (branch `feature/v1.8.1`) | — | Aviso claro e registro do bloqueio do App Check |
 
 ---
 
@@ -269,3 +270,17 @@ Primeira versão depois da troca de computador (08/11/2026). Junta quatro pedido
 - **Questões a menos.** Se a IA entrega menos questões do que o pedido, aparece "Vieram X de N", com "gerar de novo" no tópico. Fecha o item 3 do `DEBITO_TECNICO.md`.
 - **`prototipo.html` fora do site.** Decidido em 23/10. Continua no histórico do Git e na pasta `prototipo/` do Drive.
 - **Novidades.** O alerta e o topo da aba Novidades destacam a agenda e a primeira redação. Os prints `img/novidades/datas.jpg` e `evolucao.jpg` foram refeitos com dados de exemplo. QA em `qa/relatorio-2026-11-08.md`.
+
+## v1.8.1 — Bloqueio do App Check visível
+
+Reporte do Victor em 08/11/2026: conteúdo e questões não carregavam, um problema que ele achou "surreal". A cota 429 tinha sido tratada na v1.1, mas havia outra causa.
+
+**Causa.** No site publicado (testado no navegador do Claude), a troca do reCAPTCHA pelo token do App Check (`exchangeRecaptchaEnterpriseToken`) voltou **403 "App attestation failed"**. Depois de um 403, o SDK do App Check trava a IA por 24 h naquela página. Recarregar não adianta: cada carga refaz a verificação, leva outro 403 e trava de novo. O app pedia "Recarregue a página" e apagava o IndexedDB, o que não resolvia. Ainda não se sabe quantos alunos passam por isso: o navegador do Claude pode ter tido nota de risco baixa por ser automatizado.
+
+**O que muda.**
+- A mensagem explica o que fazer (outro navegador, sem VPN, fora de navegador dentro de app) e manda reportar, sem prometer que recarregar resolve.
+- O erro é registrado como `ia-bloqueada`, separado de `ia-erro`. O Admin › Geral ganhou o quadro "Falhas da IA" (últimos 7 dias), com quantas vezes e quais alunos.
+- Uma correção (1.8.1) não mostra de novo o alerta de Novidades: o alerta passa a ser por versão de funcionalidade (1.8).
+- Regra pura em `erroAppCheck` (`js/nucleo/iautil.js`), com teste.
+
+**O que não muda (depende do console, só o Victor acessa).** A correção de fato é de configuração: rever o limite de risco do reCAPTCHA no App Check (Firebase › App Check › Apps › reCAPTCHA Enterprise) e conferir no Google Cloud se a cota gratuita do reCAPTCHA Enterprise (10 mil avaliações por mês) estourou. O app pede um token de uso único por chamada de IA (`useLimitedUseAppCheckTokens`), então cada chamada gasta uma avaliação.

@@ -126,9 +126,27 @@ function admGeral(){
         ${topTelas.length ? barrasLinhas(topTelas.map(([t,seg])=>({rot:t, valor:seg, texto:duracao(seg)}))) : '<p class="dim">Ainda sem sessões registradas: os dados aparecem conforme os alunos usam o app.</p>'}</section>
       <section class="bloco"><h3>Últimas ações</h3>
         ${recentes.length ? `<ul class="adm-feed">${recentes.map(e=>`<li><span class="dim num">${quandoTs(e.t)}</span><span><b>${escHtml(e.u.nome||e.u.email||'Aluno')}</b> ${escHtml(rotuloEvento(e))}</span></li>`).join('')}</ul>` : '<p class="dim">Nenhuma ação registrada ainda.</p>'}</section>
+      ${blocoFalhasIA(us, d7)}
       <section class="bloco"><h3>Vídeos guardados</h3><p class="dim adm-sub">As regras do YouTube permitem guardar os dados dos vídeos por até 30 dias. O app já refaz a busca depois disso; aqui você apaga os registros vencidos. Faça isso uma vez por mês.</p>
         <button class="btn sec" onclick="limparVideosVencidos()" ${ADM.limpandoVideos?'disabled':''}>${ADM.limpandoVideos?'Apagando…':'Apagar vídeos com mais de 30 dias'}</button></section>
     </div>`;
+}
+// Falhas da IA nos últimos 7 dias, separando o bloqueio do App Check (o navegador
+// não passou no reCAPTCHA e a IA não responde mais naquela página) dos outros erros.
+function blocoFalhasIA(us, desde){
+  const conta = tipo => {
+    const quem = us.filter(u => u.sessoes.some(s => (s.eventos||[]).some(e => e.tipo===tipo && diaLocal(e.t) >= desde)));
+    const n = us.reduce((a,u)=>a+u.sessoes.reduce((b,s)=>b+(s.eventos||[]).filter(e=>e.tipo===tipo && diaLocal(e.t) >= desde).length,0),0);
+    return {quem, n};
+  };
+  const b = conta('ia-bloqueada'), o = conta('ia-erro');
+  const nomes = l => l.slice(0,6).map(u=>escHtml(u.nome||u.email||'Aluno')).join(', ') + (l.length>6 ? ` e mais ${l.length-6}` : '');
+  return `<section class="bloco"><h3>Falhas da IA</h3><p class="dim adm-sub">Últimos 7 dias. Bloqueio do App Check: o navegador não passou na verificação do reCAPTCHA e a IA parou de responder para o aluno. Se for frequente, reveja o limite de risco do reCAPTCHA no App Check e a cota do reCAPTCHA Enterprise.</p>
+    <ul class="ev-lista">
+      <li><span>Bloqueio do App Check</span><b class="num">${b.n} ${b.n===1?'vez':'vezes'} · ${b.quem.length} ${b.quem.length===1?'aluno':'alunos'}</b></li>
+      ${b.quem.length ? `<li><span class="dim">${nomes(b.quem)}</span></li>` : ''}
+      <li><span>Outros erros (cota, rede, resposta)</span><b class="num">${o.n} ${o.n===1?'vez':'vezes'} · ${o.quem.length} ${o.quem.length===1?'aluno':'alunos'}</b></li>
+    </ul></section>`;
 }
 async function limparVideosVencidos(){
   ADM.limpandoVideos = true; render(true);
@@ -139,7 +157,7 @@ async function limparVideosVencidos(){
 
 const ROT_EVENTO = {login:'entrou', 'trilha-criada':'criou a trilha', 'trilha-aberta':'abriu a trilha', 'topico-aberto':'abriu o tópico', 'topico-concluido':'concluiu o tópico',
   revisao:'revisou', 'questoes-dia':'fez as questões do dia', 'edital-lido':'leu o edital', 'edital-erro':'teve erro ao ler o edital', reporte:'mandou um reporte',
-  'modo-teste':'ligou o modo teste', tour:'viu o tour', sair:'saiu da conta', 'foco-sessao':'registrou foco', 'discursiva-corrigida':'corrigiu discursiva', 'logico-corrigido':'corrigiu raciocínio lógico', tela:'abriu', 'ia-erro':'teve erro da IA'};
+  'modo-teste':'ligou o modo teste', tour:'viu o tour', sair:'saiu da conta', 'foco-sessao':'registrou foco', 'discursiva-corrigida':'corrigiu discursiva', 'logico-corrigido':'corrigiu raciocínio lógico', tela:'abriu', 'ia-erro':'teve erro da IA', 'ia-bloqueada':'teve a IA bloqueada pela verificação de segurança (App Check)'};
 const rotuloEvento = e => (ROT_EVENTO[e.tipo] || e.tipo) + (e.d ? ': ' + e.d : '');
 
 /* ---------- alunos ---------- */

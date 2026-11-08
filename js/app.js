@@ -459,12 +459,14 @@ function limiteVisitante(){
 // Erros da IA em português e, em localhost, o lembrete do token de depuração.
 function mensagemIA(e){
   const m = String(e && e.message || e);
-  if(!e || !e.jaRegistrado) ev('ia-erro', SIPC.ia.resumoErro(e));
-  // Depois de um único 403, o App Check trava as tentativas por 24 horas
-  // neste navegador. Apagar o registro local libera na próxima carga.
-  if(/throttl/i.test(m)){ try{ indexedDB.deleteDatabase('firebase-app-check-database'); }catch(x){} return 'A verificação de segurança da IA falhou uma vez. Recarregue a página e tente de novo.'; }
-  if(/app.?check|401|403/i.test(m) && SIPC.debugToken) return 'A IA recusou o acesso em localhost: cadastre o token de depuração do App Check no console do Firebase (' + SIPC.debugToken + ').';
-  if(/app.?check|401|403/i.test(m)) return 'A IA recusou o acesso deste navegador. Recarregue a página e tente de novo.';
+  // O App Check recusou o navegador (reCAPTCHA): a IA fica travada nesta página
+  // e recarregar não resolve, porque cada carga refaz a verificação. Fica
+  // registrado à parte, para o Admin contar quantos alunos passam por isso.
+  const bloqueio = SIPC.ia.erroAppCheck(e);
+  if(!e || !e.jaRegistrado) ev(bloqueio ? 'ia-bloqueada' : 'ia-erro', SIPC.ia.resumoErro(e));
+  if(bloqueio && SIPC.debugToken) return 'A IA recusou o acesso em localhost: cadastre o token de depuração do App Check no console do Firebase (' + SIPC.debugToken + ').';
+  if(bloqueio) return 'Seu navegador não passou na verificação de segurança da IA, e ela não vai responder nesta página. Isso costuma acontecer com VPN, bloqueador de anúncios, aba anônima ou navegador aberto dentro de outro app (Instagram, WhatsApp). Abra o SIPC no Chrome, no Edge ou no Safari, sem VPN. Se continuar, toque em Reportar: o problema é do SIPC, não seu.';
+  if(/\b401\b/.test(m)) return 'A IA recusou o acesso deste navegador. Abra o SIPC de novo e tente outra vez.';
   if(/\b(503|429)\b|overload/i.test(m)) return 'O serviço de IA está ocupado. Tente de novo em instantes.';
   if(/failed to fetch|load failed|network/i.test(m)) return 'Sem conexão com a internet. Confira e tente de novo.';
   if(/error fetching/i.test(m)) return 'A IA não respondeu agora. Tente de novo em instantes.';

@@ -3,6 +3,9 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.8.1', data:'08/11/2026', itens:[
+    ['Aviso mais claro quando a IA não responde', 'Se o seu navegador não passar na verificação de segurança da IA, o SIPC explica o que fazer (outro navegador, sem VPN) em vez de pedir para recarregar, o que não resolvia.'],
+  ]},
   {versao:'1.8', data:'08/11/2026', itens:[
     ['Datas em qualquer agenda', 'Na aba Datas, cada data vai para o Google Agenda ou para o Outlook. Se você usa outra agenda, como a do iPhone, baixe o arquivo com todas as datas: a agenda avisa na véspera, mesmo com o SIPC fechado.'],
     ['Lembrete de retificação', 'Dois dias antes de cada data do edital, o SIPC lembra você de conferir se saiu retificação.'],
@@ -109,8 +112,10 @@ const GUIAS = {
     {titulo:'Resolva do seu jeito', texto:'Digite, escreva à mão na tela ou mande a foto do papel. A IA mostra se acertou e em qual passo errou.'},
   ]},
 };
-function novidadeNaoVista(){ try{ return localStorage.getItem(CHAVE_VISTA) !== NOVIDADES[0].versao; }catch(e){ return false; } }
-function marcarNovidadeVista(){ try{ localStorage.setItem(CHAVE_VISTA, NOVIDADES[0].versao); }catch(e){} }
+// O alerta é por versão de funcionalidade (1.8): uma correção (1.8.1) não repete o alerta.
+const versaoDoAlerta = () => NOVIDADES[0].versao.split('.').slice(0,2).join('.');
+function novidadeNaoVista(){ try{ const v = localStorage.getItem(CHAVE_VISTA); return v !== versaoDoAlerta() && v !== NOVIDADES[0].versao; }catch(e){ return false; } }
+function marcarNovidadeVista(){ try{ localStorage.setItem(CHAVE_VISTA, versaoDoAlerta()); }catch(e){} }
 
 function abaNovidades(){
   marcarNovidadeVista();

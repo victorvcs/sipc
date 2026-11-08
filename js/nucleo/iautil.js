@@ -16,7 +16,15 @@ export const orcamento = maxTokens => Math.max(8000, (maxTokens || 2000) * 4);
 // de código, e repetir resolve.
 export const erroTemporario = e => /\b(500|502|503|504|429)\b|overloaded|unavailable|resource.?exhausted|quota|deadline|failed to fetch|load failed|networkerror/i.test(String(e?.message));
 
-export const erroDeCota = e => e?.customErrorData?.status === 429 || /\b429\b|resource.?exhausted|quota/i.test(String(e?.message));
+// App Check recusou o navegador (reCAPTCHA): 403 "App attestation failed" e,
+// depois dele, "throttled" por 24 h. Repetir ou recarregar não resolve, porque
+// cada carga da página refaz a verificação e leva outro 403.
+export function erroAppCheck(e) {
+  const m = String((e?.causa || e)?.message ?? e ?? '');
+  return /app.?check|attestation|throttl/i.test(m) || (/\b403\b/.test(m) && !/\b429\b/.test(m));
+}
+
+export const erroDeCota =e => e?.customErrorData?.status === 429 || /\b429\b|resource.?exhausted|quota/i.test(String(e?.message));
 
 // Camada gratuita: limite de 5 chamadas para o projeto inteiro, numa janela
 // curta (medido em 31/10/2026; ver DEBITO_TECNICO, item 1). Repetir em segundos só gasta a cota: espera o que a API pediu ou

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { slug, idConteudo, orcamento, erroTemporario, erroDeCota, esperaAntesDeRepetir, resumoErro, criarFila, comTentativas, extrairJSON, embaralhar } from '../js/nucleo/iautil.js';
+import { slug, idConteudo, orcamento, erroTemporario, erroDeCota, erroAppCheck, esperaAntesDeRepetir, resumoErro, criarFila, comTentativas, extrairJSON, embaralhar } from '../js/nucleo/iautil.js';
 import { validarConteudo } from '../js/nucleo/validar.js';
 
 const semEspera = async () => {};
@@ -123,4 +123,14 @@ test('embaralhar mantém a alternativa certa', () => {
   }
   const ce = { ce: true, alts: ['Certo', 'Errado'], c: 1 };
   assert.equal(embaralhar(ce), ce);
+});
+
+test('reconhece o bloqueio do App Check (403 e throttled)', async () => {
+  const { erroAppCheck } = await import('../js/nucleo/iautil.js');
+  assert.equal(erroAppCheck(new Error('AI: Error fetching from https://x:generateContent: AppCheck: Requests throttled due to previous 403 error. (appCheck/throttled)')), true);
+  assert.equal(erroAppCheck(new Error('AppCheck: 403 error. Attempts allowed again after 01d (appCheck/initial-throttle)')), true);
+  assert.equal(erroAppCheck(new Error('App attestation failed.')), true);
+  assert.equal(erroAppCheck(new Error('[429] RESOURCE_EXHAUSTED quota')), false);
+  assert.equal(erroAppCheck(new Error('Failed to fetch')), false);
+  assert.equal(erroAppCheck(undefined), false);
 });

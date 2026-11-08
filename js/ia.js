@@ -7,7 +7,7 @@ import { validarCronograma, trechoDeDatas, juntarTrechos } from './nucleo/cronog
 import { CRITERIOS_FGV, validarCorrecao, validarExercicioLogico, validarCorrecaoLogico } from './nucleo/discursiva.js';
 import { lerConteudo, gravarConteudo } from './store.js';
 
-export { resumoErro } from './nucleo/iautil.js';
+export { resumoErro, erroAppCheck } from './nucleo/iautil.js';
 
 const naFila = criarFila();
 
