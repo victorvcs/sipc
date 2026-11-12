@@ -145,6 +145,10 @@ export async function apagarPrintsAntigos(itens, dias = 90) {
 export const listarMeusReportes = async uid =>
   (await getDocs(query(collection(db, 'feedback'), where('uid', '==', uid)))).docs.map(d => ({ id: d.id, ...d.data() }))
     .sort((a, b) => (b.criadoEm?.toMillis?.() || 0) - (a.criadoEm?.toMillis?.() || 0));
+// v1.10: indicadores de desenvolvimento (só o admin lê e grava; ver firestore.rules).
+// Fora do modo teste de propósito: são números do Victor, não progresso de aluno.
+export const lerMetricasDev = async () => { const s = await getDoc(doc(db, 'admin', 'metricas-dev')); return s.exists() ? s.data() : null; };
+export const gravarMetricasDev = dados => setDoc(doc(db, 'admin', 'metricas-dev'), { ...dados, salvoEm: serverTimestamp() });
 export const listarUsuarios = async () => (await getDocs(collection(db, 'users'))).docs.map(d => ({ uid: d.id, ...d.data() }));
 export const listarTrilhasDe = async uid =>
   (await getDocs(collection(db, 'users', uid, 'trilhas'))).docs.map(d => ({ id: d.id, ...d.data() }));

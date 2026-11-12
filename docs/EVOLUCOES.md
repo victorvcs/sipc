@@ -24,7 +24,8 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.7.1 | publicada | tag `v1.7.1` | Vídeos sempre dentro da plataforma |
 | 1.8 | publicada | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
 | 1.8.1 | publicada | tag `v1.8.1` | Aviso claro e registro do bloqueio do App Check |
-| 1.9 | publicada, em uso | tag `v1.9` | Reportar 2.0: impacto, contexto, status, Meus reportes |
+| 1.9 | publicada | tag `v1.9` | Reportar 2.0: impacto, contexto, status, Meus reportes |
+| 1.10 | na branch `feature/v1.10` | — | Admin › Desenvolvimento: horas, tokens e custo de construir o SIPC |
 
 ---
 
@@ -309,3 +310,19 @@ Reporte do Victor em 08/11/2026: conteúdo e questões não carregavam, um probl
 **Ficou de fora.** Admin por papel (exige o Admin SDK; com um admin só, o e-mail verificado basta), limite garantido pelas regras e aviso por e-mail (plano pago).
 
 **Testes.** `tests/reporte.test.js` (novo) e `tests/prioridade.test.js` (impacto).
+
+## v1.10 — Admin › Desenvolvimento
+
+**Objetivo.** Pedido do Victor em 12/11/2026: ver quanto custou construir o SIPC (horas, tokens, ferramentas, custo pelo valor da hora) dentro do Admin. Decisões: os indicadores aparecem **só no Admin do Victor**, nunca no de sistemas de clientes; cada projeto tem o seu painel; o valor da hora padrão é R$ 180, ajustável.
+
+**O que faz.** Admin ganhou a aba **Desenvolvimento**: custo do projeto, horas (com o Claude e lançadas à mão), sessões, tokens, custo equivalente em API, linhas e commits; horas e custo por atividade (planejamento, desenvolvimento, correção de bugs, protótipo e design, infra, acompanhamento); horas por semana; indicadores para orçar. Calculadora com valor da hora, cotação do dólar e opção de somar os tokens (guardados só no navegador).
+
+**De onde vêm os números.** Do Painel de desenvolvimento do Victor (`G:\Meu Drive\Claude - AI\painel-desenvolvimento\`), arquivo `dados/metricas-sipc.json`, refeito a partir das conversas com o Claude Code. Na primeira vez o Victor escolhe o arquivo; o navegador (Chrome/Edge no computador, File System Access API) guarda a permissão de leitura no IndexedDB do site. Ao abrir a aba, o app relê o arquivo e, se for mais novo, grava os totais em `admin/metricas-dev`, para aparecerem também no celular. Em navegadores sem essa leitura, "Escolher arquivo" funciona à mão.
+
+**Por que não 100% automático pelo servidor.** Gravar no Firestore sem o Victor logado exigiria guardar no PC uma chave de serviço (acesso total ao banco dos alunos) ou a senha de uma conta-robô. O Victor escolheu a leitura pelo Admin: nenhuma credencial fica no PC.
+
+**Regras de negócio.** O app confere o arquivo (`js/nucleo/metricasdev.js`): só aceita o projeto SIPC, só campos conhecidos (sem texto de conversa nem títulos de sessão), números negativos viram 0, e só substitui o salvo se o arquivo for mais novo. Não aparece em Novidades: é só do admin.
+
+**Regras do Firestore (publicar ANTES do app).** Novo `match /admin/{id}`: só o admin lê e grava, só o documento `metricas-dev`, com a lista fechada de campos, no máximo 104 semanas e `salvoEm` = hora do servidor.
+
+**Testes.** `tests/metricasdev.test.js` (5 testes). Testado em localhost com admin simulado (sem login real): aba vazia, aba com dados, calculadora e tela estreita. **Não testado:** a escolha real do arquivo e a gravação no Firestore (precisam do login do Victor e das regras publicadas).

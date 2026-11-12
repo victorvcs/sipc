@@ -56,9 +56,11 @@ async function carregarAdmin(forcar){
 
 function abaAdmin(){
   if(!ehAdmin()) return '<p class="vazio">Área restrita.</p>';
-  const topo = `<div class="bl-filtro adm-topo" role="group" aria-label="Área do administrador">${[['geral','Visão geral'],['usuarios','Alunos'],['backlog','Reportes']].map(([k,n])=>`<button class="chip ${ADM.aba===k && !ADM.ficha?'on':''}" onclick="ADM.aba='${k}';ADM.ficha=null;render(true)">${n}</button>`).join('')}
-    <button class="chip" onclick="carregarAdmin(true)">${ADM.carregando?'Atualizando…':'Atualizar'}</button>
-    ${ADM.carregadoEm ? `<span class="dim" style="font-size:12px">dados de ${ADM.carregadoEm.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}</div>`;
+  const topo = `<div class="bl-filtro adm-topo" role="group" aria-label="Área do administrador">${[['geral','Visão geral'],['usuarios','Alunos'],['backlog','Reportes'],['dev','Desenvolvimento']].map(([k,n])=>`<button class="chip ${ADM.aba===k && !ADM.ficha?'on':''}" onclick="ADM.aba='${k}';ADM.ficha=null;${k==='dev'?'carregarDev();':''}render(true)">${n}</button>`).join('')}
+    ${ADM.aba==='dev' ? '' : `<button class="chip" onclick="carregarAdmin(true)">${ADM.carregando?'Atualizando…':'Atualizar'}</button>
+    ${ADM.carregadoEm ? `<span class="dim" style="font-size:12px">dados de ${ADM.carregadoEm.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>` : ''}`}</div>`;
+  // A aba Desenvolvimento não depende dos dados dos alunos.
+  if(ADM.aba==='dev' && !ADM.ficha) return `<div data-sem-print>${topo}${admDev()}</div>`;
   if(ADM.erro) return topo + `<div class="erro"><b>Não consegui ler os dados.</b><br>${escHtml(ADM.erro)}<br>Confira se as Regras do Firestore foram publicadas e se você entrou com ${escHtml(SIPC.ADMIN_EMAIL)}.</div>`;
   if(!ADM.feedback) return topo + `<div class="carregando">${ico('spark')}<p><b>Carregando os dados dos alunos…</b></p></div>`;
   const corpo = ADM.ficha ? admFicha(ADM.ficha) : ADM.aba==='usuarios' ? admUsuarios() : ADM.aba==='backlog' ? admBacklog() : admGeral();
@@ -331,4 +333,102 @@ function admBacklog(){
     ${vencidos ? `<p class="aviso" style="margin:0 0 12px">${vencidos} ${vencidos===1?'reporte fechado tem':'reportes fechados têm'} print há mais de ${DIAS_PRINT} dias. Pelo aviso de privacidade, o print sai depois desse prazo (o texto fica). <button class="btn sec" onclick="apagarPrintsVencidos()" ${ADM.limpandoPrints?'disabled':''}>${ADM.limpandoPrints?'Apagando…':'Apagar prints vencidos'}</button></p>` : ''}
     <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || `<p class="vazio">${ADM.filtro==='resolvido' ? 'Nenhum reporte fechado ainda.' : 'Nenhum reporte aberto. 🎉'}</p>`}</section>
   </div>`;
+}
+
+/* ---------- Desenvolvimento (v1.10) ----------
+   Horas, tokens e custo de construir o SIPC, vindos do Painel de desenvolvimento
+   do Victor (arquivo metricas-sipc.json no PC dele). Só totais: nada de texto
+   de conversa. Só o admin vê; os indicadores nunca vão para Admin de cliente. */
+const DEV = {m:null, carregando:false, lendo:false, erro:null, situacao:'nenhum', carregou:false, msg:''};
+const devPref = (k, d) => { try{ const v = localStorage.getItem('sipc.adm.' + k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } };
+const devGuardar = (k, v) => { try{ localStorage.setItem('sipc.adm.' + k, JSON.stringify(v)); }catch(e){} };
+const devBrl = v => numero(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+const devHoras = h => numero(h).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' h';
+const devMil = n => { n = numero(n); return n >= 1e9 ? (n/1e9).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' bi' : n >= 1e6 ? (n/1e6).toLocaleString('pt-BR',{maximumFractionDigits:1}) + ' mi' : n >= 1e3 ? Math.round(n/1e3) + ' mil' : String(Math.round(n)); };
+
+async function carregarDev(forcar){
+  if(!ehAdmin() || DEV.carregando || (DEV.carregou && !forcar)) return;
+  const md = SIPC.metricasDev;
+  DEV.carregando = true; DEV.erro = null; render(true);
+  try{
+    DEV.m = await md.carregar();
+    DEV.situacao = await md.situacao();
+    const r = await md.atualizarSozinho(DEV.m);
+    DEV.m = r.metricas; DEV.msg = r.mudou ? 'atualizado com o arquivo do computador' : '';
+    DEV.carregou = true;
+  }catch(e){ DEV.erro = SIPC.traduzir(e); }
+  DEV.carregando = false; render(true);
+}
+async function devLer(como, arquivo){
+  const md = SIPC.metricasDev;
+  DEV.lendo = true; DEV.erro = null; render(true);
+  try{
+    const r = como === 'escolher' ? await md.escolherArquivo(DEV.m) : como === 'input' ? await md.importarArquivo(arquivo, DEV.m) : await md.atualizarComClique(DEV.m);
+    DEV.m = r.metricas; DEV.situacao = await md.situacao(); DEV.carregou = true;
+    avisar(r.mudou ? 'Indicadores atualizados.' : 'O arquivo não é mais novo que os números salvos.');
+  }catch(e){ if(!(e && e.name === 'AbortError')) DEV.erro = e && e.message ? e.message : String(e); }
+  DEV.lendo = false; render(true);
+}
+async function devEsquecer(){ await SIPC.metricasDev.esquecerArquivo(); DEV.situacao = 'nenhum'; avisar('O app esqueceu o arquivo neste aparelho.'); render(true); }
+function devAjuste(k, v){ devGuardar(k, v); render(true); }
+
+function admDev(){
+  const md = SIPC.metricasDev, m = DEV.m;
+  const valorHora = numero(devPref('valorHora', md.VALOR_HORA_PADRAO)), dolar = numero(devPref('dolar', 5.5)), comTokens = !!devPref('comTokens', false);
+  const auto = md.leituraAutomatica();
+  const botoes = `<div class="adm-dev-acoes">${auto ? (DEV.situacao === 'nenhum'
+        ? `<button class="btn" onclick="devLer('escolher')" ${DEV.lendo?'disabled':''}>Escolher o arquivo de métricas</button>`
+        : `<button class="btn sec" onclick="devLer('clique')" ${DEV.lendo?'disabled':''}>${DEV.lendo?'Lendo…':'Ler o arquivo agora'}</button><button class="btn link" onclick="devLer('escolher')">Trocar arquivo</button><button class="btn link" onclick="devEsquecer()">Esquecer arquivo</button>`)
+      : `<label class="btn sec">Escolher arquivo<input type="file" accept=".json,application/json" hidden onchange="this.files[0]&&devLer('input',this.files[0])"></label>`}</div>`;
+  const ajuda = `<details class="bl-rastro"><summary>Como funciona e o que fica guardado</summary>
+      <ul class="dim" style="font-size:13px;margin:8px 0 0;padding-left:18px">
+        <li><b>De onde vem:</b> do Painel de desenvolvimento no seu computador, arquivo <code>G:\\Meu Drive\\Claude - AI\\painel-desenvolvimento\\dados\\metricas-sipc.json</code>, refeito a partir das suas conversas com o Claude Code.</li>
+        <li><b>Atualização:</b> na primeira vez você escolhe o arquivo. Depois, cada vez que abrir esta aba no Chrome ou Edge deste computador, o app relê o arquivo e, se ele for mais novo, salva os totais. Se o navegador pedir, um clique em "Ler o arquivo agora" libera (o Chrome oferece "Permitir em todas as visitas"). No celular aparecem os últimos números salvos.</li>
+        <li><b>O que é salvo:</b> só totais (horas, tokens, custo, linhas e commits), num documento do banco que só o seu login de admin lê e grava. Nenhum texto de conversa, título de sessão, senha ou chave.</li>
+        <li><b>Neste aparelho:</b> o navegador guarda só a permissão para ler aquele arquivo. "Esquecer arquivo" apaga essa permissão.</li>
+        <li><b>Horas:</b> tempo de trabalho junto com o Claude (pausas acima de 15 min não contam) mais as horas lançadas à mão no painel. O valor da hora e a cotação ficam só neste navegador.</li>
+        <li><b>Custo em API:</b> quanto os tokens custariam pagos por uso. Na assinatura não se paga por token; por isso só entra no total se você marcar.</li>
+      </ul></details>`;
+  if(DEV.carregando && !m) return `<div class="carregando">${ico('spark')}<p><b>Carregando os indicadores…</b></p></div>`;
+  const erro = DEV.erro ? `<div class="erro"><b>Não consegui ler os indicadores.</b><br>${escHtml(DEV.erro)}</div>` : '';
+  if(!m) return `<div class="adm-cab"><div><h2>Desenvolvimento</h2><p class="dim adm-sub">Horas, tokens e custo de construir o SIPC. Ainda não há números salvos.</p></div></div>${erro}
+    <section class="bloco"><p>Para começar, escolha o arquivo <b>metricas-sipc.json</b> do seu Painel de desenvolvimento.</p>${botoes}${ajuda}</section>`;
+
+  const c = md.custo(m, {valorHora, dolar, comTokens});
+  const tile = (rot, val, sub, cls='') => `<div class="kpi ${cls}"><span class="k-rot">${rot}</span><span class="k-val">${val}</span><span class="k-delta">${sub}</span></div>`;
+  const cats = Object.entries(md.CATEGORIAS);
+  const semanas = Object.entries(m.semanas || {}).slice(-12).map(([k,s]) => {
+    const h = Object.values(s.horas||{}).reduce((a,v)=>a+numero(v),0);
+    return {rot: k.slice(8,10) + '/' + k.slice(5,7), valor: Math.round(h*10)/10, dica: `Semana de ${k.slice(8,10)}/${k.slice(5,7)}: ${devHoras(h)} · ${devBrl(h*valorHora)} · ${devMil(s.tokens)} tokens`};
+  });
+  const geradoEm = new Date(m.geradoEm), dt = d => fmtData(dataDe(d),{day:'2-digit',month:'2-digit',year:'numeric'});
+  return `<div class="adm-cab"><div><h2>Desenvolvimento</h2><p class="dim adm-sub">Horas, tokens e custo de construir o SIPC${m.inicio ? `, de ${dt(m.inicio)} a ${dt(m.fim||m.inicio)}` : ''}. Números de ${geradoEm.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','')}${DEV.msg ? ' (' + escHtml(DEV.msg) + ')' : ''}.</p></div>${botoes}</div>
+    ${erro}
+    <div class="adm-dev-calc" role="group" aria-label="Calculadora">
+      <label class="bl-campo">Valor da hora (R$) <input type="number" min="0" step="10" value="${valorHora}" onchange="devAjuste('valorHora', Number(this.value)||0)"></label>
+      <label class="bl-campo">Cotação do dólar (R$) <input type="number" min="0" step="0.05" value="${dolar}" onchange="devAjuste('dolar', Number(this.value)||0)"></label>
+      <label class="bl-campo"><input type="checkbox" ${comTokens?'checked':''} onchange="devAjuste('comTokens', this.checked)"> Somar os tokens no custo</label>
+    </div>
+    <section class="kpis adm-kpis" aria-label="Indicadores de desenvolvimento">
+      ${tile('Custo do projeto', devBrl(c.total), comTokens ? 'horas × valor da hora + tokens' : `horas × ${devBrl(valorHora)}/h`, 'adm-dest')}
+      ${tile('Horas', devHoras(c.horas), `${devHoras(m.horasClaude)} com o Claude · ${devHoras(m.horasManuais)} à mão`)}
+      ${tile('Sessões', numero(m.sessoes), `${numero(m.diasAtivos)} dias com trabalho · ${devHoras(m.indicadores.horasPorDia)} por dia`)}
+      ${tile('Tokens', devMil(m.tokensTotal), `${devMil(m.tokens.saida)} de saída · ${devMil(m.tokens.cacheLido)} lidos do cache`)}
+      ${tile('Tokens em API', devBrl(c.tokensReais), `US$ ${numero(m.custoUsd).toLocaleString('pt-BR',{maximumFractionDigits:0})} se fosse pago por uso`)}
+      ${tile('Código', `${devMil(m.linhasMais)} <small>linhas</small>`, `${numero(m.commits)} commits · ${numero(m.ferramentas).toLocaleString('pt-BR')} ferramentas`)}
+    </section>
+    <div class="adm-grade">
+      <section class="bloco"><h3>Horas por atividade</h3><p class="dim adm-sub">Inclui as horas lançadas à mão.</p>
+        ${barrasLinhas(cats.map(([k,n])=>({rot:n, valor:numero(m.horasPorCategoria[k]), texto:devHoras(m.horasPorCategoria[k]), dica:`${n}: ${devHoras(m.horasPorCategoria[k])} · ${numero(m.pedidos[k])} pedidos`})))}</section>
+      <section class="bloco"><h3>Custo por atividade</h3><p class="dim adm-sub">Horas × ${devBrl(valorHora)}.</p>
+        ${barrasLinhas(cats.map(([k,n])=>({rot:n, valor:numero(m.horasPorCategoria[k])*valorHora, texto:devBrl(numero(m.horasPorCategoria[k])*valorHora)})))}</section>
+      <section class="bloco"><h3>Horas por semana</h3><p class="dim adm-sub">Últimas 12 semanas (a data é a segunda-feira).</p>${semanas.length ? barrasDias(semanas, 'horas por semana') : '<p class="dim">Sem semanas registradas.</p>'}</section>
+      <section class="bloco"><h3>Para orçar o próximo</h3><ul class="ev-lista">
+        <li><span>Custo dos tokens por hora</span><b class="num">${devBrl(m.indicadores.custoUsdPorHora*dolar)}</b></li>
+        <li><span>Planejamento por hora de desenvolvimento</span><b class="num">${numero(m.indicadores.planejamentoPorHoraDev).toLocaleString('pt-BR',{maximumFractionDigits:2})} h</b></li>
+        <li><span>Linhas por hora de desenvolvimento</span><b class="num">${Math.round(numero(m.indicadores.linhasPorHoraDev)).toLocaleString('pt-BR')}</b></li>
+        <li><span>Horas por dia de trabalho</span><b class="num">${devHoras(m.indicadores.horasPorDia)}</b></li>
+      </ul></section>
+    </div>
+    ${ajuda}`;
 }

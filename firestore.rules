@@ -112,6 +112,20 @@ service cloud.firestore {
         && (!('print' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.print == null);
     }
 
+    // v1.10: indicadores de desenvolvimento (horas, tokens e custo de construir o
+    // SIPC). Só o admin lê e grava, e só este documento; nenhum aluno vê.
+    // Só totais: o app confere o arquivo antes (js/nucleo/metricasdev.js).
+    match /admin/{id} {
+      allow read: if admin() && id == 'metricas-dev';
+      allow write: if admin() && id == 'metricas-dev'
+        && request.resource.data.keys().hasOnly(['geradoEm', 'inicio', 'fim', 'sessoes', 'diasAtivos', 'horasClaude', 'horasManuais',
+                                                  'horasPorCategoria', 'pedidos', 'tokens', 'tokensTotal', 'custoUsd', 'linhasMais',
+                                                  'linhasMenos', 'ferramentas', 'commits', 'indicadores', 'semanas', 'salvoEm'])
+        && texto(request.resource.data.geradoEm, 40)
+        && request.resource.data.semanas is map && request.resource.data.semanas.size() <= 104
+        && request.resource.data.salvoEm == request.time;
+    }
+
     // Tudo o mais fica bloqueado: uma coleção criada por engano não nasce aberta.
     match /{document=**} {
       allow read, write: if false;

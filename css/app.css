@@ -916,3 +916,10 @@ button.v-thumb img{display:block;width:120px;aspect-ratio:16/9;object-fit:cover;
 .meus-rep{list-style:none;margin:0;padding:0;display:grid;gap:12px;}
 .meus-rep li{border-top:1px solid var(--line);padding-top:10px;} .meus-rep li:first-child{border-top:0;padding-top:0;}
 .meus-rep p{margin:6px 0;font-size:14px;}
+
+/* v1.10 — Admin › Desenvolvimento */
+.adm-dev-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.adm-dev-calc{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;}
+.adm-dev-calc input[type=number]{font:inherit;width:96px;color:var(--text);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;}
+.adm-dest{border-color:var(--accent);}
+.adm-dest .k-val{color:var(--accent);}
