@@ -60,14 +60,23 @@ service cloud.firestore {
       allow update, delete: if admin();
     }
 
-    // Reportes de bug e melhoria: o aluno cria em seu nome; só o admin lê.
+    // Reportes de bug e melhoria: o aluno cria em seu nome e lê/apaga só os
+    // próprios (v1.9: "Meus reportes"); o admin lê, altera e apaga todos.
     // Cada campo é conferido porque o admin vê tudo isto na tela: o e-mail tem
     // de ser o do login (ninguém reporta em nome de outro) e o print só pode
     // ser a imagem JPEG que o próprio app gera.
+    // Campos da v1.9 (impacto, versao, rastro, erros, auto) são opcionais, para
+    // uma página antiga ainda aberta continuar conseguindo reportar.
     match /feedback/{id} {
       allow create: if logado()
         && request.resource.data.keys().hasOnly(['uid', 'email', 'nome', 'tipo', 'texto', 'tela', 'disp', 'trilha', 'print',
-                                                  'sev', 'area', 'valor', 'esforco', 'status', 'modoTeste', 'criadoEm'])
+                                                  'sev', 'area', 'valor', 'esforco', 'status', 'modoTeste', 'criadoEm',
+                                                  'impacto', 'versao', 'rastro', 'erros', 'auto'])
+        && request.resource.data.get('impacto', null) in [null, 'bloqueia', 'atrapalha', 'incomoda']
+        && texto(request.resource.data.get('versao', ''), 20)
+        && request.resource.data.get('rastro', []) is list && request.resource.data.get('rastro', []).size() <= 20
+        && request.resource.data.get('erros', []) is list && request.resource.data.get('erros', []).size() <= 5
+        && request.resource.data.get('auto', {}) is map && request.resource.data.get('auto', {}).keys().hasOnly(['valor', 'esforco', 'area'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.tipo in ['bug', 'melhoria']
@@ -78,7 +87,7 @@ service cloud.firestore {
         && texto(request.resource.data.trilha, 200)
         && texto(request.resource.data.area, 60)
         && (request.resource.data.print == null
-            || (texto(request.resource.data.print, 760000)
+            || (texto(request.resource.data.print, 640000)
                 && request.resource.data.print.matches('^data:image/jpeg;base64,[A-Za-z0-9+/=]+$')))
         && (request.resource.data.sev == null || request.resource.data.sev in ['alta', 'media', 'baixa'])
         && request.resource.data.valor is int && request.resource.data.valor >= 1 && request.resource.data.valor <= 5
@@ -86,7 +95,21 @@ service cloud.firestore {
         && request.resource.data.status == 'novo'
         && request.resource.data.modoTeste is bool
         && request.resource.data.criadoEm == request.time;
-      allow read, update, delete: if admin();
+      // O aluno só lê e apaga os próprios. A consulta do app filtra por uid;
+      // uma consulta sem esse filtro é recusada inteira.
+      allow read, delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
+      // Só o admin altera, e só a gestão da fila: status, prioridade, resposta e
+      // a retirada do print. O que o aluno mandou (texto, print, rastro) não muda.
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'motivo', 'resposta', 'valor', 'esforco', 'area', 'print', 'resolvidoEm', 'atualizadoEm'])
+        && request.resource.data.status in ['novo', 'triado', 'andamento', 'resolvido', 'nao-vamos']
+        && texto(request.resource.data.get('motivo', ''), 300)
+        && texto(request.resource.data.get('resposta', ''), 500)
+        && request.resource.data.valor is int && request.resource.data.valor >= 1 && request.resource.data.valor <= 5
+        && request.resource.data.esforco is int && request.resource.data.esforco >= 1 && request.resource.data.esforco <= 3
+        && texto(request.resource.data.area, 60)
+        && (!('print' in request.resource.data.diff(resource.data).affectedKeys()) || request.resource.data.print == null);
     }
 
     // Tudo o mais fica bloqueado: uma coleção criada por engano não nasce aberta.

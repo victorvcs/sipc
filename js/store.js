@@ -1,7 +1,7 @@
 // Tudo que toca o Firestore passa por aqui. Com o modo teste ligado, as
 // escritas vão para a memória e somem ao desligar: o aluno testa a jornada
 // sem mexer no próprio progresso.
-import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp } from './firebase.js';
+import { db, doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp, where } from './firebase.js';
 
 let teste = false;
 const memoria = new Map();
@@ -123,9 +123,28 @@ export const listarSessoesDe = async (uid, n = 60) =>
 /* administração (as Regras só deixam o admin ler) */
 export const listarFeedback = async () =>
   (await getDocs(query(collection(db, 'feedback'), orderBy('criadoEm', 'desc')))).docs.map(d => ({ id: d.id, ...d.data() }));
-// Só o admin consegue (Regras): marcar como resolvido ou excluir um reporte.
-export const marcarFeedback = (id, status) => setDoc(doc(db, 'feedback', id), { status, atualizadoEm: serverTimestamp() }, { merge: true });
+// Só o admin consegue (Regras): mudar status, ajustar a prioridade, responder.
+// Fechar (resolvido / não vamos fazer) grava resolvidoEm, que dispara o aviso ao aluno.
+export function atualizarFeedback(id, campos) {
+  const extra = 'status' in campos ? { resolvidoEm: ['resolvido', 'nao-vamos'].includes(campos.status) ? serverTimestamp() : null } : {};
+  return setDoc(doc(db, 'feedback', id), { ...campos, ...extra, atualizadoEm: serverTimestamp() }, { merge: true });
+}
+export const marcarFeedback = (id, status) => atualizarFeedback(id, { status });
+// O admin apaga qualquer reporte; o aluno, os próprios (Regras).
 export const excluirFeedback = id => deleteDoc(doc(db, 'feedback', id));
+// Retenção: tira o print dos reportes fechados há mais de `dias` dias. O texto fica.
+export async function apagarPrintsAntigos(itens, dias = 90) {
+  const limite = Date.now() - dias * 864e5;
+  const alvo = itens.filter(i => i.print && ['resolvido', 'nao-vamos'].includes(i.status)
+    && i.resolvidoEm && (i.resolvidoEm.toMillis ? i.resolvidoEm.toMillis() : Date.parse(i.resolvidoEm)) < limite);
+  for (const i of alvo) await setDoc(doc(db, 'feedback', i.id), { print: null, atualizadoEm: serverTimestamp() }, { merge: true });
+  return alvo.map(i => i.id);
+}
+// Reportes do próprio aluno. O filtro por uid é obrigatório: sem ele as Regras recusam.
+// Ordena no navegador para não precisar de índice composto.
+export const listarMeusReportes = async uid =>
+  (await getDocs(query(collection(db, 'feedback'), where('uid', '==', uid)))).docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.criadoEm?.toMillis?.() || 0) - (a.criadoEm?.toMillis?.() || 0));
 export const listarUsuarios = async () => (await getDocs(collection(db, 'users'))).docs.map(d => ({ uid: d.id, ...d.data() }));
 export const listarTrilhasDe = async uid =>
   (await getDocs(collection(db, 'users', uid, 'trilhas'))).docs.map(d => ({ id: d.id, ...d.data() }));

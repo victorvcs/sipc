@@ -1,7 +1,10 @@
 // Prioriza o que os alunos reportam: valor = quanto atrapalha a jornada
 // (5 bloqueia … 1 detalhe); esforço = trabalho estimado (1 pouco … 3 muito).
 // É uma primeira triagem por palavras; o Victor ajusta no backlog.
-export function classificar(tipo, texto, tela) {
+// v1.9: no bug, o impacto escolhido pelo aluno manda na gravidade; o texto
+// só decide quando não há impacto (reportes antigos).
+import { IMPACTOS } from './reporte.js';
+export function classificar(tipo, texto, tela, impacto) {
   const t = String(texto).toLowerCase();
   const area = /quest|gabarito|alternativ/.test(t) ? 'Questões' : /revis/.test(t) ? 'Revisão'
     : /edital|pdf|planilha|arquivo|matéria/.test(t) ? 'Edital' : /trilha|plano|dia/.test(t) ? 'Plano e trilha'
@@ -13,6 +16,8 @@ export function classificar(tipo, texto, tela) {
     const valor = /(visual|\bcor\b|escuro|tema|fonte|ícone)/.test(t) ? 2 : /(quest|revis|plano|trilha|edital|tempo|estudar)/.test(t) ? 4 : 3;
     return { sev: null, area, valor, esforco };
   }
+  const imp = IMPACTOS[impacto];
+  if (imp) return { sev: imp.sev, area, valor: imp.valor, esforco };
   const sev = /(não (abre|carrega|salva|funciona|aparece)|trav|perdi|sumiu|apag|não consigo|erro|continuou)/.test(t) ? 'alta'
     : /(lent|demor|estranh|errad|desalinh|cortad)/.test(t) ? 'media' : 'baixa';
   return { sev, area, valor: { alta: 5, media: 3, baixa: 2 }[sev], esforco };

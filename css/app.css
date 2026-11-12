@@ -897,3 +897,22 @@ button.v-thumb img{display:block;width:120px;aspect-ratio:16/9;object-fit:cover;
 .dc-crit span.dim{display:block;font-size:13px;margin-top:2px;}
 .discursiva select{width:100%;}
 .discursiva input[type=file]{width:100%;max-width:100%;min-width:0;}
+
+/* ---------- Reportar 2.0 (v1.9): impacto, contexto, status, meus reportes ---------- */
+.rep-impacto{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 16px;}
+.rep-impacto .chip{padding:7px 13px;font-size:13px;}
+.rep-impacto .chip.on{border-color:var(--danger);background:var(--danger-soft);color:var(--danger);}
+.rep-contexto{background:var(--surface-2);border-radius:12px;padding:12px 14px;margin:10px 0 0;font-size:12px;max-height:220px;overflow:auto;}
+.rep-contexto p{margin:0 0 8px;} .rep-contexto b{display:block;margin:6px 0 4px;font-size:12px;}
+.rep-contexto ol,.bl-rastro ol{margin:0 0 6px;padding-left:18px;display:grid;gap:3px;}
+.rep-resp{font-size:13px;background:var(--surface-2);border-radius:10px;padding:8px 12px;margin:6px 0;}
+.tag.st-novo{background:var(--surface-2);color:var(--text-dim);} .tag.st-triado{background:var(--warn-soft);color:var(--warn);}
+.tag.st-andamento{background:var(--accent-soft);color:var(--accent-deep);} .tag.st-resolvido{background:var(--seal-soft);color:#177a45;}
+.tag.st-nao-vamos{background:var(--surface-2);color:var(--text-dim);text-decoration:line-through;}
+.bl-campo{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim);}
+.bl-campo select{font:inherit;color:var(--text);background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:5px 8px;}
+.bl-rastro{font-size:13px;margin:6px 0;} .bl-rastro summary{cursor:pointer;color:var(--accent-deep);}
+.bl-rastro ol.erros li{color:var(--danger);}
+.meus-rep{list-style:none;margin:0;padding:0;display:grid;gap:12px;}
+.meus-rep li{border-top:1px solid var(--line);padding-top:10px;} .meus-rep li:first-child{border-top:0;padding-top:0;}
+.meus-rep p{margin:6px 0;font-size:14px;}

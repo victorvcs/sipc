@@ -27,10 +27,24 @@ function sessaoAtual(){
   }
   return ATIV.s;
 }
+// Rastro para o Reportar (v1.9): as últimas ações e erros ficam SÓ na memória
+// da página, inclusive em modo teste, e vão junto quando o aluno reporta.
+// Nada do que foi digitado entra aqui: só o tipo da ação e a tela.
+const RASTRO = { acoes: [], erros: [] };
+const guardar = (lista, item, max) => { lista.push(item); if(lista.length > max) lista.splice(0, lista.length - max); };
+function guardarErro(msg){
+  guardar(RASTRO.erros, { t: new Date().toISOString(), msg: String(msg || 'erro sem mensagem').slice(0, 400), tela: telaParaRegistro() }, 5);
+}
+addEventListener('error', e => guardarErro((e.message || 'erro') + (e.filename ? ' @ ' + String(e.filename).split('/').pop() + ':' + e.lineno : '')));
+addEventListener('unhandledrejection', e => guardarErro('promessa: ' + ((e.reason && (e.reason.code || e.reason.message)) || e.reason)));
+
 // Ações principais (tipo curto + detalhe), chamadas do app.js.
 function evento(tipo, detalhe){
+  const item = { t: new Date().toISOString(), tipo, d: detalhe == null ? '' : String(detalhe).slice(0, 160), tela: telaParaRegistro() };
+  guardar(RASTRO.acoes, item, 20);
+  if(/erro|bloquead/.test(tipo)) guardarErro(tipo + ': ' + item.d);
   const s = sessaoAtual(); if(!s) return;
-  s.eventos.push({ t: new Date().toISOString(), tipo, d: detalhe == null ? '' : String(detalhe).slice(0, 160), tela: telaParaRegistro() });
+  s.eventos.push(item);
   if(s.eventos.length > MAX_EVENTOS) s.eventos.splice(0, s.eventos.length - MAX_EVENTOS);
   s.fim = new Date().toISOString(); ATIV.sujo = true;
 }
@@ -38,7 +52,7 @@ const telaParaRegistro = () => { try{ return nomeTelaAtual(); }catch(e){ return 
 let ultimaTela = null;
 // Chamado a cada render: troca de tela vira um evento "tela".
 function aoRenderizar(){
-  if(!podeRegistrar()) return;
+  if(typeof S === 'undefined') return;
   const t = telaParaRegistro();
   if(t !== ultimaTela){ ultimaTela = t; evento('tela', t); }
 }

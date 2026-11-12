@@ -17,6 +17,7 @@ import * as desenho from './nucleo/desenho.js';
 import { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS } from './nucleo/revisao.js';
 import { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO } from './nucleo/trilha.js';
 import { classificar, quadrante, ordenar } from './nucleo/prioridade.js';
+import * as reporte from './nucleo/reporte.js';
 
 const { auth } = fb;
 
@@ -78,6 +79,7 @@ window.SIPC = {
   revisao: { agendar, avaliar, reabrir, vencidas, somarDias, ETAPAS },
   trilha: { ritmo, filaDeTopicos, planoDoDia, chaveTopico, MIN_TOPICO },
   prioridade: { classificar, quadrante, ordenar },
+  reporte,
 };
 
 addEventListener('sipc-erro-salvar', e => window.aoErroSalvar && window.aoErroSalvar(e.detail));

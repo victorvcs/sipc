@@ -3,6 +3,10 @@
    NOVIDADES diz o que mudou (a mais recente primeiro) e AJUDA ensina a usar.
    Script comum, carregado depois do app.js. */
 const NOVIDADES = [
+  {versao:'1.9', data:'12/11/2026', itens:[
+    ['Reportar mais completo', 'No Reportar, diga quanto o problema atrapalha. Vão junto a versão do app e as suas últimas ações, para entendermos o que aconteceu sem precisar perguntar. Antes de enviar, toque em "ver o que vai" para conferir. No print, seu nome e seu e-mail aparecem cobertos.'],
+    ['Acompanhe seus reportes', 'Em Conta › Meus reportes, veja tudo o que você mandou, em que pé está e a resposta da equipe. Quando algo for resolvido, o SIPC avisa na próxima vez que você entrar. Você também pode apagar um reporte seu.'],
+  ]},
   {versao:'1.8.1', data:'08/11/2026', itens:[
     ['Aviso mais claro quando a IA não responde', 'Se o seu navegador não passar na verificação de segurança da IA, o SIPC explica o que fazer (outro navegador, sem VPN) em vez de pedir para recarregar, o que não resolvia.'],
   ]},
@@ -68,7 +72,7 @@ const AJUDA = [
   ['Raciocínio lógico', ['Na aba Discursiva, escolha Raciocínio lógico e informe o assunto.', 'Resolva digitando, à mão na tela ou no papel, com a foto.', 'A IA mostra se acertou, em qual passo errou e o que treinar. Confira a resolução: a IA também pode errar.']],
   ['Cronograma do concurso', ['Na aba Datas ficam as datas lidas do edital. Confira sempre no edital original.', 'Toque em Google ou Outlook para levar a data à sua agenda. Para outra agenda (iPhone, celular), toque em "Baixar todas para qualquer agenda" e abra o arquivo. A agenda avisa mesmo com o SIPC fechado.', 'Dois dias antes de cada data do edital, o SIPC lembra você de conferir se saiu retificação.', 'Saiu retificação? Em "Saiu retificação?", mande o arquivo novo ou cole só o cronograma. Se o edital e o cronograma são arquivos separados, mande até 5 de uma vez.', 'Para incluir um compromisso seu, use "Adicionar uma data". Ele não é apagado nas retificações, e só as datas que você adicionou podem ser removidas.']],
   ['Lembretes', ['Em Conta, escolha o horário e ative a notificação do navegador.', 'O aviso chega enquanto o SIPC estiver aberto em alguma aba.']],
-  ['Reportar um problema ou ideia', ['Toque em Reportar, no canto inferior direito.', 'Conte o que aconteceu. O print da tela ajuda a resolver mais rápido.']],
+  ['Reportar um problema ou ideia', ['Toque em Reportar, no canto inferior direito.', 'Escolha se algo deu errado ou se é uma ideia. Se deu errado, diga quanto atrapalha.', 'Conte o que aconteceu. O print da tela e as suas últimas ações vão junto e ajudam a resolver mais rápido.', 'Acompanhe em Conta › Meus reportes. Avisamos quando for resolvido.']],
 ];
 
 const CHAVE_VISTA = 'sipc::novidade-vista';

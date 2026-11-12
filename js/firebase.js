@@ -63,4 +63,4 @@ export const {
   signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential,
   EmailAuthProvider, updateProfile, signOut,
 } = A;
-export const { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp } = F;
+export const { doc, getDoc, setDoc, deleteDoc, collection, getDocs, addDoc, query, orderBy, limit, serverTimestamp, where } = F;

@@ -42,6 +42,10 @@ Pedido do Victor em 31/10/2026, na Central de ajuda: hoje cada assunto é só um
 
 **Prints sempre atuais.** Quando o sistema mudar, os prints precisam ser atualizados automaticamente. O caminho a avaliar é um script com dados de exemplo que refaz as imagens antes de cada publicação.
 
+## 14. Reportar 2.0 (planejado para a v1.9)
+
+Pedido do Victor em 12/11/2026: trazer para o SIPC as melhorias do padrão de reporte que virou base de todos os projetos. São elas: impacto perguntado ao aluno; versão, rastro e erros presos ao reporte; dados pessoais fora do print; status completo e ajuste da prioridade no Admin; "Meus reportes" com aviso de resolvido; prazo para o print; e limite de envios. Plano em `docs/superpowers/plans/2026-11-12-sipc-v1.9-reportar.md`, com decisões pendentes.
+
 ## 13. Seção de simulado
 
 Pedido do Victor em 31/10/2026: o SIPC também precisa ter uma seção de simulado. O pedido chegou incompleto, então formato, duração e resultado ainda serão definidos com ele.

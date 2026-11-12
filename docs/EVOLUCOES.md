@@ -24,6 +24,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.7.1 | publicada | tag `v1.7.1` | Vídeos sempre dentro da plataforma |
 | 1.8 | publicada | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
 | 1.8.1 | publicada, em uso | tag `v1.8.1` | Aviso claro e registro do bloqueio do App Check |
+| 1.9 | em teste (branch `feature/v1.9`) | — | Reportar 2.0: impacto, contexto, status, Meus reportes |
 
 ---
 
@@ -284,3 +285,27 @@ Reporte do Victor em 08/11/2026: conteúdo e questões não carregavam, um probl
 - Regra pura em `erroAppCheck` (`js/nucleo/iautil.js`), com teste.
 
 **O que não muda (depende do console, só o Victor acessa).** A correção de fato é de configuração: rever o limite de risco do reCAPTCHA no App Check (Firebase › App Check › Apps › reCAPTCHA Enterprise) e conferir no Google Cloud se a cota gratuita do reCAPTCHA Enterprise (10 mil avaliações por mês) estourou. O app pede um token de uso único por chamada de IA (`useLimitedUseAppCheckTokens`), então cada chamada gasta uma avaliação.
+
+## v1.9 — Reportar 2.0
+
+**Objetivo.** Pedido do Victor em 12/11/2026: o Reportar do SIPC virou o padrão de todos os projetos (skill `boas-praticas-desenvolvimento`, referência `reporte-de-bugs.md`), e as melhorias do padrão voltam para o SIPC. Cada reporte deve chegar com o que é preciso para reproduzir o problema sem perguntar nada ao aluno, o Victor deve conseguir gerir a fila, e o aluno deve saber quando o que mandou foi resolvido. Plano: `docs/superpowers/plans/2026-11-12-sipc-v1.9-reportar.md`.
+
+**O que faz.**
+- No bug, o aluno escolhe o impacto: *Me impede de estudar*, *Atrapalha, mas dá para seguir* ou *Só incomoda*. A gravidade e o valor vêm daí; a dedução pelo texto fica só para reportes antigos.
+- O reporte leva a versão do app, as últimas 20 ações e telas da visita e os últimos 5 erros técnicos. O aluno vê tudo em "ver o que vai" antes de enviar.
+- No print, o nome e o e-mail do aluno, os campos de e-mail e senha e os elementos com `data-mascarar` aparecem como `•••`.
+- No Admin › Reportes, cada cartão tem status (novo, triado, em andamento, resolvido, não vamos fazer, este com motivo), ajuste de valor, esforço e área (o cálculo automático fica guardado em `auto`), resposta ao aluno, link para a ficha e o rastro até o reporte, com os erros em destaque. Há também um botão para apagar os prints de reportes fechados há mais de 90 dias.
+- Em Conta › Meus reportes, o aluno vê o que mandou, o status, a resposta e o motivo, e pode apagar. Ao entrar, recebe um aviso para os reportes fechados desde a última visita.
+- Limite de 10 reportes por dia, contado no aparelho.
+
+**Regras de negócio.**
+- O rastro fica só na memória da página, inclusive em modo teste, e nunca guarda o que foi digitado. Os erros passam por `limparTexto`, que tira e-mail, sequências de 11 ou mais dígitos (CPF, telefone, cartão) e trechos com cara de token.
+- Só o admin muda o status. Fechar (resolvido ou não vamos fazer) grava `resolvidoEm`, que dispara o aviso ao aluno (`perfil.reportesVistosEm`).
+- O print sai 90 dias depois de fechado, pelo botão no Admin. O texto fica até o aluno ou o admin apagar.
+- Aviso de privacidade: o texto foi atualizado, sem pedir novo aceite, porque a finalidade ("melhorar o SIPC a partir do seu uso e dos seus reportes") já estava aceita.
+
+**Regras do Firestore (publicar ANTES do app).** `feedback` aceita os campos opcionais `impacto`, `versao`, `rastro` (≤ 20), `erros` (≤ 5) e `auto`, com o print até 640 mil caracteres. O aluno lê e apaga só os próprios reportes, e a consulta precisa filtrar por `uid`. O admin altera só `status`, `motivo`, `resposta`, `valor`, `esforco`, `area`, `print` (só para `null`), `resolvidoEm` e `atualizadoEm`.
+
+**Ficou de fora.** Admin por papel (exige o Admin SDK; com um admin só, o e-mail verificado basta), limite garantido pelas regras e aviso por e-mail (plano pago).
+
+**Testes.** `tests/reporte.test.js` (novo) e `tests/prioridade.test.js` (impacto).

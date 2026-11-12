@@ -228,14 +228,46 @@ function admFicha(u){
       ${linhas.length ? `<ol class="adm-tempo">${linhas.map(e=>`<li class="${e.tipo==='tela'?'nav':''}"><span class="dim num">${quandoTs(e.t)}</span><span>${e.tipo==='tela' ? 'Passou por ' + e.caminho.map(escHtml).join(' → ') : '<b>' + escHtml(rotuloEvento(e)) + '</b>' + (e.tela ? ' <span class="dim">em ' + escHtml(String(e.tela).split(' · ')[0]) + '</span>' : '')}</span></li>`).join('')}</ol>` : '<p class="dim">Nada registrado ainda. O registro começou nesta versão; o uso anterior aparece só nos números de estudo.</p>'}</section>`;
 }
 
-/* ---------- backlog do Reportar ---------- */
-// Resolvidos saem da fila (e dos quadrantes) mas ficam no filtro "Resolvidos";
-// excluir apaga de vez, com confirmação.
-const resolvido = i => i.status === 'resolvido';
-async function marcarReporte(id, status){
-  try{ await SIPC.store.marcarFeedback(id, status); const i = ADM.feedback.find(x=>x.id===id); if(i) i.status = status; avisar(status==='resolvido' ? 'Marcado como resolvido.' : 'Reporte reaberto.'); }
-  catch(e){ avisar('Não consegui atualizar: ' + SIPC.traduzir(e)); }
+/* ---------- backlog do Reportar (v1.9) ----------
+   Status: novo → triado → em andamento → resolvido, ou "não vamos fazer"
+   (com motivo, que o aluno vê). Fechados saem da fila e dos quadrantes, mas
+   ficam no filtro "Fechados". O Victor ajusta valor, esforço e área; o cálculo
+   automático original fica guardado em `auto`. Excluir apaga de vez. */
+const fechadoAdm = i => SIPC.reporte.fechado(i.status);
+const ST_ADM = {novo:'Novo', triado:'Triado', andamento:'Em andamento', resolvido:'Resolvido', 'nao-vamos':'Não vamos fazer'};
+async function salvarReporte(id, campos, msg){
+  const i = ADM.feedback.find(x=>x.id===id); if(!i) return;
+  try{
+    await SIPC.store.atualizarFeedback(id, campos);
+    Object.assign(i, campos);
+    if('status' in campos) i.resolvidoEm = fechadoAdm(i) ? new Date().toISOString() : null;
+    avisar(msg || 'Reporte atualizado.');
+  }catch(e){ avisar('Não consegui atualizar: ' + SIPC.traduzir(e)); }
   render(true);
+}
+function mudarStatus(id, status){
+  if(status === 'nao-vamos'){
+    const motivo = prompt('Por que não vamos fazer? O aluno vê este motivo em Meus reportes (até 300 caracteres).');
+    if(motivo == null || !motivo.trim()){ render(true); return; }
+    return salvarReporte(id, {status, motivo: motivo.trim().slice(0,300)}, 'Marcado como "não vamos fazer".');
+  }
+  return salvarReporte(id, {status}, status==='resolvido' ? 'Marcado como resolvido. O aluno é avisado na próxima vez que entrar.' : 'Status: ' + ST_ADM[status] + '.');
+}
+const marcarReporte = (id, status) => mudarStatus(id, status); // compatibilidade
+function responderReporte(id){
+  const i = ADM.feedback.find(x=>x.id===id); if(!i) return;
+  const r = prompt('Resposta para o aluno (aparece em Meus reportes, até 500 caracteres):', i.resposta || '');
+  if(r == null) return;
+  salvarReporte(id, {resposta: r.trim().slice(0,500)}, r.trim() ? 'Resposta salva.' : 'Resposta apagada.');
+}
+function ajustarReporte(id, campo, valor){
+  const v = campo==='area' ? String(valor||'').trim().slice(0,60) : parseInt(valor, 10);
+  if(campo==='area' && !v) return;
+  salvarReporte(id, {[campo]: v}, 'Prioridade ajustada.');
+}
+function editarArea(id){
+  const i = ADM.feedback.find(x=>x.id===id); if(!i) return;
+  const a = prompt('Área do reporte:', i.area || ''); if(a != null) ajustarReporte(id, 'area', a);
 }
 async function excluirReporte(id){
   const i = ADM.feedback.find(x=>x.id===id); if(!i) return;
@@ -244,28 +276,59 @@ async function excluirReporte(id){
   catch(e){ avisar('Não consegui excluir: ' + SIPC.traduzir(e)); }
   render(true);
 }
+// Retenção: o print sai 90 dias depois de fechado; o texto fica.
+const DIAS_PRINT = 90;
+const printVencido = i => i.print && fechadoAdm(i) && i.resolvidoEm && SIPC.reporte.momento(i.resolvidoEm) < Date.now() - DIAS_PRINT*864e5;
+async function apagarPrintsVencidos(){
+  ADM.limpandoPrints = true; render(true);
+  try{
+    const ids = await SIPC.store.apagarPrintsAntigos(ADM.feedback, DIAS_PRINT);
+    ADM.feedback.forEach(i => { if(ids.includes(i.id)) i.print = null; });
+    avisar(ids.length ? `${ids.length} ${ids.length===1?'print apagado':'prints apagados'}.` : 'Nenhum print vencido.');
+  }catch(e){ avisar('Não consegui apagar: ' + SIPC.traduzir(e)); }
+  ADM.limpandoPrints = false; render(true);
+}
+function abrirFichaDe(uid){ const k = (ADM.usuarios||[]).findIndex(u=>u.uid===uid); if(k >= 0) abrirFicha(k); else avisar('Esse aluno não aparece na lista de contas.'); }
+const horaCurta = t => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',',''); };
 function admBacklog(){
-  const P = SIPC.prioridade;
-  const todos = P.ordenar(ADM.feedback), abertos = todos.filter(i=>!resolvido(i));
-  const vis = ADM.filtro==='resolvido' ? todos.filter(resolvido) : abertos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
+  const P = SIPC.prioridade, IMP = SIPC.reporte.IMPACTOS;
+  const todos = P.ordenar(ADM.feedback), abertos = todos.filter(i=>!fechadoAdm(i));
+  const vis = ADM.filtro==='resolvido' ? todos.filter(fechadoAdm) : abertos.filter(i=> ADM.filtro==='todos' || i.tipo===ADM.filtro);
   const cont = q => abertos.filter(i=>P.quadrante(i)===q).length;
-  const card = (i, pos) => { const q = P.quadrante(i); return `<article class="bl-item">
+  const vencidos = (ADM.feedback||[]).filter(printVencido).length;
+  const opts = (n, atual) => Array.from({length:n}, (_,k)=>k+1).map(v=>`<option value="${v}" ${numero(atual)===v?'selected':''}>${v}</option>`).join('');
+  const card = (i, pos) => { const q = P.quadrante(i), id = escHtml(i.id), st = i.status || 'novo';
+    const ajustado = i.auto && (i.auto.valor !== i.valor || i.auto.esforco !== i.esforco || i.auto.area !== i.area);
+    const rastro = Array.isArray(i.rastro) ? i.rastro : [], erros = Array.isArray(i.erros) ? i.erros : [];
+    return `<article class="bl-item">
       ${printValido(i.print) ? `<img src="${printValido(i.print)}" alt="Print da tela ${escHtml(i.tela)}" title="Tocar para ampliar" tabindex="0" role="button" onclick="this.classList.toggle('ampliado')">` : '<div class="sem">sem print</div>'}
       <div>
         <div class="bl-meta"><span class="bl-pos num">${pos}</span><span class="tag q-${q}">${QUAD[q].n}</span>
-          ${i.tipo==='bug' ? `<span class="tag ${SEV_ROT[i.sev] ? i.sev : 'baixa'}">Bug · ${SEV_ROT[i.sev]||''}</span>` : '<span class="tag mel">Melhoria</span>'}
-          <span class="tag baixa">${escHtml(i.area)}</span>${resolvido(i)?'<span class="tag est">Resolvido</span>':''}${i.modoTeste?'<span>· em modo teste</span>':''}</div>
+          ${i.tipo==='bug' ? `<span class="tag ${SEV_ROT[i.sev] ? i.sev : 'baixa'}">Bug · ${escHtml(IMP[i.impacto] ? IMP[i.impacto].rot : (SEV_ROT[i.sev]||''))}</span>` : '<span class="tag mel">Melhoria</span>'}
+          <span class="tag baixa">${escHtml(i.area)}</span><span class="tag st-${escHtml(st)}">${ST_ADM[st]||st}</span>${i.modoTeste?'<span>· em modo teste</span>':''}</div>
         <p>${escHtml(i.texto)}</p>
+        ${i.resposta ? `<p class="rep-resp"><b>Sua resposta:</b> ${escHtml(i.resposta)}</p>` : ''}
+        ${st==='nao-vamos' && i.motivo ? `<p class="rep-resp"><b>Motivo:</b> ${escHtml(i.motivo)}</p>` : ''}
         <div class="bl-acoes">
-          ${resolvido(i) ? `<button class="btn sec" onclick="marcarReporte('${escHtml(i.id)}','novo')">Reabrir</button>` : `<button class="btn sec" onclick="marcarReporte('${escHtml(i.id)}','resolvido')">${ico('check')} Marcar como resolvido</button>`}
-          <button class="btn link ruim-txt" onclick="excluirReporte('${escHtml(i.id)}')">Excluir</button></div>
-        <div class="bl-meta"><span>Valor <b class="num">${numero(i.valor)}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span><span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
+          <label class="bl-campo">Status <select onchange="mudarStatus('${id}', this.value)">${Object.entries(ST_ADM).map(([k,n])=>`<option value="${k}" ${st===k?'selected':''}>${n}</option>`).join('')}</select></label>
+          <label class="bl-campo">Valor <select onchange="ajustarReporte('${id}','valor',this.value)">${opts(5, i.valor)}</select></label>
+          <label class="bl-campo">Esforço <select onchange="ajustarReporte('${id}','esforco',this.value)">${opts(3, i.esforco)}</select></label>
+          <button class="btn link" onclick="editarArea('${id}')">Área</button>
+          <button class="btn link" onclick="responderReporte('${id}')">${i.resposta ? 'Editar resposta' : 'Responder ao aluno'}</button>
+          <button class="btn link" onclick="abrirFichaDe('${escHtml(i.uid)}')">Ficha do aluno</button>
+          <button class="btn link ruim-txt" onclick="excluirReporte('${id}')">Excluir</button></div>
+        ${ajustado ? `<p class="dim" style="font-size:12px;margin:4px 0 0">Automático: valor ${numero(i.auto.valor)}, esforço ${numero(i.auto.esforco)}, área ${escHtml(i.auto.area)}</p>` : ''}
+        ${rastro.length || erros.length ? `<details class="bl-rastro"><summary>Até o reporte: ${rastro.length} ${rastro.length===1?'ação':'ações'}${erros.length ? ` · <b class="ruim-txt">${erros.length} ${erros.length===1?'erro':'erros'}</b>` : ''}</summary>
+          ${erros.length ? `<ol class="erros">${erros.map(e=>`<li><span class="dim num">${horaCurta(e.t)}</span> ${escHtml(e.msg)} <span class="dim">em ${escHtml(String(e.tela||'').split(' · ')[0])}</span></li>`).join('')}</ol>` : ''}
+          <ol>${rastro.map(e=>`<li><span class="dim num">${horaCurta(e.t)}</span> ${e.tipo==='tela' ? 'abriu <b>' + escHtml(e.d) + '</b>' : escHtml(rotuloEvento(e))}</li>`).join('')}</ol></details>` : ''}
+        <div class="bl-meta"><span>Valor <b class="num">${numero(i.valor)}</b>/5</span><span>· ${ESF_ROT[i.esforco]||''}</span><span>· tela ${escHtml(i.tela)}</span><span>· ${escHtml(i.disp)}</span>${i.versao ? `<span>· v${escHtml(i.versao)}</span>` : ''}<span>· ${quandoTs(i.criadoEm)}</span><span>· ${escHtml(i.nome||'')} &lt;${escHtml(i.email||'')}&gt;</span></div>
       </div></article>`; };
   return `<div class="backlog" style="padding:0">
     <h2 style="margin:0 0 6px">Reportes priorizados</h2>
-    <div class="sub">Tudo o que os alunos reportam, já classificado e na ordem sugerida: primeiro o que mais atrapalha a jornada e dá menos trabalho.</div>
+    <div class="sub">Tudo o que os alunos reportam, já classificado e na ordem sugerida: primeiro o que mais atrapalha a jornada e dá menos trabalho. Ao fechar um reporte, o aluno é avisado na próxima vez que entrar.</div>
     <div class="quads">${Object.keys(QUAD).map(q=>`<div class="quad q-${q}"><b>${QUAD[q].n}</b><span>${QUAD[q].d}</span><span class="num">${cont(q)}</span></div>`).join('')}</div>
-    <div class="bl-filtro" role="group" aria-label="Filtrar">${[['todos','Abertos'],['bug','Bugs'],['melhoria','Melhorias'],['resolvido','Resolvidos (' + todos.filter(resolvido).length + ')']].map(([k,n])=>`<button class="chip ${ADM.filtro===k?'on':''}" onclick="ADM.filtro='${k}';render(true)">${n}</button>`).join('')}</div>
-    <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || `<p class="vazio">${ADM.filtro==='resolvido' ? 'Nenhum reporte resolvido ainda.' : 'Nenhum reporte aberto. 🎉'}</p>`}</section>
+    <div class="bl-filtro" role="group" aria-label="Filtrar">${[['todos','Abertos'],['bug','Bugs'],['melhoria','Melhorias'],['resolvido','Fechados (' + todos.filter(fechadoAdm).length + ')']].map(([k,n])=>`<button class="chip ${ADM.filtro===k?'on':''}" onclick="ADM.filtro='${k}';render(true)">${n}</button>`).join('')}</div>
+    ${vencidos ? `<p class="aviso" style="margin:0 0 12px">${vencidos} ${vencidos===1?'reporte fechado tem':'reportes fechados têm'} print há mais de ${DIAS_PRINT} dias. Pelo aviso de privacidade, o print sai depois desse prazo (o texto fica). <button class="btn sec" onclick="apagarPrintsVencidos()" ${ADM.limpandoPrints?'disabled':''}>${ADM.limpandoPrints?'Apagando…':'Apagar prints vencidos'}</button></p>` : ''}
+    <section class="bl-sec">${vis.map((i,k)=>card(i,k+1)).join('') || `<p class="vazio">${ADM.filtro==='resolvido' ? 'Nenhum reporte fechado ainda.' : 'Nenhum reporte aberto. 🎉'}</p>`}</section>
   </div>`;
 }

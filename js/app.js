@@ -1467,6 +1467,7 @@ function abaConta(){
       </div>
       <div class="fim-estudo" style="margin-top:6px"><button class="btn link" onclick="testarLembrete()">Testar o lembrete agora</button></div>
     </section>` : ''}
+    ${blocoMeusReportes()}
     <section class="bloco"><h3>Minhas trilhas</h3><p class="dim" style="font-size:14px;margin:0 0 12px">${S.trilhas.length} ${S.trilhas.length===1?'trilha':'trilhas'} nesta conta.</p><button class="btn sec" onclick="irTrilhas()">Ver minhas trilhas</button></section>
     <section class="bloco"><h3>Como usar o SIPC</h3><p class="dim" style="font-size:14px;margin:0 0 12px">Reveja o tour rápido pelas partes do app: plano do dia, como estudar, revisões, modo teste e Reportar.</p><button class="btn sec" onclick="iniciarTour()">Ver o tour de novo</button></section>
     <section class="bloco"><h3>Privacidade</h3><p class="dim" style="font-size:14px;margin:0 0 12px">O que guardamos, para quê e como pedir a exclusão.</p><a class="btn sec" href="privacidade.html" target="_blank" rel="noopener">Ler o aviso de privacidade</a></section>
@@ -1668,7 +1669,7 @@ const carregarScript = src => scriptsCarregados[src] ??= new Promise((ok, falha)
   document.head.appendChild(s);
 });
 async function abrirReporte(){
-  REP = {tipo:null, texto:'', incluirPrint:true, print:null, capturando:true, enviado:null, enviando:false, erro:null,
+  REP = {tipo:null, impacto:null, verContexto:false, texto:'', incluirPrint:true, print:null, capturando:true, enviado:null, enviando:false, erro:null,
          tela:nomeTelaAtual(), disp: innerWidth<700 ? 'Celular' : 'Computador',
          quando: new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','')};
   const dlg = document.getElementById('repDlg');
@@ -1684,7 +1685,8 @@ async function abrirReporte(){
     const canvas = await html2canvas(document.body, {
       scale: Math.min(1, 900/innerWidth), useCORS:true, logging:false,
       x: scrollX, y: scrollY, width: innerWidth, height: innerHeight,
-      ignoreElements: el => el.tagName==='DIALOG' || (el.hasAttribute && el.hasAttribute('data-sem-print'))
+      ignoreElements: el => el.tagName==='DIALOG' || (el.hasAttribute && el.hasAttribute('data-sem-print')),
+      onclone: mascararPrint
     });
     print = printCompacto(canvas);
   }catch(e){}
@@ -1693,17 +1695,43 @@ async function abrirReporte(){
   REP.capturando = false;
   renderReporte();
 }
+// Dados pessoais fora do print (v1.9): na cópia da página que vira imagem, o
+// nome e o e-mail do aluno viram "•••", assim como campos de e-mail, senha e
+// qualquer elemento marcado com data-mascarar.
+function mascararPrint(docClone){
+  const alvos = [S.usuario && S.usuario.email, S.usuario && S.usuario.nome].filter(v => v && String(v).trim().length >= 3).map(String);
+  docClone.querySelectorAll('[data-mascarar]').forEach(el => { el.textContent = '•••'; });
+  docClone.querySelectorAll('input[type=email],input[type=password]').forEach(el => { el.value = el.value ? '•••' : ''; });
+  docClone.querySelectorAll('input:not([type]),input[type=text],textarea').forEach(el => { if(alvos.some(a => el.value.includes(a))) el.value = '•••'; });
+  if(!alvos.length) return;
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(alvos.map(esc).join('|'), 'gi');
+  const w = docClone.createTreeWalker(docClone.body, NodeFilter.SHOW_TEXT);
+  for(let n = w.nextNode(); n; n = w.nextNode()) if(re.test(n.nodeValue)){ re.lastIndex = 0; n.nodeValue = n.nodeValue.replace(re, '•••'); }
+}
 // O print vai dentro do documento do Firestore (limite de 1 MB): reduz a
-// qualidade e, se precisar, o tamanho até caber em ~700 KB.
+// qualidade e, se precisar, o tamanho até caber em ~620 KB (o resto do
+// documento leva o rastro e os erros; as Regras aceitam até 640 mil caracteres).
+const PRINT_MAX = 620000;
 function printCompacto(canvas){
   let c = canvas, q = .72, url = c.toDataURL('image/jpeg', q);
-  while(url.length > 700000 && q > .35){ q -= .12; url = c.toDataURL('image/jpeg', q); }
-  while(url.length > 700000 && c.width > 300){
+  while(url.length > PRINT_MAX && q > .35){ q -= .12; url = c.toDataURL('image/jpeg', q); }
+  while(url.length > PRINT_MAX && c.width > 300){
     const m = document.createElement('canvas'); m.width = Math.round(c.width*.7); m.height = Math.round(c.height*.7);
     m.getContext('2d').drawImage(c, 0, 0, m.width, m.height); c = m; url = c.toDataURL('image/jpeg', q);
   }
-  return url.length <= 700000 ? url : null;
+  return url.length <= PRINT_MAX ? url : null;
 }
+// Contexto que vai junto: versão, últimas ações e erros (já sem dado pessoal).
+const contextoReporte = () => SIPC.reporte.contexto({
+  versao: (typeof NOVIDADES !== 'undefined' && NOVIDADES[0]) ? NOVIDADES[0].versao : '',
+  rastro: (typeof RASTRO !== 'undefined') ? RASTRO.acoes : [],
+  erros: (typeof RASTRO !== 'undefined') ? RASTRO.erros : []
+});
+// Limite de 10 reportes por dia, contado neste aparelho.
+const chaveLimiteRep = () => 'sipc::reportes-dia::' + (S.usuario ? S.usuario.uid : '');
+function lerLimiteRep(){ try{ return JSON.parse(localStorage.getItem(chaveLimiteRep()) || 'null'); }catch(e){ return null; } }
+function contarLimiteRep(){ try{ localStorage.setItem(chaveLimiteRep(), JSON.stringify(SIPC.reporte.contarEnvio(lerLimiteRep(), hojeISO()))); }catch(e){} }
 function fecharReporte(){ document.getElementById('repDlg').close(); REP = null; }
 // O evento 'close' chega depois do close(): só zera se o diálogo continuar
 // fechado (um Reportar aberto logo em seguida não pode perder o rascunho).
@@ -1711,17 +1739,75 @@ function aoFecharDialogo(dlg){ if(!dlg.open) REP = null; }
 
 async function enviarReporte(){
   const txt = document.getElementById('repTexto').value.trim();
-  if(!REP.tipo || !txt || REP.enviando) return;
-  const c = SIPC.prioridade.classificar(REP.tipo, txt, REP.tela);
+  if(!REP.tipo || !txt || REP.enviando || (REP.tipo==='bug' && !REP.impacto)) return;
+  if(!SIPC.reporte.podeEnviar(lerLimiteRep(), hojeISO()).ok){
+    REP.texto = txt; REP.erro = 'Você já mandou 10 reportes hoje, obrigado! Mande o resto amanhã ou por e-mail para victorvcs@gmail.com.'; renderReporte(); return;
+  }
+  const impacto = REP.tipo==='bug' ? REP.impacto : null;
+  const c = SIPC.prioridade.classificar(REP.tipo, txt, REP.tela, impacto);
   // Os limites batem com as Regras do Firestore (que recusam o documento inteiro se passar).
   const corta = (v, n) => String(v || '').slice(0, n);
-  const item = {uid:S.usuario.uid, email:S.usuario.email, nome:corta(S.usuario.nome,120), tipo:REP.tipo, texto:corta(txt,4000), tela:corta(REP.tela,120), disp:REP.disp,
-                trilha: S.prova && S.trilhaAtual ? corta(S.prova.nome,200) : '', print: REP.incluirPrint ? REP.print : null, ...c, area:corta(c.area,60), status:'novo'};
-  REP.enviando = true; REP.texto = txt; renderReporte();
-  try{ await SIPC.store.enviarFeedback(item); REP.enviado = item; ev('reporte', (item.tipo==='bug'?'bug':'ideia') + ': ' + item.texto.slice(0,80)); }
+  const item = {uid:S.usuario.uid, email:S.usuario.email, nome:corta(S.usuario.nome,120), tipo:REP.tipo, impacto, texto:corta(txt,4000), tela:corta(REP.tela,120), disp:REP.disp,
+                trilha: S.prova && S.trilhaAtual ? corta(S.prova.nome,200) : '', print: REP.incluirPrint ? REP.print : null, ...c, area:corta(c.area,60),
+                auto:{valor:c.valor, esforco:c.esforco, area:corta(c.area,60)}, ...contextoReporte(), status:'novo'};
+  REP.enviando = true; REP.texto = txt; REP.erro = null; renderReporte();
+  try{ await SIPC.store.enviarFeedback(item); contarLimiteRep(); REP.enviado = item; ev('reporte', (item.tipo==='bug'?'bug':'ideia') + ': ' + item.texto.slice(0,80)); }
   catch(e){ REP.erro = 'Não consegui enviar agora (' + SIPC.traduzir(e) + '). Tente de novo em instantes.'; }
   REP.enviando = false; renderReporte();
 }
+/* Meus reportes (v1.9): o aluno vê o que mandou, o status e a resposta, e pode
+   apagar (direito do titular). Ao entrar, recebe um aviso para cada reporte
+   fechado desde a última visita (perfil.reportesVistosEm). */
+const ST_ROT = {novo:'Recebido', triado:'Na fila', andamento:'Em andamento', resolvido:'Resolvido', 'nao-vamos':'Não vamos fazer'};
+async function carregarMeusReportes(forcar){
+  if(!S.usuario || S._carregandoRep || (S.meusReportes && !forcar)) return;
+  S._carregandoRep = true;
+  try{ S.meusReportes = await SIPC.store.listarMeusReportes(S.usuario.uid); }
+  catch(e){ S.meusReportes = {erro: SIPC.traduzir(e)}; }
+  S._carregandoRep = false;
+  if(S.tela==='app' && S.aba==='conta') render(true);
+}
+function irMeusReportes(){ S.tela = 'app'; S.vista = null; S.meusReportes = null; irAba('conta'); setTimeout(()=>{ const b = document.getElementById('meusReportes'); if(b) b.scrollIntoView({block:'start'}); }, 50); }
+async function apagarMeuReporte(id){
+  const lista = Array.isArray(S.meusReportes) ? S.meusReportes : [], r = lista.find(x=>x.id===id); if(!r) return;
+  if(!confirm('Apagar de vez o reporte "' + String(r.texto).slice(0,60) + '"? O print e o texto saem do SIPC e não dá para desfazer.')) return;
+  try{ await SIPC.store.excluirFeedback(id); S.meusReportes = lista.filter(x=>x.id!==id); avisar('Reporte apagado.'); }
+  catch(e){ avisar('Não consegui apagar: ' + SIPC.traduzir(e)); }
+  render(true);
+}
+function blocoMeusReportes(){
+  if(!S.usuario) return '';
+  carregarMeusReportes();
+  const rs = S.meusReportes;
+  const corpo = !rs ? '<p class="dim">Carregando…</p>'
+    : rs.erro ? `<p class="erro-f">Não consegui carregar agora (${escHtml(rs.erro)}).</p>`
+    : !rs.length ? '<p class="dim" style="font-size:14px;margin:0">Você ainda não mandou nenhum reporte. Viu algo errado ou teve uma ideia? Toque em Reportar, em qualquer tela.</p>'
+    : `<ul class="meus-rep">${rs.map(r=>`<li>
+        <div class="bl-meta"><span class="tag ${r.tipo==='bug'?'bug':'mel'}">${r.tipo==='bug'?'Bug':'Melhoria'}</span><span class="tag st-${escHtml(r.status||'novo')}">${ST_ROT[r.status]||'Recebido'}</span><span class="dim">${r.criadoEm && r.criadoEm.toDate ? r.criadoEm.toDate().toLocaleDateString('pt-BR') : ''}</span></div>
+        <p>${escHtml(String(r.texto||'').slice(0,240))}${String(r.texto||'').length>240?'…':''}</p>
+        ${r.resposta ? `<p class="rep-resp"><b>Resposta:</b> ${escHtml(r.resposta)}</p>` : ''}
+        ${r.status==='nao-vamos' && r.motivo ? `<p class="rep-resp"><b>Por quê:</b> ${escHtml(r.motivo)}</p>` : ''}
+        <button class="btn link ruim-txt" onclick="apagarMeuReporte('${escHtml(r.id)}')">Apagar</button></li>`).join('')}</ul>`;
+  return `<section class="bloco" id="meusReportes"><h3>Meus reportes</h3><p class="dim" style="font-size:14px;margin:0 0 12px">O que você mandou pelo Reportar e em que pé está. Se apagar, o texto e o print saem do SIPC.</p>${corpo}</section>`;
+}
+async function verificarAvisosReportes(uid){
+  try{
+    const rs = await SIPC.store.listarMeusReportes(uid);
+    if(!S.usuario || S.usuario.uid !== uid) return;
+    S.meusReportes = rs;
+    const novos = SIPC.reporte.avisosNovos(rs, S.perfil && S.perfil.reportesVistosEm);
+    if(!novos.length) return;
+    const r = novos[0], quando = new Date(SIPC.reporte.momento(r.resolvidoEm)).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    avisar(novos.length > 1 ? `${novos.length} reportes seus foram respondidos. Veja em Conta › Meus reportes. Obrigado!`
+      : r.status==='resolvido' ? `Resolvemos o que você mandou em ${quando}: "${String(r.texto).slice(0,50)}…". Obrigado!`
+      : `Respondemos o que você mandou: "${String(r.texto).slice(0,50)}…". Veja em Conta › Meus reportes.`);
+    const em = new Date().toISOString();
+    S.perfil = {...(S.perfil||{}), reportesVistosEm: em};
+    await SIPC.store.salvarPerfil(uid, {reportesVistosEm: em});
+  }catch(e){}
+}
+const horaRep = t => { const d = new Date(t); return isNaN(d) ? "" : d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}); };
+const podeEnviarRep = txt => !!(REP && REP.tipo && String(txt||'').trim() && !REP.enviando && (REP.tipo!=='bug' || REP.impacto));
 function renderReporte(){
   const el = document.getElementById('repCorpo');
   if(!REP){ el.innerHTML=''; return; }
@@ -1744,32 +1830,45 @@ function renderReporte(){
       <div class="rep-acoes" style="justify-content:center">
         ${ehAdmin() ? `<button class="btn sec" onclick="fecharReporte();S.tela='app';S.vista=null;ADM.aba='backlog';ADM.ficha=null;irAba('admin')">Ver backlog</button>` : ''}
         <button class="btn" onclick="fecharReporte()">Voltar ao que eu fazia</button>
-      </div></div>`;
+      </div>
+      <p class="dim" style="font-size:13px;margin-top:12px">Acompanhe em <button class="btn link" style="padding:0;font-size:inherit" onclick="fecharReporte();irMeusReportes()">Conta › Meus reportes</button>. Avisamos aqui no app quando for resolvido.</p></div>`;
     return;
   }
   const bug = REP.tipo==='bug', mel = REP.tipo==='melhoria';
   const rotulo = bug ? 'O que aconteceu? O que você esperava que acontecesse?' : mel ? 'O que poderia ser melhor?' : 'Descreva';
   const ph = bug ? 'Ex.: cliquei em Confirmar resposta e nada aconteceu.' : mel ? 'Ex.: queria ver o gabarito de todas as questões no fim.' : 'Escolha acima se é um bug ou uma melhoria.';
   const textoAtual = (document.getElementById('repTexto')||{}).value ?? REP.texto;
+  const IMP = SIPC.reporte.IMPACTOS, ctx = contextoReporte();
+  const rotEv = e => (typeof rotuloEvento === 'function' ? rotuloEvento(e) : e.tipo + (e.d ? ': ' + e.d : ''));
   el.innerHTML = `<h2>Reportar</h2>
     <p class="lead">Viu algo errado ou teve uma ideia? Conte aqui. O print desta tela vai junto para entender o contexto.</p>
     <div class="rep-tipos" role="radiogroup" aria-label="Tipo">
       <button class="opcao bug ${bug?'on':''}" role="radio" aria-checked="${bug}" onclick="REP.tipo='bug';renderReporte()">${ico('alert')}<b>Algo deu errado</b><span>Bug: entra com prioridade</span></button>
       <button class="opcao ${mel?'on':''}" role="radio" aria-checked="${mel}" onclick="REP.tipo='melhoria';renderReporte()">${ico('spark')}<b>Tenho uma ideia</b><span>Melhoria: vai para a lista de ideias</span></button>
     </div>
+    ${bug ? `<p class="f" id="repImpRot">Quanto isso atrapalha?</p>
+    <div class="rep-impacto" role="radiogroup" aria-labelledby="repImpRot">${Object.entries(IMP).map(([k,v])=>`<button class="chip ${REP.impacto===k?'on':''}" role="radio" aria-checked="${REP.impacto===k}" onclick="REP.impacto='${k}';renderReporte()">${escHtml(v.rot)}</button>`).join('')}</div>` : ''}
     <label class="f" for="repTexto">${rotulo}</label>
-    <textarea id="repTexto" rows="4" maxlength="4000" placeholder="${ph}" ${REP.tipo?'':'disabled'} oninput="REP.texto=this.value;document.getElementById('repEnviar').disabled=!this.value.trim()">${escHtml(textoAtual)}</textarea>
+    <textarea id="repTexto" rows="4" maxlength="4000" placeholder="${ph}" ${REP.tipo?'':'disabled'} oninput="REP.texto=this.value;document.getElementById('repEnviar').disabled=!podeEnviarRep(this.value)">${escHtml(textoAtual)}</textarea>
     <div class="rep-print">
       ${REP.capturando ? '<div class="sem">Capturando a tela…</div>' : REP.print ? `<img src="${REP.print}" alt="Print da tela ${escHtml(REP.tela)}">` : '<div class="sem">Não foi possível capturar a tela</div>'}
       <div>
         <label><input type="checkbox" ${REP.incluirPrint?'checked':''} ${REP.print?'':'disabled'} onchange="REP.incluirPrint=this.checked"> Enviar o print desta tela</label>
-        <p class="rep-ctx">Vai junto também: tela <b>${escHtml(REP.tela)}</b> · ${REP.disp} · ${REP.quando} · seu e-mail</p>
+        <p class="rep-ctx">Vai junto também: tela <b>${escHtml(REP.tela)}</b> · ${REP.disp} · versão ${escHtml(ctx.versao)} · ${REP.quando} · seu e-mail · suas últimas ações no app
+          · <button class="btn link" style="padding:0;font-size:inherit" aria-expanded="${REP.verContexto}" onclick="REP.verContexto=!REP.verContexto;renderReporte()">${REP.verContexto?'esconder':'ver o que vai'}</button></p>
       </div>
     </div>
+    ${REP.verContexto ? `<div class="rep-contexto">
+      <p class="dim">O que você digitou nas telas não vai junto: só o nome da ação e da tela. No print, seu nome e seu e-mail aparecem como •••.</p>
+      <b>Últimas ações (${ctx.rastro.length})</b>
+      ${ctx.rastro.length ? `<ol>${ctx.rastro.slice().reverse().map(e=>`<li><span class="dim num">${horaRep(e.t)}</span> ${escHtml(e.tipo==='tela' ? 'abriu ' + e.d : rotEv(e))}</li>`).join('')}</ol>` : '<p class="dim">Nenhuma ação registrada nesta visita.</p>'}
+      <b>Erros técnicos (${ctx.erros.length})</b>
+      ${ctx.erros.length ? `<ol>${ctx.erros.slice().reverse().map(e=>`<li><span class="dim num">${horaRep(e.t)}</span> ${escHtml(e.msg)}</li>`).join('')}</ol>` : '<p class="dim">Nenhum erro nesta visita.</p>'}
+    </div>` : ''}
     ${REP.erro ? `<p class="erro-f" role="alert">${escHtml(REP.erro)}</p>` : ''}
     <div class="rep-acoes">
       <button class="btn sec" onclick="fecharReporte()">Cancelar</button>
-      <button class="btn" id="repEnviar" ${REP.tipo && textoAtual.trim() && !REP.enviando ? '' : 'disabled'} onclick="enviarReporte()">${REP.enviando?'Enviando…':'Enviar'}</button>
+      <button class="btn" id="repEnviar" ${podeEnviarRep(textoAtual) ? '' : 'disabled'} onclick="enviarReporte()">${REP.enviando?'Enviando…':'Enviar'}</button>
     </div>`;
   const ta = document.getElementById('repTexto'); if(REP.tipo && ta && !REP.capturando && !REP.enviando) ta.focus();
 }
@@ -1978,6 +2077,7 @@ window.aoMudarLogin = async function(u){
     if(S.perfil.nome) S.usuario.nome = S.perfil.nome;
     ev('login', S.usuario.via);
     SIPC.store.salvarPerfil(u.uid, {email:S.usuario.email}).catch(()=>{}); // atualiza o último acesso
+    S.meusReportes = null; setTimeout(()=>verificarAvisosReportes(u.uid), 2500); // aviso de reporte resolvido, depois de abrir
     etapa('Buscando suas trilhas');
     S.trilhas = await SIPC.store.listarTrilhas(u.uid);
     if(S._migrar){
