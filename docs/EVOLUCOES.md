@@ -22,8 +22,8 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.6 | publicada | tag `v1.6` | Histórico de correções, evolução e relatório mais claro |
 | 1.7 | publicada | tag `v1.7` | Menu em grupos, seletor de trilha e painel de domínio |
 | 1.7.1 | publicada | tag `v1.7.1` | Vídeos sempre dentro da plataforma |
-| 1.8 | publicada, em uso | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
-| 1.8.1 | em teste (branch `feature/v1.8.1`) | — | Aviso claro e registro do bloqueio do App Check |
+| 1.8 | publicada | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
+| 1.8.1 | publicada, em uso | tag `v1.8.1` | Aviso claro e registro do bloqueio do App Check |
 
 ---
 
