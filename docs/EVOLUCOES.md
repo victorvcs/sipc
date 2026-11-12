@@ -25,7 +25,7 @@ Cada funcionalidade nova entra aqui com o que faz, o objetivo, o racional e as r
 | 1.8 | publicada | tag `v1.8` | Datas em qualquer agenda, retificação, vários arquivos, evolução na 1ª redação, correções |
 | 1.8.1 | publicada | tag `v1.8.1` | Aviso claro e registro do bloqueio do App Check |
 | 1.9 | publicada | tag `v1.9` | Reportar 2.0: impacto, contexto, status, Meus reportes |
-| 1.10 | na branch `feature/v1.10` | — | Admin › Desenvolvimento: horas, tokens e custo de construir o SIPC |
+| 1.10 | publicada, em uso | tag `v1.10` | Admin › Desenvolvimento: horas, tokens e custo de construir o SIPC |
 
 ---
 
